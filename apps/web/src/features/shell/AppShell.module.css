@@ -1,0 +1,20 @@
+/* Prototype .app/.frame/.frame-c (Main.dc.html:20, 1209-1210). */
+.app {
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv01', 'ss03';
+  color: var(--ink);
+  background: var(--canvas);
+  min-height: 100vh;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  -webkit-font-smoothing: antialiased;
+}
+.frame {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+.content {
+  flex: 1 1 0;
+  min-width: 0;
+}

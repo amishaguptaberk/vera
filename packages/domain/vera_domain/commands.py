@@ -123,6 +123,8 @@ class CommandSpec:
     requires_approval: bool = False
     # Name of the adapter (vera_api.adapters.ADAPTERS) the command's effect dispatches to.
     adapter: str | None = None
+    # One command for a human role AND a service principal. Reserved for DUAL_COMMANDS.
+    dual: bool = False
 
 
 def _user(ctx: ReduceContext, ref: str, field_name: str) -> tuple[str, str]:
@@ -362,6 +364,7 @@ REGISTRY: dict[str, CommandSpec] = {
             (EventType.POLICY_EVALUATED,),
             "Evaluate policy",
             "ghost",
+            dual=True,
         ),
         CommandSpec(
             "start_investigation",
@@ -406,6 +409,34 @@ INVESTIGATION_SERVICE_REGISTRY: dict[str, CommandSpec] = {
 # Every service-principal command (never offered to a human, never in available_actions).
 SERVICE_COMMANDS: dict[str, CommandSpec] = {}
 _OWNERS: dict[str, str] = {}
+HUMAN_ROLES = frozenset(
+    {Role.ANALYST, Role.OPS_ADMIN, Role.REVIEWER, Role.CARD_ADMIN, Role.CARDHOLDER}
+)
+# The only commands a human role and a service principal share (the analyst and the Policy
+# Controller both evaluate policy). Do not add to this without a security review.
+DUAL_COMMANDS = frozenset({"evaluate_policy"})
+
+
+def check_spec_roles(module_name: str, spec: CommandSpec, *, service: bool) -> None:
+    """A service command lists NO human role; a human command lists ONLY human roles."""
+    if spec.dual:
+        if service or spec.name not in DUAL_COMMANDS:
+            raise ValueError(f"{module_name}: '{spec.name}' may not be dual (DUAL_COMMANDS)")
+        return
+    if not spec.roles:
+        raise ValueError(f"{module_name}: command '{spec.name}' lists no role")
+    wrong = sorted(
+        r.value for r in (spec.roles & HUMAN_ROLES if service else spec.roles - HUMAN_ROLES)
+    )
+    if wrong:
+        kind, other = ("service", "human") if service else ("human", "service")
+        raise ValueError(
+            f"{module_name}: {kind} command '{spec.name}' lists {other} role(s) {wrong}"
+        )
+
+
+for _spec in REGISTRY.values():  # the built-in human commands obey the same rule
+    check_spec_roles(__name__, _spec, service=False)
 
 
 def register_commands(
@@ -427,6 +458,12 @@ def register_commands(
             unknown = [e for e in spec.events if str(e) not in EVENT_TYPES]
             if unknown:
                 raise ValueError(f"{module_name}: {name} declares unregistered events {unknown}")
+            check_spec_roles(module_name, spec, service=table is SERVICE_COMMANDS)
+    # Nothing is registered unless every spec in the call is valid.
+    for table, specs in ((REGISTRY, human or {}), (SERVICE_COMMANDS, service or {})):
+        for name, spec in specs.items():
+            if name in REGISTRY or name in SERVICE_COMMANDS:  # same name in human and service
+                raise ValueError(f"{module_name}: command '{name}' registered twice")
             table[name] = spec
             _OWNERS[name] = module_name
 

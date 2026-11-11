@@ -1,0 +1,39 @@
+{
+  "fixture": 38,
+  "title": "A worker crash mid-run resumes: same step, no duplicate steps or findings",
+  "steps": [
+    {
+      "service": "crash_once",
+      "at": "receipt_document_reviewer"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "step": "draft",
+        "runs": {
+          "status": "succeeded"
+        },
+        "findings": {
+          "count": 6
+        },
+        "sql": [
+          {
+            "name": "no duplicate step events",
+            "query": "select type, detail->>'step_key', count(*) from audit_events where type like 'run.step%' group by 1,2 having count(*)>1",
+            "equals": []
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -71,6 +71,17 @@ AdapterResult(status: "succeeded" | "failed" | "uncertain", result: dict, error,
   uncertain`. Use a business key (`credit:{case_id}`), not the command key.
 - Tests: every human command needs an entry via `register_test_payloads` (parity test); the
   role × command 403 matrix covers every registered command automatically.
+- Tests, reducer hook: `tests/unit/test_domain_commands.py` runs every registered reducer on its
+  `TEST_PAYLOADS` entry and checks it emits exactly `spec.events`. If your reducer reads
+  `ctx.extra` (your effect's output), also call
+  `register_reducer_extras({"your_command": {...ctx.extra...}})`. Both live in
+  `tests/support/command_payloads.py` (`from command_payloads import register_test_payloads,
+  register_reducer_extras` works from unit and integration tests). A registered command with no
+  entry FAILS with a message naming the missing call; it is never skipped.
+- Tests must not assume an empty registry (`ADAPTERS`, `FACT_PROVIDERS`, `APPROVAL_PROVIDER`):
+  other features are loaded in the same process. Monkeypatch what you need and assert relatively.
+- A service command lists no human role and a human command lists only human roles
+  (analyst, ops_admin, reviewer, card_admin, cardholder); a mix raises at import.
 - Migration: one file, your number, `down_revision = "0009"` (table in CONTRIBUTING.md).
 
 ## Worked example (`services/api/vera_api/comms.py`, ticket VER-005)

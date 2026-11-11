@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-005",
+  "fixture": 18,
+  "title": "Repeated communication",
+  "description": "Fixture 18: Repeated communication. ToSpec 15.18"
+}

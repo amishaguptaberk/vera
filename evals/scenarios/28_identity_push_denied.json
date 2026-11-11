@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-006",
+  "fixture": 28,
+  "title": "Identity: push denied",
+  "description": "Fixture 28: Identity: push denied. analyst sees `Verification denied`, other method available, not treated as fraud"
+}

@@ -1,0 +1,45 @@
+{
+  "fixture": 7,
+  "title": "Related transaction is a finding on CHG-1051 and never changes the primary case",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "findings": {
+          "expect": [
+            {
+              "kind": "related_charge",
+              "cites": [
+                [
+                  "CHG-1051",
+                  "merchant"
+                ],
+                [
+                  "CHG-1051",
+                  "amount_cents"
+                ]
+              ]
+            }
+          ]
+        },
+        "evidence": {
+          "records": {
+            "CHG-1051": "pending_review"
+          }
+        },
+        "state": "investigating",
+        "step": "draft"
+      }
+    }
+  ]
+}

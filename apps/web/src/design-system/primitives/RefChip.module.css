@@ -1,0 +1,30 @@
+/* Prototype .ref (Main.dc.html:38-40, 1354). */
+.ref {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-ref);
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  border-radius: var(--radius-chip);
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink2);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.ref:hover {
+  border-color: var(--ink);
+}
+.ref:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}

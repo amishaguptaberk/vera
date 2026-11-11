@@ -1,0 +1,36 @@
+/* Prototype .filt/.fb (334-338), copied exactly. Handoff §9.4 describes the active filter as ink text with a
+   2px underline; the prototype draws a white bordered chip. The prototype wins for pixel parity until F2
+   decides; recorded in tests/parity/ACCEPTED.md. */
+.filt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 10px;
+}
+.fb {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-chip);
+  padding: 4px 10px;
+  font-size: 13px;
+  color: #6d6c6b;
+  cursor: pointer;
+}
+.fb:hover {
+  color: var(--ink);
+}
+.fb:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.on {
+  background: var(--paper);
+  border-color: var(--rule);
+  color: var(--ink);
+  font-weight: 500;
+}
+.count {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--mute);
+}

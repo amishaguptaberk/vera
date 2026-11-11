@@ -1,0 +1,92 @@
+/* Prototype .slot (Main.dc.html:1312-1323). The slot is a fixed 20x20 box; every state mark is an
+   absolutely positioned layer inside it, so changing state only changes opacity (a crossfade) and can
+   never change layout (Handoff §8.3 rule 6). tests/parity/slot.spec.ts measures this in a real browser. */
+.slot {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--slot-size);
+  height: var(--slot-size);
+  flex: none;
+  vertical-align: -5px;
+}
+.mark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity var(--duration-icon) ease-out;
+  pointer-events: none;
+}
+.on {
+  opacity: 1;
+}
+.mark::before,
+.mark::after {
+  content: '';
+  position: absolute;
+}
+.idle::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid #b9b6b0;
+}
+.review::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cobalt);
+}
+.wait::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.6px solid var(--warn-icon);
+}
+.wait::after {
+  width: 1.6px;
+  height: 3px;
+  background: var(--warn-icon);
+  top: 7px;
+  left: 9.2px;
+}
+.block::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 2.5px;
+  border: 1.6px solid var(--bad);
+}
+.block::after {
+  width: 6px;
+  height: 1.6px;
+  background: var(--bad);
+}
+.done::before {
+  width: 9px;
+  height: 5px;
+  border-left: 1.7px solid var(--ok);
+  border-bottom: 1.7px solid var(--ok);
+  transform: translateY(-1px) rotate(-45deg);
+}
+.work::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.6px solid #cfd8f3;
+  border-top-color: var(--cobalt);
+}
+.work.on::before {
+  animation: slotspin var(--spinner-duration) linear infinite;
+}
+@keyframes slotspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .work.on::before {
+    animation: none;
+  }
+}

@@ -116,9 +116,14 @@ async function snapshot(page: Page, selector: string, anchorSelector: string | u
       h.style.cssText += ';position:fixed;left:8px;top:8px;margin:0;z-index:2147483647;background:#fff';
     });
   }
-  const png = visible ? await el.screenshot({ animations: 'disabled' }) : null;
-  if (visible && isolate) {
-    await page.evaluate(() => (window as unknown as { __parityRestore?: () => void }).__parityRestore?.());
+  let png: Buffer | null = null;
+  try {
+    png = visible ? await el.screenshot({ animations: 'disabled' }) : null;
+  } finally {
+    // Always put the element back, even when the screenshot throws, so the page stays comparable.
+    if (visible && isolate) {
+      await page.evaluate(() => (window as unknown as { __parityRestore?: () => void }).__parityRestore?.());
+    }
   }
   return { visible, styles, effectiveOpacity, box, anchor, png };
 }

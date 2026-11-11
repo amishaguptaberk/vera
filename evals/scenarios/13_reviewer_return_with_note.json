@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-009",
+  "fixture": 13,
+  "title": "Reviewer return with note",
+  "description": "Fixture 13: Reviewer return with note. ToSpec 15.13"
+}

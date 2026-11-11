@@ -1,0 +1,38 @@
+{
+  "title": "A missing REPLAY recording is an explicit error, never a silent pass",
+  "steps": [
+    {
+      "service": "recordings",
+      "variant": "empty"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "runs": {
+          "status": "failed",
+          "failure_reasons": {
+            "charge_investigator": "missing_recording"
+          }
+        },
+        "findings": {
+          "count": 0
+        },
+        "recovery_actions": [
+          "retry_specialist_step",
+          "retry_specialist_step",
+          "hold_case"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "title": "Material change appends a version, supersedes the old one, stales the matching check",
+  "steps": [
+    {
+      "service": "demo",
+      "demo": "material-change",
+      "assert": {
+        "evidence": {
+          "remember_snapshot": "h0",
+          "current_versions": {
+            "DLV-882": 2
+          },
+          "checks": {
+            "purchase_records": "stale"
+          }
+        },
+        "events": {
+          "types": [
+            "evidence.version_added"
+          ]
+        }
+      }
+    },
+    {
+      "as": "analyst",
+      "get": "/api/cases/CHG-1042/evidence/DLV-882",
+      "json": {
+        "versions.0.version": 2,
+        "versions.0.status": "current",
+        "versions.1.status": "superseded",
+        "versions.1.fields.received_quantity": 2
+      }
+    }
+  ]
+}
