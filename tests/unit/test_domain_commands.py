@@ -35,7 +35,12 @@ def test_derive_step_is_a_pure_function_of_facts() -> None:
 
 
 def test_every_reducer_emits_exactly_its_declared_events() -> None:
-    from vera_domain.commands import HoldPayload, LinkReportPayload, ReassignPayload
+    from vera_domain.commands import (
+        HoldPayload,
+        LinkReportPayload,
+        ReassignPayload,
+        RetryStepPayload,
+    )
 
     payloads = {
         "open_case": NoPayload(),
@@ -44,8 +49,11 @@ def test_every_reducer_emits_exactly_its_declared_events() -> None:
         "reassign_case": ReassignPayload(to="u", reason="x"),
         "link_report": LinkReportPayload(report_id="REP-9", statement="again"),
         "evaluate_policy": NoPayload(),
+        "start_investigation": NoPayload(),
+        "retry_specialist_step": RetryStepPayload(step_key="charge_investigator", mode="replay"),
     }
     ctx = ReduceContext("C", "u", "U", Role.ANALYST, NOW, lambda r: (r, r), "REP-1")
+    ctx.extra["run"] = {"run_id": "r", "mode": "replay"}
     ctx.extra["policy"] = {
         "status": "eligible",
         "code": "CREDIT_ELIGIBLE",

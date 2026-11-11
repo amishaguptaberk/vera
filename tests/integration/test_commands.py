@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from vera_domain.commands import REGISTRY
+from vera_domain.commands import RECOVERY_ONLY, REGISTRY
 from vera_domain.enums import Role
 
 HUMAN_ROLES = [Role.ANALYST, Role.OPS_ADMIN, Role.REVIEWER, Role.CARD_ADMIN, Role.CARDHOLDER]
@@ -19,6 +19,8 @@ PAYLOADS: dict[str, dict[str, Any]] = {
     "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
     "link_report": {"report_id": "REP-1047", "statement": "Second call about the same charge."},
     "evaluate_policy": {},
+    "start_investigation": {},
+    "retry_specialist_step": {"step_key": "charge_investigator", "mode": "replay"},
 }
 
 
@@ -29,6 +31,8 @@ USER_INPUTS: dict[str, dict[str, Any]] = {
     "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
     "link_report": {"statement": "Second call about the same charge."},
     "evaluate_policy": {},
+    "start_investigation": {},
+    "retry_specialist_step": {"step_key": "charge_investigator", "mode": "replay"},
 }
 
 
@@ -265,7 +269,9 @@ def test_enabled_actions_are_accepted_and_blocked_ones_rejected_with_same_reason
     view = client.get(f"/api/cases/{CASE}").json()
     listed = client.get(f"/api/cases/{CASE}/available-actions").json()
     assert listed == view["available_actions"]
-    held_by_role = {n for n, s in REGISTRY.items() if role in s.roles}
+    held_by_role = {
+        n for n, s in REGISTRY.items() if role in s.roles and n not in RECOVERY_ONLY
+    }  # recovery-only commands are listed in recovery_actions, never here
     assert {a["command"] for a in listed} | {
         b["command"] for b in view["blocked_actions"]
     } == held_by_role

@@ -1,0 +1,143 @@
+{
+  "messages": [
+    {
+      "content": "Receipt and Document Reviewer. Purpose: check whether a receipt is on file for the charge, given the receipt threshold, and classify the cardholder's initial report as complete, incomplete or conflicting. If no receipt record is permitted, the receipt is missing: cite the charge amount that makes it required.\n\nRules: you are one specialist in a card-dispute investigation. You make no eligibility, credit or policy decision and you change no case state; you only report findings. Read every value you use with the read_field tool; you may read only the permitted records listed. Every finding must cite each value it rests on as {record_id, version, field, value}, with value and version exactly as read_field returned them. Use kind 'conflict' (with conflict_field and citations on both records) when two source records disagree, 'discrepancy' for a gap or mismatch against the charge, 'related_charge' for another transaction you judge related, 'note' otherwise. Reply with one JSON object only.\n\nOutput JSON schema: {\"$defs\": {\"Citation\": {\"properties\": {\"record_id\": {\"title\": \"Record Id\", \"type\": \"string\"}, \"version\": {\"minimum\": 1, \"title\": \"Version\", \"type\": \"integer\"}, \"field\": {\"title\": \"Field\", \"type\": \"string\"}, \"value\": {\"title\": \"Value\"}}, \"required\": [\"record_id\", \"version\", \"field\", \"value\"], \"title\": \"Citation\", \"type\": \"object\"}, \"DraftFinding\": {\"properties\": {\"kind\": {\"enum\": [\"discrepancy\", \"conflict\", \"related_charge\", \"note\"], \"title\": \"Kind\", \"type\": \"string\"}, \"statement\": {\"minLength\": 1, \"title\": \"Statement\", \"type\": \"string\"}, \"citations\": {\"items\": {\"$ref\": \"#/$defs/Citation\"}, \"minItems\": 1, \"title\": \"Citations\", \"type\": \"array\"}, \"conflict_field\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}], \"default\": null, \"title\": \"Conflict Field\"}}, \"required\": [\"kind\", \"statement\", \"citations\"], \"title\": \"DraftFinding\", \"type\": \"object\"}}, \"properties\": {\"findings\": {\"items\": {\"$ref\": \"#/$defs/DraftFinding\"}, \"title\": \"Findings\", \"type\": \"array\"}, \"receipt_present\": {\"title\": \"Receipt Present\", \"type\": \"boolean\"}, \"report_classification\": {\"enum\": [\"complete\", \"incomplete\", \"conflicting\"], \"title\": \"Report Classification\", \"type\": \"string\"}}, \"required\": [\"findings\", \"receipt_present\", \"report_classification\"], \"title\": \"ReceiptOutput\", \"type\": \"object\"}",
+      "role": "system"
+    },
+    {
+      "content": "{\"case_id\": \"CHG-1042\", \"permitted_records\": [{\"fields\": [\"amount_cents\", \"card_last4\", \"cardholder_id\", \"currency\", \"merchant\", \"posted_at\"], \"kind\": \"charge\", \"record_id\": \"CHG-1042\"}, {\"fields\": [\"statement\"], \"kind\": \"initial_report\", \"record_id\": \"REP-1042\"}], \"receipt_threshold_cents\": 7500, \"transaction\": {\"amount_cents\": 284000, \"cardholder_id\": \"chd-priya-shah\", \"currency\": \"USD\", \"merchant\": \"Northstar Equipment\", \"posted_at\": \"2026-11-08T22:30:00+00:00\", \"transaction_id\": \"CHG-1042\"}}",
+      "role": "user"
+    }
+  ],
+  "response_schema": {
+    "$defs": {
+      "Citation": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "version",
+          "field",
+          "value"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "DraftFinding": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/$defs/Citation"
+            },
+            "minItems": 1,
+            "title": "Citations",
+            "type": "array"
+          },
+          "conflict_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conflict Field"
+          },
+          "kind": {
+            "enum": [
+              "discrepancy",
+              "conflict",
+              "related_charge",
+              "note"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "statement",
+          "citations"
+        ],
+        "title": "DraftFinding",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/DraftFinding"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "receipt_present": {
+        "title": "Receipt Present",
+        "type": "boolean"
+      },
+      "report_classification": {
+        "enum": [
+          "complete",
+          "incomplete",
+          "conflicting"
+        ],
+        "title": "Report Classification",
+        "type": "string"
+      }
+    },
+    "required": [
+      "findings",
+      "receipt_present",
+      "report_classification"
+    ],
+    "title": "ReceiptOutput",
+    "type": "object"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Read one field of a record.",
+        "name": "read_field",
+        "parameters": {
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "record_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "record_id",
+            "field"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}
