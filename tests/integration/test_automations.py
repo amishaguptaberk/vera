@@ -41,6 +41,7 @@ def test_removing_policy_controller_is_rejected_naming_node_and_rule(client: Tes
     assert body["code"] == "required_control_removed"
     assert "Rule 9" in body["message"] and "pc2" in body["message"]
     assert "Policy Controller" in body["message"]
+    assert any(v["rule"] == 9 and "pc2" in v["node_ids"] for v in body["violations"])
     # the draft is unchanged
     assert client.get(f"/api/automations/workflows/{WF}").json()["draft"]["revision"] == 0
 
@@ -129,6 +130,9 @@ def test_publish_with_unlimited_loop_is_blocked_by_validation(client: TestClient
     r = cmd(client, "publish_workflow_version", f"wfpub:{WF}:4", 1, draft_version=4, reason="x y z")
     assert r.status_code == 422 and r.json()["code"] == "validation_failed"
     assert "Rule 8" in r.json()["message"]
+    violations = r.json()["violations"]
+    assert any(v["rule"] == 8 for v in violations)
+    assert all({"rule", "rule_name", "node_ids", "message"} <= set(v) for v in violations)
 
 
 def publish_v4(client: TestClient) -> Any:
@@ -155,6 +159,7 @@ def test_publish_v4_keeps_chg1042_pinned(client: TestClient, db_url: str) -> Non
     r = publish_v4(client)
     assert r.status_code == 200, r.json()
     assert r.json()["result"] == {"active_version": 4}
+    assert "violations" not in r.json()
     wf = client.get(f"/api/automations/workflows/{WF}").json()
     assert wf["active_version"] == 4 and wf["draft"] is None
     assert [v["version"] for v in wf["versions"]] == [3, 4]
@@ -302,3 +307,73 @@ def test_policy_draft_threshold_range_and_pinning(client: TestClient) -> None:
     assert any(rule.get("params", {}).get("threshold_cents") == 10000 for rule in pol["rules"])
     used = client.get(f"/api/automations/workflows/{WF}").json()["used_by"]
     assert {c["case_id"]: c for c in used}["CHG-1042"]["policy_version"] == 1
+
+
+def new_case_pins(client: TestClient, db_url: str) -> dict[str, Any]:
+    """Report a transaction that has no case yet (copied from TXN-1042) and read its pins."""
+    engine = create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "insert into card_transactions "
+                "(id, merchant_id, cardholder_id, amount_cents, currency, card_last4, posted_at) "
+                "select 'TXN-9901', merchant_id, cardholder_id, amount_cents, currency, card_last4,"
+                " posted_at from card_transactions where id = 'TXN-1042' "
+                "on conflict (id) do nothing"
+            )
+        )
+    switch(client, Role.CARDHOLDER)
+    r = client.post(
+        "/api/reports",
+        json={"report_id": "REP-9901", "transaction_id": "TXN-9901", "statement": "Not mine"},
+    )
+    assert r.status_code == 200, r.json()
+    assert r.json()["created"] is True
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "select id, workflow_version, policy_version from cases where id in (:a, 'CHG-1042')"
+            ),
+            {"a": r.json()["case_id"]},
+        ).all()
+    engine.dispose()
+    return {row.id: (row.workflow_version, row.policy_version) for row in rows} | {
+        "new": r.json()["case_id"]
+    }
+
+
+def test_new_cases_pin_the_active_published_versions(client: TestClient, db_url: str) -> None:
+    assert publish_v4(client).status_code == 200
+    switch(client, Role.OPS_ADMIN)
+    assert (
+        cmd(
+            client,
+            "create_policy_draft",
+            "poldraft:card-charge-investigation:1",
+            1,
+            policy_id="card-charge-investigation",
+            from_version=1,
+        ).status_code
+        == 200
+    )
+    r = cmd(
+        client,
+        "publish_policy_version",
+        "polpub:card-charge-investigation:2",
+        1,
+        policy_id="card-charge-investigation",
+        draft_version=2,
+        receipt_threshold=100,
+        reason="Raise threshold",
+    )
+    assert r.status_code == 200, r.json()
+    pins = new_case_pins(client, db_url)
+    assert pins[pins["new"]] == (4, 2)
+    assert pins["CHG-1042"] == (3, 1)
+
+
+def test_new_cases_pin_seeded_versions_when_nothing_was_published(
+    client: TestClient, db_url: str
+) -> None:
+    pins = new_case_pins(client, db_url)
+    assert pins[pins["new"]] == (3, 1)

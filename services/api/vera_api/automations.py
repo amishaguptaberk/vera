@@ -104,14 +104,13 @@ def _draft(session: Session, workflow_id: str, version: int) -> WorkflowDraft:
 
 def _violations_error(violations: list[dom.Violation], code: str) -> CommandError:
     first = violations[0]
-    err = CommandError(
+    return CommandError(
         code,
         422,
         f"Rule {first.rule} ({first.rule_name}) · {', '.join(first.node_ids)}: {first.message}",
         blocked_reason=first.message,
+        violations=[v.model_dump(mode="json") for v in violations],
     )
-    err.violations = [v.model_dump() for v in violations]  # type: ignore[attr-defined]
-    return err
 
 
 def _latest_policy(session: Session, policy_id: str) -> int:
