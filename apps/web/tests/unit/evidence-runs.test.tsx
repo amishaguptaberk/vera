@@ -52,7 +52,7 @@ describe('Evidence register', () => {
   });
 });
 
-const step = (o: Partial<StepOut>): StepOut => ({ step_key: 'read', specialist: 'Records reader', status: 'succeeded', execution_mode: 'live', model_id: 'claude-x', prompt_version: 'p1', usage: { input_tokens: 10 }, attempts: 1, failure_reason: null, started_at: null, finished_at: null, replayed: false, ...o });
+const step = (o: Partial<StepOut>): StepOut => ({ step_key: 'read', specialist: 'Records reader', status: 'succeeded', execution_mode: 'live', model_id: 'model-x', prompt_version: 'p1', usage: { input_tokens: 10 }, attempts: 1, failure_reason: null, started_at: null, finished_at: null, replayed: false, ...o });
 const runOf = (steps: StepOut[]): RunOut => ({ id: 'RUN-1', case_id: 'CHG-1042', workflow_version: 3, policy_version: 1, status: 'completed', mode: 'live', created_at: '2026-11-10T00:00:00Z', steps });
 
 describe('Run details', () => {

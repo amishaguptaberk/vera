@@ -1,6 +1,6 @@
 /* Prototype sidebar (Main.dc.html:1211-1225, 1361, 1435-1445). Mobile drawer geometry comes from the
    Drawer primitive (narrow mode); collapse only applies above 760px (the prototype's .side.col also
-   shrinks the mobile drawer to 64px, an unintended side effect; see tests/parity/ACCEPTED.md). */
+   shrinks the mobile drawer to 64px, an unintended side effect). */
 .side {
   flex: 0 0 var(--sidebar-width);
   position: sticky;

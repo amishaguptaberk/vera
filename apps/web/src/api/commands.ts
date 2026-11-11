@@ -7,7 +7,7 @@ export type CommandOut = components['schemas']['vera_api__app__CommandOut'];
 export type UserPayload = Record<string, unknown>;
 
 /**
- * Run one server-offered action (docs/frontend-architecture.md `runCommand`).
+ * Run one server-offered action.
  * The idempotency key is ECHOED from the action; the client never builds one. The expected version is the
  * version of the case view the action came from. No retries: on 409 `stale_case_version` the case is
  * refetched and the typed error is rethrown for the UI.

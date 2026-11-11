@@ -1,7 +1,7 @@
 """Command gateway: role -> schema -> replay -> version -> closed -> step -> policy -> approval
 -> key -> transaction. Every case write goes through execute_command (or apply_reduction for
 intake). Feature modules plug in through register_commands, FACT_PROVIDERS and APPROVAL_PROVIDER
-(docs/extension-seams.md); they never edit the gate sequence in _execute."""
+; they never edit the gate sequence in _execute."""
 
 import hashlib
 import json

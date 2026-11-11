@@ -23,7 +23,7 @@ export type SidebarProps = {
   onCloseDrawer: () => void;
 };
 
-// Routes: docs/frontend-architecture.md §4/§8, backend plan §2 (/cases, /automations/...).
+// Routes: /cases, /automations/...
 export const CASES_HREF = '/cases';
 export const AUTOMATIONS_HREF = '/automations/workflows';
 const SUB_ITEMS = [

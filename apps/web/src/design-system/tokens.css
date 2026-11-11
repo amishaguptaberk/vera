@@ -52,7 +52,7 @@
   --sidebar-width-drawer: 248px;
 
   /* §9.4 control sizes. --control-h-sm-proto is the 34px the prototype's cascade actually applies to
-     .btn.sm (Main.dc.html:873); Handoff §9.4 says 30px (--control-h-sm). See tests/parity/ACCEPTED.md. */
+     .btn.sm (Main.dc.html:873); Handoff §9.4 says 30px (--control-h-sm). */
   --control-h-min: 36px;
   --control-h-max: 40px;
   --control-h-sm: 30px;

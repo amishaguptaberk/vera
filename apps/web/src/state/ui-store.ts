@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-// UI-only state (docs/frontend-architecture.md §5): sidebar width and collapse persist in sessionStorage
+// UI-only state: sidebar width and collapse persist in sessionStorage
 // and are never sent to the server. The mobile drawer is in-memory only.
 // (The prototype keeps collapse in localStorage; the architecture document wins.)
 

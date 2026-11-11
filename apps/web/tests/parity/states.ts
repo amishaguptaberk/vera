@@ -71,7 +71,7 @@ const proto = {
     await page.evaluate(() => (window as unknown as { __vera: { openCase(): void } }).__vera.openCase());
     await page.locator('#task').waitFor();
   },
-  // The reviewer view also shows the Vera rail toggle below 1280px; the rail is F9's. See ACCEPTED.md.
+  // The reviewer view also shows the Vera rail toggle below 1280px; the rail is F9's.
   hideVeraToggle: async (page: Page) => {
     await page.addStyleTag({ content: '.vera-b{display:none !important}' });
   },

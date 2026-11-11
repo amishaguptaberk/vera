@@ -3,7 +3,7 @@
 
 const BASE = '/api';
 
-/** Top-level error body of the API (docs/frontend-architecture.md §6). */
+/** Top-level error body of the API. */
 export type ApiErrorBody = {
   code: string;
   message: string;
