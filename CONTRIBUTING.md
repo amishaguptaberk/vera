@@ -118,3 +118,8 @@ uv run python -m vera_api.investigation dump-requests   # evals/requests/{specia
 
 The committed recordings are authored reference outputs (`model_id: authored-reference`); see
 `evals/recordings/README.md` for capturing real ones.
+
+LIVE requests use `response_format: {"type": "json_object"}` with the output JSON schema stated in
+the prompt (not provider-side schema enforcement); every reply is validated after the fact by the
+runner (pydantic schema, then grounding against the cited source fields), with two validation
+retries.

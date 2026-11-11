@@ -34,7 +34,7 @@ from vera_domain.investigation import (
     build_spec,
     specialist_input,
 )
-from vera_domain.specialists import ExecutionMode, StepStatus
+from vera_domain.specialists import ExecutionMode, FailureReason, StepStatus
 
 from vera_api import gateway
 from vera_api import policy as policy_service
@@ -53,7 +53,7 @@ from vera_api.model_client import (
 from vera_api.models import Case, IdempotencyKey
 from vera_api.models_runs import WorkflowRun, WorkflowStep
 from vera_api.runner import SpecialistRunner, create_run
-from vera_api.worker import Touch, enqueue, register
+from vera_api.worker import FAILURE_HOOKS, Touch, enqueue, register
 
 JOB_KIND = "specialist_runner"
 SYSTEM = Actor("svc-orchestrator", "Orchestrator", Role.SYSTEM, frozenset({Role.SYSTEM}))
@@ -345,6 +345,11 @@ def make_node_fn(
                 )
                 s.commit()
                 return
+            row = s.get(WorkflowStep, (run_id, key))
+            if row is not None and row.status == StepStatus.FAILED.value and key not in overrides:
+                # Another failed step: it waits for its own explicit retry, no provider call.
+                raise StepFailed(key, row.failure_reason or "failed")
+            s.rollback()
             mode = ExecutionMode(overrides.get(key, pinned.value))
             register = _register(s, case_id)
             spec = build_spec(key, {rid: kind_ for rid, (kind_, _) in register.items()})
@@ -368,7 +373,10 @@ def make_node_fn(
             outcome = runner.run_step(s, run_id, key, spec, inputs, mode, apply, touch)
         if outcome.status != StepStatus.SUCCEEDED.value:
             raise StepFailed(key, outcome.failure_reason or "failed")
-        if mode is ExecutionMode.REPLAY and pinned is ExecutionMode.LIVE:
+        with factory() as s:
+            row = s.get(WorkflowStep, (run_id, key))
+            stored_mode = row.execution_mode if row else None
+        if stored_mode == ExecutionMode.REPLAY.value and pinned is ExecutionMode.LIVE:
             _emit_once(
                 factory,
                 case_id,
@@ -403,17 +411,8 @@ def run_investigation(session: Session, payload: dict[str, Any], touch: Touch) -
     try:
         with postgres_checkpointer(_db_url(engine)) as saver:
             run_graph(build_graph(INVESTIGATION_V3, node_fn, saver), run_id)
-    except StepFailed as failed:
-        _finish(factory, run_id, "failed")
-        _emit_once(
-            factory,
-            case_id,
-            EventType.SPECIALIST_FAILED,
-            run_id,
-            failed.step_key,
-            f"{failed.step_key} failed: {failed.reason}. Retry or hold the case.",
-            {"reason": failed.reason, "attempt": _attempt_tag(factory, run_id, failed.step_key)},
-        )
+    except StepFailed:
+        _fail_run(factory, run_id, case_id)
         return  # the job completes; recovery is an explicit analyst command
     _finish(factory, run_id, "succeeded")
     try:
@@ -430,9 +429,56 @@ def run_investigation(session: Session, payload: dict[str, Any], touch: Touch) -
             raise  # held/closed meanwhile: derive_step picks the run status up on resume
 
 
-def _attempt_tag(factory: sessionmaker[Session], run_id: str, step_key: str) -> int:
+def _fail_run(factory: sessionmaker[Session], run_id: str, case_id: str) -> None:
+    """Mark the run failed and emit specialist.failed once per failed step (and attempt)."""
+    _finish(factory, run_id, "failed")
     with factory() as s:
-        return _retries(s, run_id, step_key)
+        rows = s.scalars(
+            select(WorkflowStep)
+            .where(WorkflowStep.run_id == run_id, WorkflowStep.status == StepStatus.FAILED.value)
+            .order_by(WorkflowStep.step_key)
+        ).all()
+        failed = [
+            (r.step_key, r.failure_reason or "failed", _retries(s, run_id, r.step_key))
+            for r in rows
+        ]
+    for step_key, reason, attempt in failed:
+        _emit_once(
+            factory,
+            case_id,
+            EventType.SPECIALIST_FAILED,
+            run_id,
+            step_key,
+            f"{step_key} failed: {reason}. Retry or hold the case.",
+            {"reason": reason, "attempt": attempt},
+        )
+
+
+def on_job_failed(session: Session, payload: dict[str, Any], error: str) -> None:
+    """Safety net: the job is out of attempts. Any step still `running` becomes failed with
+    apply_failed (its validated output is kept), so the case offers retry and hold."""
+    run_id, case_id = str(payload["run_id"]), str(payload["case_id"])
+    bind = session.get_bind()
+    engine = bind.engine if not isinstance(bind, Engine) else bind
+    factory = sessionmaker(engine, expire_on_commit=False)
+    with factory() as s:
+        run = s.get(WorkflowRun, run_id, with_for_update=True)
+        if run is None or run.status != "running":
+            return
+        for step in s.scalars(
+            select(WorkflowStep)
+            .where(WorkflowStep.run_id == run_id, WorkflowStep.status == StepStatus.RUNNING.value)
+            .with_for_update()
+        ):
+            step.status = StepStatus.FAILED.value
+            step.failure_reason = FailureReason.APPLY_FAILED.value
+            step.error = error[:500]
+            step.finished_at = _clock().now()
+        s.commit()
+    _fail_run(factory, run_id, case_id)
+
+
+FAILURE_HOOKS[JOB_KIND] = on_job_failed
 
 
 def _finish(factory: sessionmaker[Session], run_id: str, status: str) -> None:

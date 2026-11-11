@@ -110,8 +110,20 @@ def _merchant_id(name: str) -> str:
     return "mer-" + name.lower().replace(" ", "-")
 
 
+RUN_TABLES = (
+    "jobs",
+    "workflow_steps",
+    "workflow_runs",
+    "checkpoint_writes",
+    "checkpoint_blobs",
+    "checkpoints",
+)
+
+
 def reset_database(session: Session, clock: Clock, tz: str) -> None:
     session.execute(text(f"truncate table {', '.join(ALL_TABLES)} restart identity cascade"))
+    # Investigation runs, the job queue and LangGraph checkpoints restart with the demo too.
+    session.execute(text(f"truncate table {', '.join(RUN_TABLES)} restart identity cascade"))
     _seed(session, clock, tz)
     session.commit()
 

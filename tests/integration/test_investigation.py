@@ -501,3 +501,191 @@ def test_worker_changes_state_and_step_only_through_the_gateway_reduction(
     assert rows[-1][1] == case[1] == "draft"
     assert rows[-1][2] == "system"
     assert ("working", "draft", "system") in rows
+
+
+# ---- repair: crash during apply, sibling failures, reset ---------------------------------------
+
+
+def _live_stub_rewording(calls: list[str]) -> httpx.MockTransport:
+    """LIVE stub: tool turn, then answer; a second charge answer is reworded."""
+    turns = _turns()
+    answers: dict[str, int] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        system = body["messages"][0]["content"]
+        name = next(n for n in SPECS if n.split("_")[0].capitalize() in system.split(".")[0])
+        calls.append(name)
+        has_tool = any(m["role"] == "tool" for m in body["messages"])
+        turn = turns[name][1 if has_tool else 0]
+        if turn["tool_calls"]:
+            msg: dict[str, Any] = {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": json.dumps(tc["arguments"])},
+                    }
+                    for tc in turn["tool_calls"]
+                ],
+            }
+        else:
+            answers[name] = answers.get(name, 0) + 1
+            content = json.loads(json.dumps(turn["content"]))
+            if answers[name] > 1:
+                content["findings"][0]["statement"] = "Reworded on a second live call."
+            msg = {"role": "assistant", "content": json.dumps(content)}
+        return httpx.Response(200, json={"model": "stub/live", "choices": [{"message": msg}]})
+
+    return httpx.MockTransport(handle)
+
+
+def _live(monkeypatch: Any, tmp_path: Path, calls: list[str]) -> None:
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", tmp_path / "empty")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", _live_stub_rewording(calls))
+
+
+def test_live_crash_after_partial_findings_resumes_from_the_stored_output(
+    client: TestClient, factory: sessionmaker[Session], tmp_path: Path, monkeypatch: Any
+) -> None:
+    calls: list[str] = []
+    _live(monkeypatch, tmp_path, calls)
+    real = investigation._execute_retrying
+    crashed: list[str] = []
+
+    def crashy(f: Any, case_id: str, command_: str, key: str, payload: Any, actor: Any) -> None:
+        real(f, case_id, command_, key, payload, actor)
+        if command_ == "record_finding" and "charge_investigator" in key and not crashed:
+            crashed.append(key)
+            raise RuntimeError("worker killed after first finding")
+
+    monkeypatch.setattr(investigation, "_execute_retrying", crashy)
+    open_and_start(client)
+    drain(factory)
+    assert crashed
+    runs = client.get(f"/api/cases/{CASE}/runs").json()
+    assert runs[0]["status"] == "succeeded"
+    assert calls.count("charge_investigator") == 2  # no model call on resume
+    stmts = [
+        r[0]
+        for r in q(factory, "select statement from findings where id like '%charge_investigator%'")
+    ]
+    assert len(stmts) == 2 and "Reworded on a second live call." not in stmts
+    assert q(factory, "select count(*) from findings") == [(6,)]
+    assert client.get(f"/api/cases/{CASE}").json()["step"] == "draft"
+
+
+def test_persistent_apply_failure_ends_failed_with_retry_and_hold(
+    client: TestClient, factory: sessionmaker[Session], monkeypatch: Any
+) -> None:
+    real = investigation._execute_retrying
+
+    def broken(f: Any, case_id: str, command_: str, key: str, payload: Any, actor: Any) -> None:
+        if command_ == "record_finding" and "charge_investigator" in key:
+            raise RuntimeError("finding store unavailable")
+        real(f, case_id, command_, key, payload, actor)
+
+    monkeypatch.setattr(investigation, "_execute_retrying", broken)
+    open_and_start(client)
+    drain(factory)
+    runs = client.get(f"/api/cases/{CASE}/runs").json()
+    assert runs[0]["status"] == "failed"
+    step = next(s for s in runs[0]["steps"] if s["step_key"] == "charge_investigator")
+    assert (step["status"], step["failure_reason"]) == ("failed", "apply_failed")
+    case = client.get(f"/api/cases/{CASE}").json()
+    assert {a["command"] for a in case["recovery_actions"]} == {
+        "retry_specialist_step",
+        "hold_case",
+    }
+    assert q(factory, "select count(*) from audit_events where type='specialist.failed'") == [(1,)]
+    assert q(factory, "select count(*) from jobs where status in ('queued','running')") == [(0,)]
+
+    # once the store recovers, retry re-applies the validated output
+    monkeypatch.setattr(investigation, "_execute_retrying", real)
+    retry = next(a for a in case["recovery_actions"] if a["command"] == "retry_specialist_step")
+    resp = command(
+        client, "retry_specialist_step", retry["idempotency_key"], retry["payload_defaults"]
+    )
+    assert resp.status_code == 200, resp.text
+    drain(factory)
+    assert client.get(f"/api/cases/{CASE}/runs").json()[0]["status"] == "succeeded"
+    assert q(factory, "select count(*) from findings") == [(6,)]
+
+
+def test_two_failed_siblings_each_fail_explicitly_and_retry_runs_only_one(
+    client: TestClient, factory: sessionmaker[Session], tmp_path: Path, monkeypatch: Any
+) -> None:
+    root = copy_recordings(tmp_path / "two")
+    shutil.rmtree(root / "charge_investigator")
+    shutil.rmtree(root / "related_transaction_investigator")
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", root)
+    calls: list[str] = []
+    real = investigation.client_for
+
+    def counting(mode: Any, case_id: str) -> Any:
+        inner = real(mode, case_id)
+
+        class C:
+            def complete(self, **kw: Any) -> Any:
+                calls.append(kw["specialist"])
+                return inner.complete(**kw)
+
+        return C()
+
+    monkeypatch.setattr(investigation, "client_for", counting)
+    open_and_start(client)
+    drain(factory)
+    failed = q(
+        factory,
+        "select detail->>'step_key' from audit_events where type='specialist.failed' order by 1",
+    )
+    assert failed == [("charge_investigator",), ("related_transaction_investigator",)]
+    case = client.get(f"/api/cases/{CASE}").json()
+    retries = [a for a in case["recovery_actions"] if a["command"] == "retry_specialist_step"]
+    assert {a["payload_defaults"]["step_key"] for a in retries} == {
+        "charge_investigator",
+        "related_transaction_investigator",
+    }
+
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", REC)
+    calls.clear()
+    retry = next(a for a in retries if a["payload_defaults"]["step_key"] == "charge_investigator")
+    resp = command(
+        client, "retry_specialist_step", retry["idempotency_key"], retry["payload_defaults"]
+    )
+    assert resp.status_code == 200, resp.text
+    drain(factory)
+    assert "related_transaction_investigator" not in calls
+    steps = {s["step_key"]: s for s in client.get(f"/api/cases/{CASE}/runs").json()[0]["steps"]}
+    assert steps["charge_investigator"]["status"] == "succeeded"
+    assert steps["related_transaction_investigator"]["status"] == "failed"
+    case = client.get(f"/api/cases/{CASE}").json()
+    left = [a for a in case["recovery_actions"] if a["command"] == "retry_specialist_step"]
+    assert [a["payload_defaults"]["step_key"] for a in left] == ["related_transaction_investigator"]
+
+
+def test_demo_reset_clears_runs_jobs_and_checkpoints(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    open_and_start(client)
+    drain(factory)
+    assert client.post("/api/demo/reset").status_code == 200
+    for table in ("jobs", "workflow_runs", "workflow_steps", "checkpoints", "checkpoint_writes"):
+        assert q(factory, f"select count(*) from {table}") == [(0,)], table
+
+
+def test_held_case_under_investigation_shows_the_step_it_returns_to(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    open_and_start(client)
+    drain(factory)
+    hold = {"reason": "Waiting for the bank", "next_owner": "usr-dana-okafor"}
+    v = version(client)
+    assert command(client, "hold_case", f"hold:{CASE}:{v}", hold).status_code == 200
+    steps = client.get(f"/api/cases/{CASE}").json()["steps"]
+    current = [s["key"] for s in steps if s["status"] in ("current", "blocked")]
+    assert current[0] == "request_info"  # draft, not intake's "investigate"
