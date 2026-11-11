@@ -1,16 +1,12 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost } from './client';
 
-// Hand-written for now: src/api/schema.d.ts is still a placeholder. F2 replaces these with the generated
-// types (SessionOut, RoleIn, Role in services/api/vera_api/app.py).
-export type Role = 'analyst' | 'ops_admin' | 'reviewer' | 'card_admin' | 'cardholder';
-export type SessionUser = { id: string; name: string };
-export type Session = {
-  user: SessionUser;
-  active_role: Role;
-  roles: Role[];
-  environment: string;
-};
+import type { components } from './schema';
+
+// Generated from the backend OpenAPI (npm run dump:api && npm run gen:api).
+export type Role = components['schemas']['Role'];
+export type SessionUser = components['schemas']['Person'];
+export type Session = components['schemas']['SessionOut'];
 
 export const sessionKey = ['session'] as const;
 
@@ -35,6 +31,8 @@ export function useSwitchRole() {
     onSuccess: async (session) => {
       queryClient.setQueryData(sessionKey, session);
       await queryClient.invalidateQueries({ queryKey: sessionKey });
+      // Case views and available actions are scoped to the active role by the server.
+      await queryClient.invalidateQueries({ queryKey: ['case'] });
     },
   });
 }
