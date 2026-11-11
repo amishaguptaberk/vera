@@ -90,3 +90,95 @@ Tables per ToSpec §10.1 plus Handoff §10.1 additions. Every table has `id`, `c
 | LangGraph | checkpointer tables (managed by `langgraph-checkpoint-postgres`) |
 
 Immutability is enforced in the database, not only in code: `audit_events`, `reports`, `evidence_versions`, `state_transitions` and published `workflow_versions` / `policy_versions` get `BEFORE UPDATE OR DELETE` triggers that raise.
+
+## 5. Canonical states and transitions
+
+Two persisted levels (Handoff §4.1):
+
+- `state` — ToSpec §6 enum: `reported, investigating, waiting_on_cardholder, response_received, evidence_review, callback_pending, callback_completed, decision_pending, policy_blocked, credit_eligible, reviewer_pending, credit_approved, credit_issued, dispute_prepared, remediation_pending, monitoring, closed, held`.
+- `step` — `intake, working, draft, waiting, noresp1, noresp2, response, idv, verify, callfail, packet, decide, returned, stale, waitrv, issue, credit_check, controls, ctl_prep, dsp_prepare, dsp_open, dsp_review, dsp_submit, dsp_failed, waitctl, ctl_apply, finalprep, final, close, monitoring, closed, onhold`.
+
+Rules:
+
+1. `derive_step(case_data) -> (state, step)` is one pure function in `packages/domain`. It is called inside the command transaction after the reducer runs; the result is stored on `cases` and in `state_transitions`. Nothing else writes `state` or `step`.
+2. `policy_blocked` / `credit_eligible` / `callback_completed` stay in the enum for audit but a case does not rest in them; the policy outcome is carried on `policy` while the case is in `decision_pending` (Handoff §4.1).
+3. After credit (or a dispute-without-credit decision) the dispute and control tracks are independent sub-statuses (`dispute.status`, `controls.status`). `step` is the focused track's step; `final` is unreachable until both have an outcome (D3).
+4. `held` stores the prior `(state, step)` inputs, not a copy of the result: resume re-derives, so failures recorded before the hold are still there.
+5. The transition table is Handoff §4.2 rows 1–32, encoded as data (`TRANSITIONS`) and tested row by row.
+
+Every transition row stores: prior/next state and step, actor, actor role, reason, case version, workflow version, policy version, evidence snapshot hash, event id, timestamp.
+
+## 6. Command envelope and gate order
+
+`POST /api/cases/{case_id}/commands/{command}` with `{idempotency_key, expected_case_version, payload}`; the acting user and role come from the session, never the body.
+
+Gate stages, in order (each recorded as a stage in Run details):
+
+| # | Stage | Failure |
+|---|---|---|
+| 1 | Role — command's single required role is held by the session and is the role acted under | 403 `role_forbidden` |
+| 2 | Schema — Pydantic payload model | 422 `schema_invalid` |
+| 3 | Idempotency replay — key already `completed` → return original result, `status: replayed`, attempts+1; key `checking` → 504 `adapter_uncertain` | — |
+| 4 | Case version — `expected_case_version == cases.case_version` (row lock) | 409 `stale_case_version` |
+| 5 | Closed — closed/monitoring rejects all but `record_dispute_outcome` | 409 `case_closed` |
+| 6 | Step — command allowed in current step | 409 `invalid_step` |
+| 7 | Policy — Policy Controller on current evidence for money/control/closure commands | 422 `policy_blocked` |
+| 8 | Permission — prerequisites (approval binding current, identity verified, attempt limits) | 409/422 typed |
+| 9 | Transaction — write key `pending`, run reducer, derive step, bump `case_version`, append events; commit | — |
+| 10 | Adapter (Sim commands only) — outside the DB transaction; then persist `completed` / `failed_before_effect` / `checking` and emit one event | 502 / 504 |
+
+Response: `{status: recorded|replayed, result, event_ids, case: CaseView}`. Errors: `{code, message, blocked_reason?, failed_rules?, case_version}`.
+
+Each command is one registry entry: `CommandSpec(name, role, payload_model, allowed_steps, key_template, policy_gate, prerequisites, reducer, adapter?, events, label, style)`. `available_actions` is computed from the same registry by running stages 1 and 5–8 without side effects, so the UI cannot show an action the gateway would reject.
+
+## 7. API contracts
+
+Queries and commands exactly as Handoff §3.2–§3.4 and §10.2. Additions:
+
+- `GET /api/cases/{id}/available-actions` (prompt VER-002) — same `ActionView[]` embedded in `CaseView`.
+- `GET /api/session`, `POST /api/session/role` — demo role selection (view change only; writes nothing to the case, no event).
+- `POST /api/demo/reset`, `/api/demo/advance-clock`, `/api/demo/material-change`, `/api/demo/adapter-fault` — synthetic environment only.
+- OpenAPI is generated from the Pydantic models and snapshot-tested in `tests/contracts`; `CaseView` TypeScript types are generated from it for the frontend.
+
+Auth for the demo: a signed session cookie holding `user_id` and `active_role`; `active_role` must be in `user_roles`. Seed: Sam Rivera (`analyst`, `ops_admin`), Dana Okafor (`reviewer`, `card_admin`), Priya Shah (`cardholder`). Service principals: `specialist:<name>`, `policy_controller`, `system`, `adapter:<name>`.
+
+## 8. Event types
+
+The list in Handoff §10.5 is the registry (`packages/domain/events.py`, one enum). `run.step_*` are stream-only. Each audit event: `{event_id, type, case_id, case_version, at, actor_id, actor_role, record_ids[], summary, detail}`. Delivery to browsers: SSE at `/api/cases/{id}/stream`, fed by Postgres `LISTEN/NOTIFY` on insert; clients refetch `CaseView` on a new `case_version`. Polling `GET /api/cases/{id}` is the fallback.
+
+## 9. Policy Controller
+
+Pure function `evaluate(policy_version_rules, evidence_snapshot, case_facts) -> PolicyResult`; no model, no I/O. Result shape is Handoff §7.4 plus `status: blocked | needs_evidence | eligible | ineligible` (prompt VER-008). Persisted in `policy_evaluations` on every evidence change and before every gated command. Policy v1 rules are data (`rule_id`, group, predicate name, params such as receipt threshold 75); predicates are code.
+
+## 10. Roles, idempotency, snapshots
+
+**Role/permission matrix:** Handoff §5 is the contract; it is encoded once as `CommandSpec.role` and tested as a full command × role table (every non-permitted pair must return 403). `reviewer` and `card_admin` are distinct; Dana holding both never merges them, and each event records the single role used (D2). Analyst cannot apply controls (D7). Only the cardholder role can call `submit_otp` (D8).
+
+**Idempotency boundaries:** keys per Handoff §10.6 (including new `idv-cancel:` / `idv-expire:` keys, gap G1). `idempotency_keys(key PK, command, status pending|completed|failed_before_effect|checking, request_id, attempts, first_at, last_at, result)`. For adapter commands the key row is committed before the adapter is invoked; adapters accept the key and are themselves idempotent on it, and expose `lookup(key)`. `checking` is resolved only by `lookup_execution_result` or the reconciler — never by re-sending. Unique constraints back this up: one credit per transaction, one submission per dispute, one application per control plan.
+
+**Evidence snapshot and stale approval:** `snapshot_hash = sha256(canonical JSON of the sorted current evidence version ids and the material fields used by policy rules)`. Material fields are ToSpec §7.4. On `evidence.version_added`: append version → recompute hash → compute affected checks from a `rule → evidence kinds` map → mark only those checks and any approval whose bound hash differs as `stale` (original rows kept) → re-evaluate policy → derive step (`stale`). Approvals bind `(case, transaction, snapshot_hash, policy_version, workflow_version)`; `issue_provisional_credit` re-checks the binding at stage 8.
+
+**OTP:** the code is never stored or logged. `identity_verifications` keeps an HMAC of the code, attempts, expiry, cooldown. The simulated SMS adapter holds the code in a short-lived outbox readable only by the cardholder session (and by the labeled synthetic-demo control acting as the cardholder). A test greps analyst responses, events and logs for the code (fixture 42).
+
+## 11. LangGraph nodes and edges
+
+LangGraph runs specialists and holds the run's position; it never writes case state directly. Nodes call domain services through the same typed tool gateway, and human steps are `interrupt()` points resumed by the command gateway after a command commits.
+
+- Graph is built from the pinned `workflow_versions.graph` by reading each node's `kind` (D4), so v3 in the builder and the executed graph are the same data.
+- Nodes: Handoff §10.3 (21 nodes). Edges: v3 outcomes in Handoff §7.2, with retry limits (follow-up 2, contradicted verification 2, reviewer rejection 2, not-eligible 1, callback attempts 2 per response).
+- Parallelism: `charge_investigator` ∥ `related_transaction_investigator` → `receipt_document_reviewer` → `pc1`; after `credit_executor`, `dispute_packet_preparer` ∥ `prevention_planner` → join before `final_communication` (D3).
+- Checkpointer: `PostgresSaver`, `thread_id = run_id`. Refresh or worker restart resumes from the last checkpoint; an interrupted step is shown as interrupted, never as complete.
+- Specialists are deterministic, fixture-backed functions behind a `Specialist` protocol with typed input/output models and a declared record scope enforced by the tool gateway (out-of-scope read raises). A model-backed implementation can be swapped in per specialist later; CI and replay always use the deterministic one.
+
+## 12. Worker jobs
+
+One worker process, Postgres-backed queue (`jobs` table, `FOR UPDATE SKIP LOCKED`); no Redis required. Jobs per Handoff §10.4: `specialist_runner`, `adapter_executor`, `deadline_watcher`, `verification_expirer`, `uncertain_result_reconciler`, `policy_reevaluator`, `workflow_check_runner`, `dispute_outcome_ingest`, `notification_fanout`. Time comes from an injectable demo clock (starts Nov 10, 9:08 AM) so deadlines and expiry are deterministic in tests and fast-forwardable in the demo.
+
+## 13. Evaluation plan
+
+- `tests/unit` — reducers, `derive_step` (every Handoff §4.2 row), policy rules, snapshot hashing, closure checklist, workflow validation rules 1–9.
+- `tests/integration` — gateway against Postgres: role table, stale version, idempotent replay, adapter failed-before-effect and uncertain, DB immutability triggers, concurrency (two simultaneous credit commands → one credit).
+- `tests/contracts` — OpenAPI snapshot; every enabled `available_action` is accepted and every blocked one is rejected with the stated reason.
+- `evals/replay` — fixtures 1–46, each a YAML script of commands with assertions on state, step, available actions, evidence status, findings/claims, policy result, approval validity, event sequence, idempotency rows, adapter call counts and recovery action. Failure output names case, workflow version, step and invariant (US-K03).
+- Playwright — analyst, cardholder, reviewer/card-admin, material-change journeys (with VER-012).
+- CI (GitHub Actions): ruff, ruff format --check, mypy, alembic upgrade on a Postgres service, pytest (unit, integration, contracts, replay), frontend test + build.
