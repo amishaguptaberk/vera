@@ -20,6 +20,8 @@ type TabId = CaseTabId;
 const DEFAULT_TAB: TabId = 'decision';
 const parseTab = (v: string | null): TabId => (CASE_TABS.some((t) => t.id === v) ? (v as TabId) : DEFAULT_TAB);
 
+// A command blocked only because the case is at another step says nothing useful; real blocks (policy, roles) stay.
+const wrongStep = (b: { label: string; blocked_reason: string }, c: CaseView) => b.blocked_reason === `${b.label} is not available while the case is '${c.state_label}'.`;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -377,7 +379,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               {formFor ? (
                 <CommandForm key={formFor.command} action={formFor} error={formError} busy={run.isPending} onSubmit={(p) => execute(formFor, p)} onCancel={() => setFormFor(null)} />
               ) : block?.ownsActions ? null : (
-                <ActionBar actions={c.available_actions.filter((x) => !hidden.includes(x.command))} blocked={c.blocked_actions.filter((x) => !hidden.includes(x.command))} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
+                <ActionBar actions={c.available_actions.filter((x) => !hidden.includes(x.command))} blocked={c.blocked_actions.filter((x) => !hidden.includes(x.command) && !wrongStep(x, c))} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
               )}
               {synthetic ? (
                 <details className={styles.demoD}>
