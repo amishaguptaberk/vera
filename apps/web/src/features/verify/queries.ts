@@ -6,7 +6,7 @@ import type {
   OutboxView,
   VerificationView,
 } from "./contract";
-import { isActiveCall } from "./contract";
+import { callStatusOf, isActiveCall } from "./contract";
 
 const noRetry4xx = (n: number, e: unknown) =>
   !(e instanceof ApiError && e.status >= 400 && e.status < 500) && n < 2;
@@ -52,7 +52,11 @@ export const callbackDetailQuery = (caseId: string, callbackId: string) =>
       ),
     retry: noRetry4xx,
     refetchInterval: (q) =>
-      q.state.data && isActiveCall(q.state.data.status) ? CALL_POLL_MS : false,
+      q.state.data &&
+      (isActiveCall(q.state.data.status) ||
+        isActiveCall(callStatusOf(q.state.data)))
+        ? CALL_POLL_MS
+        : false,
   });
 
 /** Cardholder role only: the simulated message for the synthetic demo control. Never used by staff views. */

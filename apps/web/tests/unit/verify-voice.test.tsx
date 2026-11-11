@@ -163,3 +163,86 @@ describe("Voice verification call", () => {
     expect(document.body.textContent).not.toContain("555");
   });
 });
+
+describe("Voice call read model (CallbackDetail.voice)", () => {
+  const voice = (o: Record<string, unknown> = {}) => ({
+    provider: "simulated",
+    simulated: true,
+    provider_call_id: "sim-1",
+    masked_number: "•••• 0142",
+    purpose: "Confirm the disputed purchase",
+    call_status: "in_progress",
+    started_at: "2026-11-10T15:05:00Z",
+    ended_at: null,
+    transcript_version: 1,
+    structured_answers: [],
+    rejected: [],
+    confidence: null,
+    ...o,
+  });
+
+  it("reads provider, masked number, purpose and live status from voice", async () => {
+    mockVoice(() => ({ ...call(), voice: voice() }) as CallbackDetail);
+    renderWithProviders(<CallPanel caseId="CHG-1042" />);
+    const p = await screen.findByTestId("call-provider");
+    expect(p.textContent).toContain("Simulated call");
+    expect(screen.getByText(/•••• 0142/)).toBeTruthy();
+    expect(screen.getByText("Confirm the disputed purchase")).toBeTruthy();
+    expect(screen.getByText("Live")).toBeTruthy();
+  });
+
+  it("cites structured_answers line_index and shows confidence as sent", async () => {
+    mockVoice(
+      () =>
+        ({
+          ...call({
+            status: "confirmed",
+            transcript: [
+              { seq: 0, speaker: "agent", text: "Did you place the order?" },
+              { seq: 1, speaker: "contact", text: "Yes." },
+            ],
+          }),
+          voice: voice({
+            provider: "elevenlabs",
+            simulated: false,
+            call_status: "completed",
+            structured_answers: [
+              { question_id: "q1", answer: "yes", line_index: 1 },
+            ],
+            confidence: 0.92,
+          }),
+        }) as CallbackDetail,
+    );
+    renderWithProviders(<CallPanel caseId="CHG-1042" />);
+    const res = await screen.findByTestId("structured-result");
+    expect(within(res).getByText("0.92")).toBeTruthy();
+    await userEvent.click(
+      within(res).getByRole("button", { name: "Transcript line 1" }),
+    );
+    expect(
+      document.getElementById("call-line-1")!.getAttribute("aria-current"),
+    ).toBe("true");
+    expect(screen.getByTestId("call-provider").textContent).toContain(
+      "Voice call via ElevenLabs",
+    );
+  });
+});
+
+describe("Server-offered call controls", () => {
+  it.each([
+    ["end_callback", "End call", "in_progress"],
+    ["escalate_callback", "Escalate", "completed"],
+  ] as const)("%s posts the callback id", async (command, label, status) => {
+    const calls = mockVoice(
+      () => call({ status }),
+      caseWith([act(command, { label })]),
+    );
+    renderWithProviders(<CallPanel caseId="CHG-1042" />);
+    await userEvent.click(await screen.findByRole("button", { name: label }));
+    await waitFor(() =>
+      expect(calls.some((x) => x.method === "POST")).toBe(true),
+    );
+    const body = JSON.parse(calls.find((x) => x.method === "POST")!.body!);
+    expect(body.payload.callback_id).toBe("CB-0001");
+  });
+});

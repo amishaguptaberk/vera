@@ -19,7 +19,9 @@ import {
 } from "@/components/verify";
 import { Button, Skeleton } from "@/design-system/primitives";
 import {
+  callStatusOf,
   isActiveCall,
+  type CallAnswer,
   type CallbackDetail,
   type CallLine,
   type CallOutcome,
@@ -81,8 +83,11 @@ export function transcriptLines(
 
 /** Pure mapping of a call detail to the presentational props (shared by the panel and the dev preview). */
 export function callView(k: CallbackDetail) {
-  const live = isActiveCall(k.status);
+  const v = k.voice ?? null;
+  const live = isActiveCall(k.status) || (!!v && isActiveCall(v.call_status));
   const outcome = isOutcome(k.status) ? k.status : null;
+  const shownStatus = live && v ? v.call_status : k.status;
+  const startedAt = v?.started_at ?? k.started_at ?? k.created_at;
   const qText = new Map(k.questions.map((q) => [q.id, q.text]));
   const rows: KV[] = [
     { k: "Authorized by", v: `${k.approved_by} · ${time(k.created_at)}` },
@@ -90,15 +95,22 @@ export function callView(k: CallbackDetail) {
     {
       k: "Status",
       v: live
-        ? `${CALL_STATUS[k.status as keyof typeof CALL_STATUS] ?? k.status} · started ${time(k.started_at ?? k.created_at)}`
+        ? `${CALL_STATUS[shownStatus as keyof typeof CALL_STATUS] ?? shownStatus} · started ${time(startedAt)}`
         : (CALL_STATUS[k.status as keyof typeof CALL_STATUS] ?? k.status),
     },
   ];
-  if (k.purpose) rows.unshift({ k: "Purpose", v: k.purpose });
+  const purpose = v?.purpose ?? k.purpose;
+  if (purpose) rows.unshift({ k: "Purpose", v: purpose });
   if (k.approval_state) rows.splice(1, 0, { k: "Approval", v: k.approval_state });
-  const r = k.result;
-  const confidence = r?.confidence ?? k.confidence;
-  const legacy = !!outcome && !r?.answers.some((a) => a.cited_lines);
+  const vAnswers = v?.structured_answers ?? [];
+  const r =
+    k.result ??
+    (v && vAnswers.length
+      ? { result: callStatusOf(k), answers: [] as CallAnswer[] }
+      : null);
+  const confidence = v?.confidence ?? r?.confidence ?? k.confidence;
+  const legacy =
+    !!outcome && !vAnswers.length && !r?.answers.some((a) => a.cited_lines);
   const result =
     !live && (outcome || r)
       ? {
@@ -140,7 +152,13 @@ export function callView(k: CallbackDetail) {
             : [],
           answers: legacy
             ? []
-            : (r?.answers ?? []).map((a) => ({
+            : vAnswers.length
+              ? vAnswers.map((a) => ({
+                  question: qText.get(a.question_id) ?? a.question_id,
+                  answer: a.answer,
+                  lines: [a.line_index],
+                }))
+              : (r?.answers ?? []).map((a) => ({
                 question: qText.get(a.question_id) ?? a.question_id,
                 answer: a.answer,
                 lines:
@@ -158,7 +176,9 @@ export function callView(k: CallbackDetail) {
     live,
     rows,
     result,
-    provider: providerLabel(k.provider),
+    provider: providerLabel(v?.provider ?? k.provider),
+    masked: v?.masked_number ?? k.masked_number ?? null,
+    startedAt,
     title: live ? "Call in progress" : "Verification call complete",
   };
 }
@@ -226,7 +246,10 @@ export function CallPanel({
   const [note, setNote] = useState("");
   const [consent, setConsent] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const active = !!detail.data && isActiveCall(detail.data.status);
+  const active =
+    !!detail.data &&
+    (isActiveCall(detail.data.status) ||
+      isActiveCall(callStatusOf(detail.data)));
   useEffect(() => {
     if (!active) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -366,8 +389,9 @@ export function CallPanel({
       </p>
     );
   const k = detail.data as CallbackDetail;
-  const { live, rows, result, provider } = callView(k);
-  const masked = k.masked_number ?? phoneRaw;
+  const view = callView(k);
+  const { live, rows, result, provider } = view;
+  const masked = view.masked ?? phoneRaw;
   const canNote =
     c?.available_actions.find(
       (a) => a.command === "add_callback_note" && a.enabled,
@@ -375,7 +399,7 @@ export function CallPanel({
   return (
     <>
       <CallDetail
-        title={callView(k).title}
+        title={view.title}
         idLabel={k.id}
         live={live}
         target={{
@@ -425,7 +449,7 @@ export function CallPanel({
         sources={[k.id, k.target_record_id]}
         onOpenSource={onOpenSource}
         provider={provider}
-        elapsed={live ? elapsed(k.started_at ?? k.created_at, now) : null}
+        elapsed={live ? elapsed(view.startedAt, now) : null}
         consent={!live ? consentBox : null}
         actions={bar}
         onBack={onBack}

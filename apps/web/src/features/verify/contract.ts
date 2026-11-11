@@ -102,6 +102,27 @@ export type CallLine = {
   speaker: "agent" | "contact" | string;
   text: string;
 };
+/** `CallbackDetail.voice` (vera_api.voice.voice_view): provider call state, masked number only. */
+export type VoiceAnswer = {
+  question_id: string;
+  answer: string;
+  /** Cited transcript line. */
+  line_index: number;
+};
+export type VoiceView = {
+  provider: CallProvider | string;
+  simulated: boolean;
+  provider_call_id?: string;
+  masked_number: string;
+  purpose: string;
+  call_status: VoiceStatus | string;
+  started_at: string;
+  ended_at: string | null;
+  transcript_version: number;
+  structured_answers: VoiceAnswer[];
+  rejected?: string[];
+  confidence: number | null;
+};
 export type CallNote = { author: string; text: string; created_at: string };
 
 /** `GET /api/cases/{id}/callbacks/{callback_id}` */
@@ -109,7 +130,12 @@ export type CallbackDetail = CallbackView & {
   transcript: CallLine[];
   notes: CallNote[];
   transcript_version?: number;
+  voice?: VoiceView | null;
 };
+
+/** Effective call status: the provider call state when a voice call exists, else the callback status. */
+export const callStatusOf = (k: CallbackView & { voice?: VoiceView | null }) =>
+  k.voice?.call_status ?? k.status;
 
 /** Command names (vera_domain CommandSpec). Used only to place server-offered actions in these panels. */
 export const IDENTITY_COMMANDS = [
