@@ -1,0 +1,32 @@
+{
+  "fixture": 20,
+  "title": "Actions on a closed case are rejected with a reason and write nothing",
+  "steps": [
+    {
+      "service": "sql",
+      "query": "update cases set state='closed', step='closed' where id='CHG-1042'"
+    },
+    {
+      "service": "snapshot",
+      "name": "s"
+    },
+    {
+      "as": "analyst",
+      "command": "hold_case",
+      "payload": {
+        "reason": "Waiting for the bank",
+        "next_owner": "usr-dana-okafor"
+      },
+      "expect": {
+        "http": 409
+      },
+      "assert": {
+        "state": "closed",
+        "unchanged_since": "s",
+        "actions_exclude": [
+          "hold_case"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "title": "Duplicate report links to the case, adds one claim, no second case",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "link_report",
+      "payload": {
+        "statement": "Second call about the same charge."
+      },
+      "times": 2,
+      "expect_each": [
+        {
+          "http": 200,
+          "result_status": "recorded"
+        },
+        {
+          "http": 200,
+          "result_status": "replayed"
+        }
+      ],
+      "assert": {
+        "state": "reported",
+        "reports": {
+          "count": 2,
+          "contain": [
+            "Second call about the same charge."
+          ]
+        },
+        "claims": {
+          "count": 1
+        },
+        "events": {
+          "types": [
+            "report.linked"
+          ]
+        },
+        "idempotency": [
+          {
+            "key": "report:REP-1043",
+            "attempts": 2,
+            "status": "completed"
+          }
+        ]
+      }
+    }
+  ]
+}

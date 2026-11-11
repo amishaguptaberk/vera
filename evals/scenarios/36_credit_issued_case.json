@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-010",
+  "fixture": 36,
+  "title": "Credit-issued case",
+  "description": "Fixture 36: Credit-issued case. step is never an earlier task; rail never says `Credit issued` while next task is controls"
+}

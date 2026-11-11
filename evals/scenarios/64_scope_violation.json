@@ -1,0 +1,37 @@
+{
+  "title": "A tool call outside the specialist's scope is a recorded scope violation",
+  "steps": [
+    {
+      "service": "recordings",
+      "variant": "scope_violation"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "runs": {
+          "status": "failed",
+          "steps": {
+            "charge_investigator": "failed"
+          },
+          "failure_reasons": {
+            "charge_investigator": "scope_violation"
+          }
+        },
+        "recovery_actions": [
+          "retry_specialist_step",
+          "hold_case"
+        ]
+      }
+    }
+  ]
+}

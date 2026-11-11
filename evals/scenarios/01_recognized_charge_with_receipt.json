@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-005",
+  "fixture": 1,
+  "title": "Recognized charge with receipt",
+  "description": "Fixture 1: Recognized charge with receipt. ToSpec 15.1"
+}

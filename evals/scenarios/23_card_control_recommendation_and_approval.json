@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-010",
+  "fixture": 23,
+  "title": "Card control recommendation and approval",
+  "description": "Fixture 23: Card control recommendation and approval. ToSpec 15.23"
+}

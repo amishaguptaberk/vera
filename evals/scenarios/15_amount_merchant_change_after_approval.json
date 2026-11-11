@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-009",
+  "fixture": 15,
+  "title": "Amount/merchant change after approval",
+  "description": "Fixture 15: Amount/merchant change after approval. ToSpec 15.15"
+}

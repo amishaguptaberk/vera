@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-006",
+  "fixture": 27,
+  "title": "Identity: expiry + resend",
+  "description": "Fixture 27: Identity: expiry + resend. expired event once, resend cooldown enforced, new key"
+}
