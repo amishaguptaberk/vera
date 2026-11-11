@@ -615,6 +615,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{case_id}/closure-checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Checklist */
+        get: operations["get_checklist_api_cases__case_id__closure_checklist_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/final-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Final Message */
+        get: operations["get_final_message_api_cases__case_id__final_message_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/closure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Closure */
+        get: operations["get_closure_api_cases__case_id__closure_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/dispute-outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Dispute Outcome
+         * @description Synthetic only: queue the network's dispute outcome; a worker applies it.
+         */
+        post: operations["post_dispute_outcome_api_demo_dispute_outcome_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/automations/commands/{name}": {
         parameters: {
             query?: never;
@@ -1162,6 +1233,29 @@ export interface components {
             /** Stale Reason */
             stale_reason: string | null;
         };
+        /** ChecklistItem */
+        ChecklistItem: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "met" | "unmet" | "unknown";
+            /** Record Ids */
+            record_ids?: string[];
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Owner */
+            owner?: string | null;
+            /** Next Action */
+            next_action?: string | null;
+        };
         /** Citation */
         Citation: {
             /** Record Id */
@@ -1183,6 +1277,37 @@ export interface components {
             fields: {
                 [key: string]: unknown;
             };
+        };
+        /** ClosureChecklist */
+        ClosureChecklist: {
+            /** Case Id */
+            case_id: string;
+            /** Ready */
+            ready: boolean;
+            /** Items */
+            items: components["schemas"]["ChecklistItem"][];
+        };
+        /** ClosureRecordView */
+        ClosureRecordView: {
+            /** Closure Id */
+            closure_id: string;
+            /** Reason */
+            reason: string;
+            /** Outcome */
+            outcome: string;
+            /** State */
+            state: string;
+            /** Closed By */
+            closed_by: string;
+            /**
+             * Closed At
+             * Format: date-time
+             */
+            closed_at: string;
+            /** Evidence Snapshot */
+            evidence_snapshot: string;
+            /** Checklist */
+            checklist: components["schemas"]["ChecklistItem"][];
         };
         /** CommunicationDetail */
         CommunicationDetail: {
@@ -1359,6 +1484,15 @@ export interface components {
              */
             created_at: string;
         };
+        /** DisputeOutcomeRequest */
+        DisputeOutcomeRequest: {
+            /** Case Id */
+            case_id: string;
+            /** Outcome */
+            outcome: string;
+            /** Reference */
+            reference: string;
+        };
         /** DisputeSummary */
         DisputeSummary: {
             /** Status */
@@ -1528,6 +1662,29 @@ export interface components {
             cardholder: number;
             /** Reviewer */
             reviewer: number;
+        };
+        /** FinalMessageView */
+        FinalMessageView: {
+            /** Message Id */
+            message_id: string;
+            /** Status */
+            status: string;
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Sent At */
+            sent_at: string | null;
+            /** Execution Id */
+            execution_id: number | null;
         };
         /** FindingView */
         FindingView: {
@@ -3431,6 +3588,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoneyView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_checklist_api_cases__case_id__closure_checklist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureChecklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_final_message_api_cases__case_id__final_message_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalMessageView"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_closure_api_cases__case_id__closure_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureRecordView"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_dispute_outcome_api_demo_dispute_outcome_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeOutcomeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
