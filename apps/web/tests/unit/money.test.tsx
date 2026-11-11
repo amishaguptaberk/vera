@@ -14,6 +14,8 @@ import monitoring from '../fixtures/money/case-monitoring.json';
 import closed from '../fixtures/money/case-closed.json';
 import finalStep from '../fixtures/money/case-final.json';
 import checklist from '../fixtures/money/closure-checklist.json';
+import remediation from '../fixtures/money/remediation.json';
+import finalMessage from '../fixtures/money/final-message.json';
 import { mockFetch, renderWithProviders, type Call } from './helpers';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -88,6 +90,37 @@ describe('MoneyTask · credit', () => {
     r2.unmount();
     renderWithProviders(<MoneyTask caseId="CHG-1042" c={asCase(ctlApplyAdmin)} />);
     expect(screen.getByTestId('money-sim')).toBeTruthy();
+  });
+});
+
+describe('MoneyTask · served remediation and closure', () => {
+  it('tracks and control plan come from GET /remediation when served', async () => {
+    mockFetch((c) => (c.url === '/api/cases/CHG-1042/remediation' ? json(remediation) : json({ code: 'not_found', message: 'Not found' }, 404)));
+    const noPlan = { ...asCase(controlsAnalyst), control_plan: undefined, dispute: undefined, controls: undefined };
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={noPlan} />);
+    const list = await screen.findByRole('list', { name: 'Work after the decision' });
+    expect(list.textContent).toContain('Ready to submit');
+    expect(list.textContent).toContain('Recommended');
+    expect(screen.getAllByRole('checkbox')).toHaveLength(5);
+  });
+
+  it('final draft starts from the served final message', async () => {
+    api((c) => (c.url === '/api/cases/CHG-1042/final-message' ? json(finalMessage) : undefined));
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={asCase(finalStep)} />);
+    expect(await screen.findByDisplayValue('Hi Priya, we issued a temporary credit.')).toBeTruthy();
+  });
+
+  it('close_case asks for reason and outcome before running', async () => {
+    const calls = api((c) => (c.method === 'POST' ? json({ status: 'recorded', result: {}, case: close }) : undefined));
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={asCase(close)} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Close case — monitoring active' }));
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+    await userEvent.type(screen.getByLabelText('Reason'), 'Credit issued, dispute submitted');
+    await userEvent.type(screen.getByLabelText('Outcome (resolved, no_action or unresolved)'), 'resolved');
+    await userEvent.click(screen.getByRole('button', { name: 'Close case — monitoring active' }));
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect(post.url).toBe('/api/cases/CHG-1042/commands/close_case');
+    expect((JSON.parse(post.body!) as { payload: unknown }).payload).toEqual({ reason: 'Credit issued, dispute submitted', outcome: 'resolved' });
   });
 });
 

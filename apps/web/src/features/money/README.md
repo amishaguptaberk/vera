@@ -14,7 +14,11 @@
 
 ## Endpoints / commands
 - `GET /api/cases/{id}/closure-checklist` (VER-011) — key `[...caseKey(id), 'closure-checklist']`; 404 → "not available yet".
+- `GET /api/cases/{id}/remediation` (VER-010 MoneyView) — tracks + control-plan names; 404 → tracks fall back to optional CaseView fields, else hidden.
+- `GET /api/cases/{id}/final-message` (VER-011) — seeds the final draft editor.
 - `GET /api/cases/{id}/executions` (VER-010) — `executionsQuery` exported, not yet rendered.
+- `close_case` payload `{reason, outcome}` is collected by MoneyTask's inline form (`commandForms`).
+- Preview: `previewStates` (preview.tsx) uses `dev-fixtures/` only; mount it in the VERA_PREVIEW=1 /preview route.
 - Commands via `useRunCommand` (key echoed from the action): `issue_provisional_credit`, `lookup_execution_result`,
   `prepare_dispute_packet`, `open_dispute_packet`, `review_dispute_packet`, `submit_dispute`, `propose_card_controls`
   (`{controls}`), `skip_card_controls`, `approve_card_controls` (`{controls}`), `decline_card_controls`,

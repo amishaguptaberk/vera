@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { ApiError, useRunCommand, type ActionView } from '@/api';
 import { ActionBar } from '@/components/case';
 import { ClosureChecklist, ControlPlan, FinalDraft, ParallelTracks, SimulatedNote, TaskNote, TaskParas, type ClosureItemView, type TrackRow } from '@/components/money';
-import { Banner, Button } from '@/design-system/primitives';
-import type { ControlsStatus, DisputeStatus, MoneyCaseView } from './contract';
-import { useClosureChecklist } from './queries';
+import { Banner, Button, Field } from '@/design-system/primitives';
+import { commandForms } from './command-forms';
+import type { ControlPlanItem, ControlsStatus, DisputeStatus, MoneyCaseView, RemediationBody } from './contract';
+import { useClosureChecklist, useFinalMessage, useRemediation } from './queries';
 
 type Step = MoneyCaseView['step'];
 
@@ -47,6 +48,13 @@ const CONTROL_LIST_COMMANDS = new Set(['propose_card_controls', 'approve_card_co
 /** Commands whose payload carries the edited final message body. */
 const BODY_COMMANDS = new Set(['update_final_message', 'send_final_message']);
 
+// Prototype DSP_L / CTL_L (Main.dc.html 3754-3755): display copy for the server's status values.
+const DSP_L: Record<string, string> = { not_prepared: 'Not prepared', prepared: 'Prepared', ready_for_review: 'Ready for review', ready_to_submit: 'Ready to submit', submitted: 'Submission recorded · simulated', failed: 'Submission failed', accepted: 'Accepted', denied: 'Denied' };
+const CTL_L: Record<string, string> = { not_recommended: 'Not recommended', recommended: 'Recommended', awaiting_approval: 'Awaiting admin approval', approved: 'Approved', applied: 'Applied · simulated', declined: 'Declined' };
+// Generic names for the server's ControlName values. GAP: per-case reason/scope/reversibility are not served yet.
+const CONTROL_LABEL: Record<string, string> = { lock: 'Lock card', replace: 'Replace card', virtual: 'Create replacement virtual card', block: 'Block merchant on this card', monitor: 'Monitor merchant for 30 days' };
+const CONTROL_STEPS = new Set<Step>(['controls', 'waitctl', 'ctl_apply']);
+
 const TRACK_STEPS = new Set<Step>(['controls', 'ctl_prep', 'dsp_prepare', 'dsp_open', 'dsp_review', 'dsp_submit', 'dsp_failed', 'waitctl', 'ctl_apply']);
 const CLOSURE_STEPS = new Set<Step>(['finalprep', 'final', 'close']);
 
@@ -55,13 +63,15 @@ const disputeSlot = (s: DisputeStatus): TrackRow['slot'] =>
 const controlsSlot = (s: ControlsStatus): TrackRow['slot'] =>
   s === 'applied' || s === 'declined' ? 'done' : s === 'awaiting_approval' || s === 'approved' ? 'wait' : 'idle';
 
-function tracksFor(c: MoneyCaseView): TrackRow[] {
-  if (!TRACK_STEPS.has(c.step) || !c.dispute || !c.controls) return [];
+function tracksFor(c: MoneyCaseView, r: RemediationBody | undefined): TrackRow[] {
+  const dStatus = r?.dispute.status ?? c.dispute?.status;
+  const cStatus = r?.controls.status ?? c.controls?.status;
+  if (!TRACK_STEPS.has(c.step) || !dStatus || !cStatus) return [];
   const dsp = c.step.startsWith('dsp_');
   const ctl = c.step === 'controls' || c.step === 'ctl_prep';
   return [
-    { key: 'dispute', name: 'Dispute packet', status: c.dispute.label, slot: dsp ? 'review' : disputeSlot(c.dispute.status), on: dsp, canGo: false },
-    { key: 'controls', name: 'Card controls', status: c.controls.label, slot: ctl ? 'review' : controlsSlot(c.controls.status), on: ctl, canGo: false },
+    { key: 'dispute', name: 'Dispute packet', status: DSP_L[dStatus] ?? c.dispute?.label ?? dStatus, slot: dsp ? 'review' : disputeSlot(dStatus as DisputeStatus), on: dsp, canGo: false },
+    { key: 'controls', name: 'Card controls', status: CTL_L[cStatus] ?? c.controls?.label ?? cStatus, slot: ctl ? 'review' : controlsSlot(cStatus as ControlsStatus), on: ctl, canGo: false },
   ];
 }
 
@@ -74,9 +84,18 @@ export type MoneyTaskProps = { caseId: string; c: MoneyCaseView; onOpenRecord?: 
  */
 export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
   const run = useRunCommand(caseId);
-  const plan = c.control_plan ?? null;
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(plan?.requested ?? plan?.items.map((i) => i.key) ?? []));
-  const [body, setBody] = useState<string>(c.final_message?.body ?? '');
+  const remediation = useRemediation(caseId, TRACK_STEPS.has(c.step) || CONTROL_STEPS.has(c.step));
+  const finalMessage = useFinalMessage(caseId, c.step === 'final');
+  const served = remediation.data?.controls.controls ?? [];
+  const planItems: ControlPlanItem[] =
+    c.control_plan?.items ??
+    served.map((k) => ({ key: k, label: CONTROL_LABEL[k] ?? k, why: '', affects: '', effect: '', reversible: '', permission: '', record_id: null }));
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const selected = picked ?? new Set(c.control_plan?.requested ?? planItems.map((i) => i.key));
+  const [edited, setEdited] = useState<string | null>(null);
+  const body = edited ?? c.final_message?.body ?? finalMessage.data?.body ?? '';
+  const [formFor, setFormFor] = useState<ActionView | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [draftError, setDraftError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<ActionView | null>(null);
@@ -88,16 +107,17 @@ export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
   const paras = COPY[c.step];
   const creditNote = c.credit && (c.step === 'issue' || c.step === 'credit_check') ? CREDIT_NOTE[c.credit.status] : undefined;
 
-  const execute = (action: ActionView) => {
+  const execute = (action: ActionView, extra: Record<string, unknown> = {}) => {
     setNotice(null);
     setDraftError(null);
     setConfirming(null);
-    const payload: Record<string, unknown> = {};
+    const payload: Record<string, unknown> = { ...extra };
     if (CONTROL_LIST_COMMANDS.has(action.command)) payload.controls = [...selected];
     if (BODY_COMMANDS.has(action.command)) payload.body = body;
     run.mutate(
       { action, caseVersion: c.case_version, payload },
       {
+        onSuccess: () => setFormFor(null),
         onError: (e) => {
           if (e.status === 422 && BODY_COMMANDS.has(action.command)) setDraftError(e.message);
           else if (e.code === 'stale_case_version') setNotice('This case changed while you were viewing it. The latest version is shown; nothing was retried.');
@@ -106,24 +126,30 @@ export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
       },
     );
   };
-  const onAction = (a: ActionView) => (a.confirm ? setConfirming(a) : execute(a));
+  const onAction = (a: ActionView) => {
+    if (commandForms[a.command]) {
+      setFormValues({});
+      setFormFor(a);
+    } else if (a.confirm) setConfirming(a);
+    else execute(a);
+  };
 
   const items: ClosureItemView[] | null = checklist.data
-    ? checklist.data.items.map((i) => ({ key: i.key, label: i.label, status: i.status, detail: i.detail, owner_name: i.owner?.name ?? null, next_action: i.next_action, record_ids: i.record_ids }))
+    ? checklist.data.items.map((i) => ({ key: i.name, label: i.label, status: i.status, detail: i.detail, owner_name: i.owner?.name ?? null, next_action: i.next_action ?? null, record_ids: i.record_ids }))
     : null;
   const unavailable = checklist.isError ? (checklist.error instanceof ApiError && checklist.error.status === 404 ? 'Closure checklist · not available yet' : `Closure checklist · could not load: ${checklist.error.message}`) : null;
 
   return (
     <div data-testid="money-task" data-step={c.step}>
       {paras ? <TaskParas paras={[paras]} /> : null}
-      <ParallelTracks tracks={tracksFor(c)} onFocus={() => {}} />
-      {plan && (c.step === 'controls' || c.step === 'waitctl' || c.step === 'ctl_apply') ? (
+      <ParallelTracks tracks={tracksFor(c, remediation.data)} onFocus={() => {}} />
+      {planItems.length && CONTROL_STEPS.has(c.step) ? (
         <ControlPlan
-          items={plan.items}
+          items={planItems}
           selected={selected}
           editable={editableControls}
-          onToggle={(k) => setSelected((s) => {
-            const n = new Set(s);
+          onToggle={(k) => setPicked(() => {
+            const n = new Set(selected);
             if (n.has(k)) n.delete(k);
             else n.add(k);
             return n;
@@ -132,11 +158,30 @@ export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
         />
       ) : null}
       {c.step === 'final' ? (
-        <FinalDraft to={c.final_message?.to ?? c.cardholder.name} value={body} error={draftError} onChange={setBody} />
+        <FinalDraft to={c.final_message?.to ?? c.cardholder.name} value={body} error={draftError} onChange={setEdited} />
       ) : null}
       {CLOSURE_STEPS.has(c.step) ? <ClosureChecklist items={items} unavailable={unavailable} onOpenRecord={onOpenRecord} /> : null}
       {notice ? <Banner tone="bad">{notice}</Banner> : null}
-      {confirming ? (
+      {formFor ? (
+        <form
+          aria-label={formFor.label}
+          onSubmit={(e) => {
+            e.preventDefault();
+            execute(formFor, formValues);
+          }}
+        >
+          {commandForms[formFor.command]!.map((f) => (
+            <Field key={f.name} label={f.label} multiline={f.multiline ? true : undefined} placeholder={f.placeholder} value={formValues[f.name] ?? ''} onChange={(e: { target: { value: string } }) => setFormValues((v) => ({ ...v, [f.name]: e.target.value }))} />
+          ))}
+          {formFor.confirm ? <p>{formFor.confirm}</p> : null}
+          <Button variant="go" type="submit" disabled={run.isPending}>
+            {formFor.label}
+          </Button>
+          <Button variant="ghost" onClick={() => setFormFor(null)}>
+            Cancel
+          </Button>
+        </form>
+      ) : confirming ? (
         <div role="group" aria-label="Case actions">
           <p>{confirming.confirm}</p>
           <Button variant="go" disabled={run.isPending} onClick={() => execute(confirming)}>

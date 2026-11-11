@@ -5,4 +5,9 @@ import type { FormField } from '@/features/case/command-forms';
 export const commandForms: Readonly<Record<string, readonly FormField[]>> = {
   skip_card_controls: [{ name: 'reason', label: 'Reason', multiline: true }],
   decline_card_controls: [{ name: 'reason', label: 'Reason', multiline: true }],
+  // VER-011 CloseCasePayload: reason (5-500 chars), outcome resolved | no_action | unresolved.
+  close_case: [
+    { name: 'reason', label: 'Reason', multiline: true },
+    { name: 'outcome', label: 'Outcome (resolved, no_action or unresolved)', placeholder: 'resolved' },
+  ],
 };

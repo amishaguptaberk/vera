@@ -1,9 +1,8 @@
 // Typed contract for the money / remediation / closure screens (VER-012-F8).
-// Written from docs/spec/Vera_Handoff.md §3.2 (CaseView.credit / dispute / controls, ControlPlan, ClosureChecklist)
-// and the VER-010 / VER-011 ticket descriptions. Neither backend module (money.py, closure.py) existed in its
-// worktree when this was written; every field below that is not yet in src/api/schema.d.ts is OPTIONAL so the
-// screens degrade honestly ("Not available yet") instead of inventing data. Align with the generated schema
-// once the backends merge.
+// Aligned (00:22) with the VER-010 worktree (services/api/vera_api/money.py: ExecutionView, ExecutionList,
+// MoneyView / CreditSummary / DisputeSummary / ControlsSummary, GET /remediation, GET /executions) and the VER-011
+// worktree (packages/domain/vera_domain/closure.py ChecklistItem / ClosureChecklist; closure.py FinalMessageView,
+// GET /closure-checklist, GET /final-message). CaseView extensions from Handoff §3.2 stay OPTIONAL (not served yet).
 import type { CaseView } from '@/api';
 
 export type CreditStatus = 'not_eligible' | 'eligible' | 'awaiting_approval' | 'approved' | 'issued' | 'checking' | 'finalized' | 'reversed';
@@ -37,25 +36,40 @@ export type MoneyCaseView = CaseView & {
   final_message?: { communication_id: string; to: string; body: string } | null;
 };
 
-/** GET /api/cases/{id}/closure-checklist (VER-011). */
+/** GET /api/cases/{id}/closure-checklist (VER-011 ChecklistItem). `owner` / `next_action` are GAPS (not served yet). */
 export type ClosureItem = {
-  key: string;
+  name: string;
   label: string;
   status: 'met' | 'unmet' | 'unknown';
-  detail: string;
-  owner: { id: string; name: string } | null;
-  next_action: string | null;
   record_ids: string[];
+  detail: string;
+  owner?: { id: string; name: string } | null;
+  next_action?: string | null;
 };
-export type ClosureChecklistBody = { case_id: string; items: ClosureItem[]; can_close?: boolean; will_monitor?: boolean };
+export type ClosureChecklistBody = { case_id: string; ready: boolean; items: ClosureItem[] };
 
-/** GET /api/cases/{id}/executions (VER-010). */
-export type ExecutionView = {
-  execution_id: string;
-  operation: string;
-  status: string;
-  idempotency_key: string;
-  target?: string | null;
-  result?: Record<string, unknown> | null;
+/** GET /api/cases/{id}/remediation (VER-010 MoneyView). */
+export type RemediationBody = {
+  case_id: string;
+  credit: { status: string; credit_id?: string | null; amount_cents?: number | null; currency?: string | null; issued_at?: string | null; simulated: boolean };
+  dispute: { status: string; dispute_id?: string | null; submission_id?: string | null; submitted_at?: string | null; simulated: boolean };
+  controls: { status: string; plan_id?: number | null; controls: string[]; applied: string[]; reason?: string | null; simulated: boolean };
 };
-export type ExecutionsBody = { executions: ExecutionView[] };
+
+/** GET /api/cases/{id}/executions (VER-010 ExecutionView). */
+export type ExecutionView = {
+  id: number;
+  adapter: string;
+  operation: string;
+  idempotency_key: string;
+  status: string;
+  attempts: number;
+  error: string | null;
+  simulated: boolean;
+  created_at: string;
+  updated_at: string;
+};
+export type ExecutionsBody = { case_id: string; executions: ExecutionView[] };
+
+/** GET /api/cases/{id}/final-message (VER-011 FinalMessageView; null when none drafted). */
+export type FinalMessageBody = { message_id: string; status: string; body: string; created_at: string; updated_at: string; sent_at: string | null; execution_id: number | null } | null;
