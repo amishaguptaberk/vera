@@ -1,0 +1,27 @@
+/* Ported from prototype Main.dc.html: .focus/.focus-in/.f-eyebrow/.f-dot/.f-title/.f-p (85-91), .pk/.pk-k (370-371),
+   .m-cites (224), .fine (190), .err (127), .field/.ta (122-126), .acts (96). */
+.focus { border: 1px solid #d9d6d1; border-radius: 12px; background: var(--paper); overflow: hidden; transition: box-shadow 0.4s; }
+.focusIn { padding: 22px 24px 20px; }
+.eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.lbl { color: var(--ink); font-weight: 500; font-size: var(--font-size-label); }
+.dot { width: 8px; height: 8px; border-radius: 2px; background: var(--chart); box-shadow: 0 0 0 1px var(--ink); }
+.title { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; margin: 0 0 6px; max-width: 46ch; }
+.p { margin: 0 0 8px; color: var(--ink2); max-width: 68ch; font-size: 13.5px; }
+.pk { border-top: 1px solid #efede9; padding: 10px 0; }
+.pkK { font-size: 12px; color: var(--mute); margin-bottom: 2px; }
+.cites { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.fine { font-size: 12.5px; color: var(--mute); margin: 8px 0 0; }
+.rule { border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px; }
+.err { font-size: 12.5px; color: var(--ink); font-weight: 510; margin: 0 0 10px; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.field { display: flex; flex-direction: column; gap: 4px; width: 100%; margin: 14px 0 6px; }
+.field label { font-size: 12px; font-weight: 510; color: var(--ink2); }
+.ta { min-height: 56px; resize: vertical; line-height: 1.55; font: inherit; font-size: 13.5px; border: 1px solid #d3d3d3; border-radius: var(--radius-input); padding: 8px 10px; color: var(--ink); background: var(--paper); }
+.ta:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.rules { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ruleRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fail { font-weight: 510; color: var(--ink); }
+.hist { list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: var(--ink2); }
+.hist li { padding: 4px 0; }
+@media (max-width: 700px) { .focusIn { padding: 18px 16px; } }
+@media (prefers-reduced-motion: reduce) { .focus { transition: none; } }
