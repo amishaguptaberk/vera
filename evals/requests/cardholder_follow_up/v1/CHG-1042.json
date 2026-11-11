@@ -1,0 +1,122 @@
+{
+  "messages": [
+    {
+      "content": "Cardholder Follow-up specialist. Purpose: draft ONE short request to the cardholder that asks only about the unresolved items listed (open findings and missing records). Read every value you use with the read_field tool; only unresolved items can be read. Each question must cite the item it resolves as resolves={record_id, version, field, value}, exactly as read_field returned it, and give finding_id when it resolves an open finding. Do not ask about anything already supported. Do not mention policy, internal ids of staff, specialists or findings in the question text. You never send anything. Reply with one JSON object only.\n\nOutput JSON schema: {\"$defs\": {\"Citation\": {\"properties\": {\"record_id\": {\"title\": \"Record Id\", \"type\": \"string\"}, \"version\": {\"minimum\": 1, \"title\": \"Version\", \"type\": \"integer\"}, \"field\": {\"title\": \"Field\", \"type\": \"string\"}, \"value\": {\"title\": \"Value\"}}, \"required\": [\"record_id\", \"version\", \"field\", \"value\"], \"title\": \"Citation\", \"type\": \"object\"}, \"Question\": {\"properties\": {\"text\": {\"maxLength\": 500, \"minLength\": 5, \"title\": \"Text\", \"type\": \"string\"}, \"resolves\": {\"$ref\": \"#/$defs/Citation\"}, \"finding_id\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}], \"default\": null, \"title\": \"Finding Id\"}}, \"required\": [\"text\", \"resolves\"], \"title\": \"Question\", \"type\": \"object\"}}, \"properties\": {\"subject\": {\"maxLength\": 200, \"minLength\": 3, \"title\": \"Subject\", \"type\": \"string\"}, \"questions\": {\"items\": {\"$ref\": \"#/$defs/Question\"}, \"maxItems\": 5, \"minItems\": 1, \"title\": \"Questions\", \"type\": \"array\"}}, \"required\": [\"subject\", \"questions\"], \"title\": \"FollowUpOutput\", \"type\": \"object\"}",
+      "role": "system"
+    },
+    {
+      "content": "{\"case_id\": \"CHG-1042\", \"initial_report_id\": \"REP-1042\", \"missing_records\": [], \"open_findings\": [{\"finding_id\": \"FND-run_ae41ed5517ee-charge_investigator-1\", \"kind\": \"conflict\", \"links\": [{\"field\": \"amount_cents\", \"record_id\": \"CHG-1042\", \"version\": 1}, {\"field\": \"approved_amount_cents\", \"record_id\": \"PO-219\", \"version\": 1}]}, {\"finding_id\": \"FND-run_ae41ed5517ee-charge_investigator-2\", \"kind\": \"conflict\", \"links\": [{\"field\": \"received_quantity\", \"record_id\": \"DLV-882\", \"version\": 1}, {\"field\": \"approved_quantity\", \"record_id\": \"PO-219\", \"version\": 1}]}, {\"finding_id\": \"FND-run_ae41ed5517ee-receipt_document_reviewer-1\", \"kind\": \"discrepancy\", \"links\": [{\"field\": \"amount_cents\", \"record_id\": \"CHG-1042\", \"version\": 1}]}, {\"finding_id\": \"FND-run_ae41ed5517ee-receipt_document_reviewer-2\", \"kind\": \"note\", \"links\": [{\"field\": \"statement\", \"record_id\": \"REP-1042\", \"version\": 1}]}, {\"finding_id\": \"FND-run_ae41ed5517ee-related_transaction_investigator-1\", \"kind\": \"related_charge\", \"links\": [{\"field\": \"merchant\", \"record_id\": \"CHG-1042\", \"version\": 1}, {\"field\": \"amount_cents\", \"record_id\": \"CHG-1051\", \"version\": 1}, {\"field\": \"merchant\", \"record_id\": \"CHG-1051\", \"version\": 1}]}, {\"finding_id\": \"FND-run_ae41ed5517ee-related_transaction_investigator-2\", \"kind\": \"note\", \"links\": [{\"field\": \"amount_cents\", \"record_id\": \"CHG-1048\", \"version\": 1}]}]}",
+      "role": "user"
+    }
+  ],
+  "response_schema": {
+    "$defs": {
+      "Citation": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "version",
+          "field",
+          "value"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "Question": {
+        "properties": {
+          "finding_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finding Id"
+          },
+          "resolves": {
+            "$ref": "#/$defs/Citation"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 5,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "resolves"
+        ],
+        "title": "Question",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "questions": {
+        "items": {
+          "$ref": "#/$defs/Question"
+        },
+        "maxItems": 5,
+        "minItems": 1,
+        "title": "Questions",
+        "type": "array"
+      },
+      "subject": {
+        "maxLength": 200,
+        "minLength": 3,
+        "title": "Subject",
+        "type": "string"
+      }
+    },
+    "required": [
+      "subject",
+      "questions"
+    ],
+    "title": "FollowUpOutput",
+    "type": "object"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Read one field of a record.",
+        "name": "read_field",
+        "parameters": {
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "record_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "record_id",
+            "field"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

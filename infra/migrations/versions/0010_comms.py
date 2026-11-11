@@ -29,6 +29,7 @@ def upgrade() -> None:
             attachments jsonb not null default '[]',
             delivery jsonb,
             reminders integer not null default 0,
+            review_recommendation jsonb,
             response_review text not null default 'none' check (response_review in
                 ('none', 'complete', 'incomplete', 'conflicting')),
             created_by text not null,

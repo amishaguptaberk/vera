@@ -1,0 +1,25 @@
+{
+  "content": {
+    "citations": [
+      {
+        "field": "text",
+        "record_id": "RSP-2201",
+        "statement": "The reply says the cardholder placed the order.",
+        "value": "Attached is the Northstar receipt. I placed this order for the warehouse myself.",
+        "version": 1
+      },
+      {
+        "field": "statement",
+        "record_id": "REP-1042",
+        "statement": "The initial report says the cardholder does not recognize the charge.",
+        "value": "I do not recognize this charge.",
+        "version": 1
+      }
+    ],
+    "classification": "conflicting"
+  },
+  "model_id": "reference-recording",
+  "provenance": "reference",
+  "tool_calls": [],
+  "usage": {}
+}

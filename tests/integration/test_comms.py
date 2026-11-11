@@ -1,7 +1,11 @@
 """VER-005: cardholder follow-up through HTTP commands, cardholder routes and the watcher."""
 
+import json
+import re
+import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -10,10 +14,11 @@ from command_payloads import register_test_payloads
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
-from vera_api import investigation
+from vera_api import comms, investigation
 from vera_api.worker import run_once
 
 CASE = "CHG-1042"
+REC = Path("evals/recordings")
 SHA = "a" * 64
 RECEIPT = {
     "file_name": "northstar-receipt.pdf",
@@ -21,11 +26,13 @@ RECEIPT = {
     "size_bytes": 48213,
     "sha256": SHA,
 }
+REPLY = "Attached is the Northstar receipt. I placed this order for the warehouse myself."
 SEND = {"channel": "email", "subject": "Question about your Northstar charge", "attachments": []}
 
 register_test_payloads(
     {
         "draft_follow_up": {},
+        "retry_follow_up_draft": {"mode": "replay"},
         "update_communication_draft": {
             "subject": "Question about your charge",
             "body": "Please upload the receipt for this charge.",
@@ -52,6 +59,7 @@ def factory(client: TestClient, db_url: str) -> Iterator[sessionmaker[Session]]:
 @pytest.fixture(autouse=True)
 def _seams(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(investigation, "LIVE_SLEEP", lambda _s: None)
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", REC)
     monkeypatch.delenv("VERA_EXECUTION_MODE", raising=False)
 
 
@@ -88,6 +96,22 @@ def step(client: TestClient) -> tuple[str, str]:
     return c["state"], c["step"]
 
 
+def drain(factory: sessionmaker[Session]) -> None:
+    t = datetime(2031, 1, 1, tzinfo=UTC)
+    with factory() as s:
+        n = 0
+        while run_once(s, worker_id="w-test", now=t + timedelta(minutes=n)) is not None:
+            n += 1
+            assert n < 20
+
+
+def draft(client: TestClient, factory: sessionmaker[Session]) -> None:
+    r = command(client, "draft_follow_up", f"draft:{CASE}")
+    assert r.status_code == 200, r.text
+    drain(factory)
+    assert step(client) == ("investigating", "draft")
+
+
 def to_draft(client: TestClient, factory: sessionmaker[Session]) -> None:
     role(client, "analyst")
     uid = client.get("/api/session").json()["user"]["id"]
@@ -103,8 +127,7 @@ def to_draft(client: TestClient, factory: sessionmaker[Session]) -> None:
 
 def drafted_and_sent(client: TestClient, factory: sessionmaker[Session]) -> httpx.Response:
     to_draft(client, factory)
-    r = command(client, "draft_follow_up", f"draft:{CASE}")
-    assert r.status_code == 200, r.text
+    draft(client, factory)
     return command(client, "send_communication", f"send:{CASE}", SEND)
 
 
@@ -170,7 +193,7 @@ def test_specialist_and_cardholder_cannot_send(
     client: TestClient, factory: sessionmaker[Session]
 ) -> None:
     to_draft(client, factory)
-    assert command(client, "draft_follow_up", f"draft:{CASE}").status_code == 200
+    draft(client, factory)
     v = version(client)
     role(client, "cardholder")
     r = client.post(
@@ -215,7 +238,7 @@ def test_missed_deadline_recorded_once_and_reminder_is_explicit(
     drafted_and_sent(client, factory)
     assert client.post("/api/demo/run-deadline-watcher", json={}).json()["marked_overdue"] == []
     r = client.post("/api/demo/run-deadline-watcher", json={"advance_hours": 24 * 365 * 10})
-    assert r.json()["marked_overdue"] == ["MSG-2201"]
+    assert r.json()["marked_overdue"] == [CASE]
     r = client.post("/api/demo/run-deadline-watcher", json={"advance_hours": 24 * 365 * 10})
     assert r.json()["marked_overdue"] == []
     assert (
@@ -237,7 +260,7 @@ def test_missed_deadline_recorded_once_and_reminder_is_explicit(
 
 def test_second_follow_up_is_rejected(client: TestClient, factory: sessionmaker[Session]) -> None:
     to_draft(client, factory)
-    assert command(client, "draft_follow_up", f"draft:{CASE}").status_code == 200
+    draft(client, factory)
     with factory() as s:  # a second draft needs a fresh key; the service still refuses it
         s.execute(text("delete from idempotency_keys where command='draft_follow_up'"))
         s.commit()
@@ -251,7 +274,7 @@ def test_conflicting_review_opens_one_conflict_finding_and_blocks_decision(
 ) -> None:
     drafted_and_sent(client, factory)
     role(client, "cardholder")
-    client.post("/api/requests/MSG-2201/responses", json={"text": "I never bought anything."})
+    client.post("/api/requests/MSG-2201/responses", json={"text": REPLY})
     v = version(client)
     r = command(
         client, "review_cardholder_response", f"review:{CASE}:{v}", {"outcome": "conflicting"}
@@ -260,3 +283,145 @@ def test_conflicting_review_opens_one_conflict_finding_and_blocks_decision(
     rows = q(factory, "select kind, status from findings where id like 'FND-MSG-2201%'")
     assert rows == [("conflict", "open")]
     assert step(client) == ("callback_pending", "idv")
+
+
+# ---- specialists --------------------------------------------------------------------------------
+
+
+def test_follow_up_specialist_drafts_only_unresolved_questions_and_never_sends(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_draft(client, factory)
+    draft(client, factory)
+    detail = client.get(f"/api/cases/{CASE}/communications/MSG-2201").json()
+    assert detail["status"] == "drafted"
+    assert detail["questions"] == [
+        "Please upload the receipt or invoice for this $2,840.00 charge.",
+        "Can you tell us more about this charge: did you or someone on your team place this order?",
+    ]
+    assert detail["draft_versions"] == 1
+    assert q(factory, "select count(*) from adapter_executions")[0][0] == 0
+    step_row = q(
+        factory,
+        "select status, execution_mode from workflow_steps where step_key='cardholder_follow_up'",
+    )
+    assert step_row == [("succeeded", "replay")]
+
+
+def test_follow_up_question_on_a_supported_item_fails_then_retry_recovers(
+    client: TestClient, factory: sessionmaker[Session], tmp_path: Path
+) -> None:
+    root = tmp_path / "rec"
+    shutil.copytree(REC, root)
+    d = root / "cardholder_follow_up" / "v1"
+    good = json.loads((d / "CHG-1042.1.json").read_text())
+    bad = json.loads(json.dumps(good))
+    bad["content"]["questions"][0]["resolves"] = {
+        "record_id": "PO-219",
+        "version": 1,
+        "field": "approved_amount_cents",
+        "value": 284000,
+    }
+    for n in (1, 2, 3):  # first answer + two validation retries all cite a supported record
+        (d / f"CHG-1042.{n}.json").write_text(json.dumps(bad))
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(investigation, "RECORDINGS_ROOT", root)
+        to_draft(client, factory)
+        assert command(client, "draft_follow_up", f"draft:{CASE}").status_code == 200
+        drain(factory)
+        assert step(client) == ("investigating", "working")
+        assert q(factory, "select count(*) from communications")[0][0] == 0
+        failed = q(
+            factory,
+            "select status, failure_reason from workflow_steps "
+            "where step_key='cardholder_follow_up'",
+        )
+        assert failed == [("failed", "ungrounded")]
+        actions = client.get(f"/api/cases/{CASE}").json()["available_actions"]
+        assert "retry_follow_up_draft" in [a["command"] for a in actions]
+        mp.setattr(investigation, "RECORDINGS_ROOT", REC)
+        run_id = q(factory, "select id from workflow_runs where id like 'run_fu_%'")[0][0]
+        r = command(
+            client,
+            "retry_follow_up_draft",
+            f"retry-draft:{CASE}:{run_id}:replay",
+            {"mode": "replay"},
+        )
+        assert r.status_code == 200, r.text
+        drain(factory)
+    assert step(client) == ("investigating", "draft")
+
+
+def test_live_follow_up_uses_the_provider_through_mock_transport(
+    client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    turns = [
+        json.loads((REC / "cardholder_follow_up" / "v1" / f).read_text())
+        for f in ("CHG-1042.json", "CHG-1042.1.json")
+    ]
+    seen: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if "Cardholder Follow-up" not in body["messages"][0]["content"]:
+            return httpx.Response(500)
+        turn = turns[min(len(seen), 1)]
+        seen.append(1)
+        message: dict[str, Any] = {"role": "assistant", "content": json.dumps(turn["content"])}
+        if turn["tool_calls"]:
+            message = {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": json.dumps(tc["arguments"])},
+                    }
+                    for tc in turn["tool_calls"]
+                ],
+            }
+        return httpx.Response(
+            200, json={"model": "stub-model-1", "choices": [{"message": message}], "usage": {}}
+        )
+
+    to_draft(client, factory)
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", httpx.MockTransport(handle))
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    draft(client, factory)
+    assert len(seen) == 2
+    rows = q(
+        factory,
+        "select execution_mode from workflow_steps where step_key='cardholder_follow_up'",
+    )
+    assert rows == [("live",)]
+
+
+def test_response_reviewer_recommends_conflicting_but_analyst_decides(
+    client: TestClient, factory: sessionmaker[Session], tmp_path: Path
+) -> None:
+    drafted_and_sent(client, factory)
+    conflicts = q(factory, "select count(*) from findings where kind='conflict'")[0][0]
+    role(client, "cardholder")
+    assert client.post("/api/requests/MSG-2201/responses", json={"text": REPLY}).status_code == 200
+    drain(factory)
+    rec = q(factory, "select review_recommendation, response_review from communications")
+    assert rec[0][0]["classification"] == "conflicting"
+    assert rec[0][1] == "none"
+    assert step(client) == ("response_received", "response")
+    with factory() as s:  # the committed request files match what the specialists are sent
+        for path in comms.dump_requests(s, CASE, tmp_path):
+            rel = path.relative_to(tmp_path)
+
+            def norm(t: str) -> str:  # finding ids carry the random investigation run id
+                return re.sub(r"run_[0-9a-f]{6,}", "run_ID", t)
+
+            assert norm(path.read_text()) == norm((Path("evals/requests") / rel).read_text()), rel
+    # a recommendation only: the reviewer opens no finding; the analyst's review decides
+    assert q(factory, "select count(*) from findings where kind='conflict'")[0][0] == conflicts
+    v = version(client)
+    r = command(client, "review_cardholder_response", f"review:{CASE}:{v}", {"outcome": "complete"})
+    assert r.status_code == 200, r.text
+    rec = q(factory, "select review_recommendation, response_review from communications")
+    assert (rec[0][0]["classification"], rec[0][1]) == ("conflicting", "complete")
