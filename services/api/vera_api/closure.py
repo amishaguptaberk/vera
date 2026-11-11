@@ -34,21 +34,23 @@ REQUIRED sources the parallel tickets must register at integration. Until regist
 
 import uuid
 from collections.abc import Callable, Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from vera_domain.closure import (
     ChecklistItem,
     CloseCasePayload,
     ClosureChecklist,
+    RecordDisputeOutcomePayload,
     SendFinalMessagePayload,
     UpdateFinalMessagePayload,
     content_violations,
     reduce_close,
+    reduce_dispute_outcome,
     reduce_draft,
     reduce_send,
     reduce_update,
@@ -60,7 +62,7 @@ from vera_domain.enums import CaseState, CaseStep, Role, StateKind, register_eve
 from vera_domain.errors import CommandError
 from vera_domain.labels import register_event_summaries, register_labels
 
-from vera_api import adapters, auth, gateway, plugins
+from vera_api import adapters, auth, gateway, plugins, worker
 from vera_api import evidence as evidence_service
 from vera_api import policy as policy_service
 from vera_api.auth import STAFF_ROLES, Actor
@@ -359,10 +361,28 @@ def _close_effect(
     return {"closure_id": row.id, "monitoring": monitoring}
 
 
+def _dispute_outcome_effect(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    p: RecordDisputeOutcomePayload,
+    now: datetime,
+    ctx: EffectContext,
+) -> dict[str, Any]:
+    row = closure_record(session, case.id)
+    if row is None or not row.monitoring:
+        raise CommandError("invalid_step", 409, "The case is not monitoring a dispute.")
+    return {"closure_id": row.id}
+
+
 # ---- registration -------------------------------------------------------------------------------
 
 register_event_types(
-    "final_message.drafted", "final_message.updated", "final_message.sent", "case.closed"
+    "final_message.drafted",
+    "final_message.updated",
+    "final_message.sent",
+    "case.closed",
+    "dispute.outcome_recorded",
 )
 register_event_summaries(
     {
@@ -370,6 +390,7 @@ register_event_summaries(
         "final_message.updated": "Final update edited",
         "final_message.sent": "Final update sent to the cardholder",
         "case.closed": "Case closed",
+        "dispute.outcome_recorded": "Dispute outcome received",
     }
 )
 register_labels(
@@ -447,14 +468,31 @@ CLOSE = CommandSpec(
     "primary",
 )
 
+# Service principal only (the card network adapter via the ingest job); the one command the
+# closed gate lets through while the case is MONITORING.
+DISPUTE_OUTCOME = CommandSpec(
+    "record_dispute_outcome",
+    frozenset({Role.SYSTEM}),
+    RecordDisputeOutcomePayload,
+    StepSet(include=frozenset({(CaseState.MONITORING, CaseStep.MONITORING)})),
+    "dispute-outcome:{case_id}",
+    reduce_dispute_outcome,
+    ("dispute.outcome_recorded", "case.closed"),
+    "Record dispute outcome",
+    "ghost",
+    allowed_in_monitoring=True,
+)
+
 gateway.register_commands(
     __name__,
     human={s.name: s for s in (DRAFT, UPDATE, SEND, CLOSE)},
+    service={DISPUTE_OUTCOME.name: DISPUTE_OUTCOME},
     effects={
         DRAFT.name: _draft_effect,
         UPDATE.name: _update_effect,
         SEND.name: _send_effect,
         CLOSE.name: _close_effect,
+        DISPUTE_OUTCOME.name: _dispute_outcome_effect,
     },
 )
 gateway.register_fact_provider(_facts)
@@ -546,3 +584,58 @@ def get_closure(case_id: str, session: DbSession, actor: StaffDep) -> ClosureRec
 
 
 plugins.register_router(router)
+
+
+# ---- dispute outcome ingestion (worker job + synthetic trigger) ---------------------------------
+
+DISPUTE_OUTCOME_JOB = "dispute_outcome_ingest"
+NETWORK = Actor("svc-dispute-network", "Card network", Role.SYSTEM, frozenset({Role.SYSTEM}))
+
+
+@worker.register(DISPUTE_OUTCOME_JOB)
+def ingest_dispute_outcome(session: Session, payload: dict[str, Any], touch: Any) -> None:
+    """Apply a reported dispute outcome through the gateway as the network service principal.
+    The idempotency key is per case, so a re-delivered job replays instead of writing twice."""
+    case_id = str(payload["case_id"])
+    body = {"outcome": payload["outcome"], "reference": payload["reference"]}
+    for _ in range(8):
+        version = session.scalars(select(Case.case_version).where(Case.id == case_id)).one()
+        session.rollback()
+        try:
+            gateway.execute_command(
+                session,
+                now=datetime.now(UTC),
+                case_id=case_id,
+                command=DISPUTE_OUTCOME.name,
+                key=f"dispute-outcome:{case_id}",
+                expected_version=version,
+                payload=body,
+                actor=NETWORK,
+                request_id=f"worker:dispute-outcome:{case_id}",
+            )
+            return
+        except CommandError as exc:
+            if exc.code != "stale_case_version":
+                raise
+    raise RuntimeError("record_dispute_outcome kept racing on the case version")
+
+
+class DisputeOutcomeRequest(BaseModel):
+    case_id: str = Field(min_length=1)
+    outcome: str = Field(min_length=1)
+    reference: str = Field(min_length=1, max_length=100)
+
+
+demo_router = APIRouter(prefix="/api/demo")
+
+
+@demo_router.post("/dispute-outcome")
+def post_dispute_outcome(body: DisputeOutcomeRequest, session: DbSession) -> dict[str, Any]:
+    """Synthetic only: queue the network's dispute outcome; a worker applies it."""
+    _case(session, body.case_id)
+    job_id = worker.enqueue(session, DISPUTE_OUTCOME_JOB, body.model_dump())
+    session.commit()
+    return {"job_id": job_id, "kind": DISPUTE_OUTCOME_JOB}
+
+
+plugins.register_router(demo_router, synthetic_only=True)

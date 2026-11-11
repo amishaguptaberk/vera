@@ -305,3 +305,118 @@ def test_close_is_rejected_listing_open_items(
         in resp.json()["message"]
     )
     assert view(client)["step"] == "close"
+
+
+def reach_monitoring(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch, messaging: Messaging
+) -> None:
+    reach_finalprep(
+        db,
+        monkeypatch,
+        decision="dispute",
+        dispute_status="submitted",
+        controls_status="skipped",
+    )
+    register_parallel_sources(monkeypatch)
+    assert post(client, "draft_final_message", f"final:{CASE}").status_code == 200
+    assert post(client, "send_final_message", f"final-send:{CASE}").status_code == 200
+    assert post(client, "close_case", f"close:{CASE}", CLOSE_BODY).status_code == 200
+    v = view(client)
+    assert (v["state"], v["step"]) == ("monitoring", "monitoring")
+
+
+def drain(db: Session) -> None:
+    from vera_api.worker import run_once
+
+    while run_once(db, worker_id="w-test") is not None:
+        pass
+
+
+OUTCOME = {"case_id": CASE, "outcome": "won", "reference": "NET-REF-1"}
+
+
+def test_monitoring_rejects_human_commands_including_the_outcome_command(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch, messaging: Messaging
+) -> None:
+    reach_monitoring(client, db, monkeypatch, messaging)
+    for command, key, body in [
+        ("hold_case", "k", TEST_PAYLOADS["hold_case"]),
+        ("update_final_message", "k2", TEST_PAYLOADS["update_final_message"]),
+        ("close_case", f"close2:{CASE}", CLOSE_BODY),
+    ]:
+        resp = post(client, command, key, body)
+        assert resp.status_code == 409 and resp.json()["code"] == "case_closed", command
+    resp = post(
+        client,
+        "record_dispute_outcome",
+        f"dispute-outcome:{CASE}",
+        {"outcome": "won", "reference": "NET-REF-1"},
+    )
+    assert resp.status_code == 403 and resp.json()["code"] == "role_forbidden"
+    assert "record_dispute_outcome" not in [a["command"] for a in view(client)["available_actions"]]
+    assert view(client)["state"] == "monitoring"
+
+
+def test_dispute_outcome_ingest_closes_a_monitoring_case_then_everything_is_rejected(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch, messaging: Messaging
+) -> None:
+    reach_monitoring(client, db, monkeypatch, messaging)
+    resp = client.post("/api/demo/dispute-outcome", json=OUTCOME)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["kind"] == "dispute_outcome_ingest"
+    assert view(client)["state"] == "monitoring"  # nothing applied until the worker runs
+    drain(db)
+    v = view(client)
+    assert (v["state"], v["step"]) == ("closed", "closed")
+    events = db.execute(
+        text(
+            "select type, actor_id, actor_role, detail from audit_events "
+            "where case_id = :c and type = 'dispute.outcome_recorded'"
+        ),
+        {"c": CASE},
+    ).all()
+    assert len(events) == 1
+    assert events[0].actor_id == "svc-dispute-network" and events[0].actor_role == "system"
+    assert events[0].detail["outcome"] == "won"
+    # Re-delivery replays the stored result: no second outcome event.
+    assert client.post("/api/demo/dispute-outcome", json=OUTCOME).status_code == 200
+    drain(db)
+    assert (
+        db.execute(
+            text(
+                "select count(*) from audit_events "
+                "where case_id = :c and type = 'dispute.outcome_recorded'"
+            ),
+            {"c": CASE},
+        ).scalar()
+        == 1
+    )
+    # Closed now: humans and the service outcome command (new key) are all rejected.
+    resp = post(client, "hold_case", "k", TEST_PAYLOADS["hold_case"])
+    assert resp.status_code == 409 and resp.json()["code"] == "case_closed"
+    case = db.get(Case, CASE)
+    assert case is not None
+    db.refresh(case)
+    with pytest.raises(Exception) as err:
+        gateway.execute_command(
+            db,
+            now=NOW,
+            case_id=CASE,
+            command="record_dispute_outcome",
+            key="other-key",
+            expected_version=case.case_version,
+            payload={"outcome": "lost", "reference": "NET-REF-2"},
+            actor=closure.NETWORK,
+            request_id="t",
+        )
+    assert getattr(err.value, "code", None) == "case_closed"
+
+
+def test_monitoring_exemption_applies_only_to_the_outcome_command() -> None:
+    spec = closure.DISPUTE_OUTCOME
+    assert blocked_reason(spec, CaseState.MONITORING, CaseStep.MONITORING) is None
+    closed = blocked_reason(spec, CaseState.CLOSED, CaseStep.CLOSED)
+    assert closed is not None and closed.code == "case_closed"
+    for human in REGISTRY.values():
+        gate = blocked_reason(human, CaseState.MONITORING, CaseStep.MONITORING)
+        assert gate is not None and gate.code == "case_closed", human.name

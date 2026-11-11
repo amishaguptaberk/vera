@@ -204,3 +204,40 @@ def reduce_close(f: CaseFacts, p: CloseCasePayload, ctx: ReduceContext) -> Reduc
         ],
         result={"closure_id": ctx.extra["closure_id"], "state": state},
     )
+
+
+# ---- dispute outcome (monitoring -> closed) -----------------------------------------------------
+
+DisputeOutcome = Literal["won", "lost", "withdrawn"]
+
+
+class RecordDisputeOutcomePayload(Payload):
+    """Reported by the card network adapter while the case is monitoring the dispute."""
+
+    outcome: DisputeOutcome
+    reference: str = Field(min_length=1, max_length=100)
+
+
+def reduce_dispute_outcome(
+    f: CaseFacts, p: RecordDisputeOutcomePayload, ctx: ReduceContext
+) -> Reduction:
+    closure_id = ctx.extra["closure_id"]
+    return Reduction(
+        facts=f.model_copy(update={"closed": True}),
+        reason=f"Dispute outcome recorded: {p.outcome}",
+        events=[
+            EventDraft(
+                "dispute.outcome_recorded",
+                f"Dispute outcome received: {p.outcome}",
+                [ctx.case_id, closure_id],
+                {"outcome": p.outcome, "reference": p.reference},
+            ),
+            EventDraft(
+                "case.closed",
+                "Case closed · dispute outcome received",
+                [ctx.case_id, closure_id],
+                {"outcome": p.outcome, "state": "closed"},
+            ),
+        ],
+        result={"closure_id": closure_id, "state": "closed", "outcome": p.outcome},
+    )
