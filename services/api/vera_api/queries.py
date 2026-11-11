@@ -30,7 +30,13 @@ from vera_domain.progress import ProgressStep, progress_steps
 
 from vera_api import auth, investigation
 from vera_api import policy as policy_service
-from vera_api.gateway import KEY_CONTEXTS, approval_binding, approval_state, facts_for
+from vera_api.gateway import (
+    KEY_CONTEXTS,
+    approval_binding,
+    approval_state,
+    facts_for,
+    resolve_actions,
+)
 from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
 
 
@@ -240,6 +246,8 @@ def get_case_view(
         if actor
         else ([], [])
     )
+    if actor:
+        enabled, blocked = resolve_actions(session, case, actor[0], enabled, blocked)
     return CaseView(
         case_id=case.id,
         case_version=case.case_version,

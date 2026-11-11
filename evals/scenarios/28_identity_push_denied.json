@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-006",
+  "requires": "scenario steps not written yet (VER-006 is implemented; covered by its integration tests)",
   "fixture": 28,
   "title": "Identity: push denied",
   "description": "Fixture 28: Identity: push denied. analyst sees `Verification denied`, other method available, not treated as fraud"

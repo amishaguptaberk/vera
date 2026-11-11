@@ -8,25 +8,17 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from command_payloads import TEST_PAYLOADS, TEST_USER_INPUTS
 
 from evals import harness
 
 ROLES = ["analyst", "reviewer", "card_admin", "cardholder"]
-# Inputs a human supplies on top of the action's payload_defaults.
-USER_INPUTS: dict[str, dict[str, Any]] = {
-    "hold_case": {"reason": "Waiting for the bank", "next_owner": "usr-dana-okafor"},
-    "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
-    "link_report": {"statement": "Second call about the same charge."},
-    "retry_specialist_step": {"mode": "replay"},
-}
-
-
-# A blocked action must be refused for its state, not for a malformed body.
-PROBE_INPUTS: dict[str, dict[str, Any]] = {
-    **USER_INPUTS,
-    "link_report": {"report_id": "REP-1047", "statement": "Second call about the same charge."},
-    "retry_specialist_step": {"step_key": "charge_investigator", "mode": "replay"},
-}
+# Inputs a human supplies on top of the action's payload_defaults, from the registry-wide test
+# payloads every feature registers (tests/support/payloads_<feature>.py).
+USER_INPUTS = TEST_USER_INPUTS
+# A blocked action must be refused for its state, not for a malformed body: probe with the
+# command's full valid test payload.
+PROBE_INPUTS = TEST_PAYLOADS
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +70,7 @@ def test_every_enabled_action_is_accepted_and_every_blocked_one_rejected(
             view = setup()
             for action in view["available_actions"]:
                 view = setup()
-                body = {**action["payload_defaults"], **USER_INPUTS.get(action["command"], {})}
+                body = {**action["payload_defaults"], **USER_INPUTS[action["command"]]}
                 resp = world.client.post(
                     f"/api/cases/{harness.CASE}/commands/{action['command']}",
                     json={
@@ -97,7 +89,7 @@ def test_every_enabled_action_is_accepted_and_every_blocked_one_rejected(
                     json={
                         "idempotency_key": "blocked-probe",
                         "expected_case_version": view["case_version"],
-                        "payload": PROBE_INPUTS.get(blocked["command"], {}),
+                        "payload": PROBE_INPUTS[blocked["command"]],
                     },
                 )
                 assert resp.status_code == 409, (sig, role, blocked["command"], resp.text)

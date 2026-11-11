@@ -27,9 +27,7 @@ WEB="http://127.0.0.1:${WEB_PORT}"
 
 export VERA_DATABASE_URL="postgresql+psycopg://vera:vera@${PG_HOST}:${PG_PORT}/${DB}"
 export VERA_ENV=synthetic
-# Not `python -m vera_api.worker`: run as __main__, the module's HANDLERS dict is a different
-# object from the one vera_api.investigation registers into, so every job fails with
-# KeyError 'specialist_runner'. Importing the module by name runs the same main().
+# Same as `python -m vera_api.worker` (its __main__ delegates to the imported module's main).
 WORKER_PY='from vera_api.worker import main; main()'
 
 say() { printf '[demo] %s\n' "$*"; }

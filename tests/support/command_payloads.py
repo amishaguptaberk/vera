@@ -1,7 +1,8 @@
 """Test inputs for the registry-wide tests. Importable from every test directory
 (tests/conftest.py puts tests/support on sys.path).
 
-A feature's test module registers its commands at import:
+Each feature registers its commands in tests/support/payloads_<feature>.py (listed in FEATURES
+below and loaded by load_features(), which tests/conftest.py calls), so any test file runs alone:
     from command_payloads import register_reducer_extras, register_test_payloads
     register_test_payloads({"send_x": {...}}, user_inputs={"send_x": {...}})
     register_reducer_extras({"send_x": {"x_id": "X-1"}})   # what your effect puts in ctx.extra
@@ -70,3 +71,22 @@ def register_reducer_extras(extras: dict[str, dict[str, Any]]) -> None:
         if name in REDUCER_EXTRAS:
             raise ValueError(f"reducer extras for '{name}' are already registered")
         REDUCER_EXTRAS[name] = extra
+
+
+# One module per feature under tests/support/; each registers at import.
+FEATURES = (
+    "payloads_comms",
+    "payloads_identity",
+    "payloads_callbacks",
+    "payloads_decisions",
+    "payloads_money",
+    "payloads_closure",
+)
+
+
+def load_features() -> None:
+    """Import every feature's payload module once (idempotent: modules are cached)."""
+    import importlib
+
+    for name in FEATURES:
+        importlib.import_module(name)

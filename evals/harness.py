@@ -1,9 +1,12 @@
 """Scenario replay harness (VER-013).
 
 A scenario is JSON data under evals/scenarios/NN_name.json: ordered steps and assertions on
-persisted state. Everything runs in REPLAY: no provider key and no network (LIVE failure
-scenarios use an in-process stub transport). Commands are posted with the key the case view
-advertises on the action; the runner never builds idempotency keys itself.
+persisted state. A step {"fragment": "name"} inlines the steps of evals/fragments/name.json (shared
+journeys, e.g. up to the sent follow-up). A get step may "capture" response values by dotted path
+into variables that later payloads and paths use as "${name}". Everything runs in REPLAY: no
+provider key and no network (LIVE failure scenarios use an in-process stub transport). Commands
+are posted with the key the case view advertises on the action; the runner never builds
+idempotency keys itself.
 
     uv run python -m evals.harness [--only NN]
 
@@ -30,6 +33,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parent
 SCENARIOS = ROOT / "scenarios"
+FRAGMENTS = ROOT / "fragments"
 RECORDINGS = ROOT / "recordings"
 CASE = "CHG-1042"
 SPECS = ("charge_investigator", "related_transaction_investigator", "receipt_document_reviewer")
@@ -93,6 +97,7 @@ class World:
         self._saved: dict[str, Any] = {}
         self._tmp: list[Path] = []
         self.snapshots: dict[str, Any] = {}
+        self.vars: dict[str, Any] = {}
         self.baseline_event = 0
         self.version_pin = "v?"
 
@@ -136,6 +141,7 @@ class World:
         assert r.status_code == 200, r.text
         self.baseline_event = int(self.q("select coalesce(max(id),0) from audit_events")[0][0])
         self.snapshots.clear()
+        self.vars.clear()
 
     def q(self, sql: str, **params: Any) -> list[Any]:
         from sqlalchemy import text
@@ -249,6 +255,45 @@ def _variant_root(world: World, variant: str) -> Path:
 # ---- steps ------------------------------------------------------------------------------------
 
 
+def expand(steps: list[dict[str, Any]], seen: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+    """Inline {"fragment": name} steps (recursively) from evals/fragments/name.json."""
+    out: list[dict[str, Any]] = []
+    for step in steps:
+        name = step.get("fragment")
+        if name is None:
+            out.append(step)
+            continue
+        if name in seen:
+            raise ScenarioFailure(f"fragment {name} includes itself")
+        path = FRAGMENTS / f"{name}.json"
+        if not path.exists():
+            raise ScenarioFailure(f"unknown fragment {name}")
+        out.extend(expand(json.loads(path.read_text())["steps"], (*seen, name)))
+    return out
+
+
+def _subst(w: World, value: Any) -> Any:
+    """Replace "${name}" with a captured variable (whole-string values keep their type)."""
+    if isinstance(value, str):
+        for name, got in w.vars.items():
+            if value == "${" + name + "}":
+                return got
+            value = value.replace("${" + name + "}", str(got))
+        return value
+    if isinstance(value, list):
+        return [_subst(w, v) for v in value]
+    if isinstance(value, dict):
+        return {k: _subst(w, v) for k, v in value.items()}
+    return value
+
+
+def _path(body: Any, path: str) -> Any:
+    cur = body
+    for part in path.split("."):
+        cur = cur[int(part)] if isinstance(cur, list) else cur[part]
+    return cur
+
+
 def _find_action(view: dict[str, Any], command: str) -> dict[str, Any] | None:
     for a in [*view["available_actions"], *view.get("recovery_actions", [])]:
         if a["command"] == command:
@@ -289,7 +334,7 @@ def do_command(w: World, step: dict[str, Any], ctx: str) -> None:
     body = {
         "idempotency_key": key,
         "expected_case_version": expected,
-        "payload": {**action.get("payload_defaults", {}), **step.get("payload", {})},
+        "payload": {**action.get("payload_defaults", {}), **_subst(w, step.get("payload", {}))},
     }
     for i in range(int(step.get("times", 1))):
         resp = w.client.post(f"/api/cases/{case_id}/commands/{command}", json=body)
@@ -308,7 +353,7 @@ def do_service(w: World, step: dict[str, Any], ctx: str) -> None:
     elif name == "reset":
         w.reset()
     elif name == "demo":
-        resp = w.client.post(f"/api/demo/{step['demo']}", json=step.get("body", {}))
+        resp = w.client.post(_subst(w, f"/api/demo/{step['demo']}"), json=step.get("body", {}))
         _check_http(step, resp, ctx)
     elif name == "recordings":
         w.patch("RECORDINGS_ROOT", _variant_root(w, step["variant"]))
@@ -390,17 +435,35 @@ def do_service(w: World, step: dict[str, Any], ctx: str) -> None:
         raise ScenarioFailure(f"unknown service step {name}")
 
 
+def _check_body(w: World, step: dict[str, Any], resp: Any, ctx: str) -> None:
+    for path, want in step.get("json", {}).items():
+        cur = _path(resp.json(), path)
+        if cur != want:
+            raise ScenarioFailure(f"{ctx}: {path} is {cur!r}, expected {want!r}")
+    for path, words in step.get("json_excludes", {}).items():
+        text = json.dumps(_path(resp.json(), path) if path != "." else resp.json()).lower()
+        for word in words:
+            if word.lower() in text:
+                raise ScenarioFailure(f"{ctx}: {path} must not contain {word!r}")
+    for name, path in step.get("capture", {}).items():
+        w.vars[name] = _path(resp.json(), path)
+
+
 def do_get(w: World, step: dict[str, Any], ctx: str) -> None:
     if "as" in step:
         w.switch(step["as"])
-    resp = w.client.get(step["get"])
+    resp = w.client.get(_subst(w, step["get"]))
     _check_http(step, resp, ctx)
-    for path, want in step.get("json", {}).items():
-        cur: Any = resp.json()
-        for part in path.split("."):
-            cur = cur[int(part)] if isinstance(cur, list) else cur[part]
-        if cur != want:
-            raise ScenarioFailure(f"{ctx}: {path} is {cur!r}, expected {want!r}")
+    _check_body(w, step, resp, ctx)
+
+
+def do_post(w: World, step: dict[str, Any], ctx: str) -> None:
+    """A non-command route (e.g. the cardholder's reply or the synthetic OTP outbox)."""
+    if "as" in step:
+        w.switch(step["as"])
+    resp = w.client.post(_subst(w, step["post"]), json=_subst(w, step.get("body", {})))
+    _check_http(step, resp, ctx)
+    _check_body(w, step, resp, ctx)
 
 
 # ---- assertions on persisted state ----------------------------------------------------------
@@ -601,6 +664,7 @@ def run_scenario(w: World, path: Path, sc: dict[str, Any]) -> Result:
 
 def play(w: World, name: str, steps: list[dict[str, Any]], case: str = CASE) -> None:
     """Run steps in order against an already reset world; raises ScenarioFailure."""
+    steps = expand(steps)
     for i, step in enumerate(steps, 1):
         ver = w.view(case)["pins"]["workflow_version"]
         label = step.get("note", _label(step))
@@ -612,6 +676,8 @@ def play(w: World, name: str, steps: list[dict[str, Any]], case: str = CASE) -> 
                 do_service(w, step, ctx)
             elif "get" in step:
                 do_get(w, step, ctx)
+            elif "post" in step:
+                do_post(w, step, ctx)
             if "assert" in step:
                 check(w, step["assert"], ctx)
         except ScenarioFailure:
@@ -621,7 +687,7 @@ def play(w: World, name: str, steps: list[dict[str, Any]], case: str = CASE) -> 
 
 
 def _label(step: dict[str, Any]) -> str:
-    return str(step.get("command") or step.get("service") or step.get("get"))
+    return str(step.get("command") or step.get("service") or step.get("get") or step.get("post"))
 
 
 @contextmanager

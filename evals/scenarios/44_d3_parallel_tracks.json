@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-010",
+  "requires": "scenario steps not written yet (VER-010 is implemented; covered by its integration tests)",
   "fixture": 44,
   "title": "D3 parallel tracks",
   "description": "Fixture 44: D3 parallel tracks. dispute can be prepared while the control plan is unsent; `final` blocked until both tracks reach an outcome"

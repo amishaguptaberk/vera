@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-010",
+  "requires": "scenario steps not written yet (VER-010 is implemented; covered by its integration tests)",
   "fixture": 35,
   "title": "Control approve vs apply",
   "description": "Fixture 35: Control approve vs apply. apply before approve rejected; apply twice replays; analyst approve/apply -> 403; reviewer-only grant -> 403"

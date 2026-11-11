@@ -1,7 +1,7 @@
 """Command gateway: role -> schema -> replay -> version -> closed -> step -> policy -> approval
 -> key -> transaction. Every case write goes through execute_command (or apply_reduction for
-intake). Feature modules plug in through register_commands, FACT_PROVIDERS and APPROVAL_PROVIDER
-; they never edit the gate sequence in _execute."""
+intake). Feature modules plug in through register_commands, register_actions, FACT_PROVIDERS and
+APPROVAL_PROVIDER; they never edit the gate sequence in _execute."""
 
 import hashlib
 import json
@@ -34,6 +34,7 @@ from vera_domain.errors import CommandError
 from vera_domain.evidence import HUMAN_REGISTRY as EVIDENCE_HUMAN
 from vera_domain.evidence import SERVICE_REGISTRY
 from vera_domain.facts import CaseFacts, Hold, derive_step
+from vera_domain.models import ActionView, BlockedAction
 from vera_domain.policy import PolicyResult
 
 from vera_api import plugins
@@ -79,10 +80,20 @@ AfterEffect = Callable[[Session, Case, Actor, Any, datetime, EffectContext, "Out
 KeyContext = Callable[[Session, Case, dict[str, Any]], Mapping[str, object]]
 FactProvider = Callable[[Session, Case], dict[str, Any]]
 ApprovalProvider = Callable[[Session, Case], ApprovalState | None]
+# action_defaults(session, case) -> server-allocated payload fields (e.g. the current
+# verification id) offered on the command's action as payload_defaults; the client merges its
+# input over them, and the action's idempotency key is resolved with them.
+ActionDefaults = Callable[[Session, Case], dict[str, Any]]
+# action_guard(session, case) -> the 409 the command gets on the case's current records (None =
+# it can run), e.g. "edit draft" before a draft exists; build it with blocked(). The gateway
+# raises it after stage 8 and the case view lists the command as blocked with the same reason.
+ActionGuard = Callable[[Session, Case], CommandError | None]
 
 EFFECTS: dict[str, Effect] = {}
 AFTER_EFFECTS: dict[str, AfterEffect] = {}
 KEY_CONTEXTS: dict[str, KeyContext] = {}
+ACTION_DEFAULTS: dict[str, ActionDefaults] = {}
+ACTION_GUARDS: dict[str, ActionGuard] = {}
 # Each provider returns CaseFacts fields read from stored rows. Two providers may not return
 # the same field.
 FACT_PROVIDERS: list[FactProvider] = []
@@ -126,6 +137,74 @@ def _register_handlers(
             if name in table:
                 raise ValueError(f"{module_name}: '{name}' already has a handler")
             table[name] = handler
+
+
+def blocked(code: str, reason: str) -> CommandError:
+    """An action guard's refusal: 409 with the reason the case view shows."""
+    return CommandError(code, 409, reason, blocked_reason=reason)
+
+
+def register_actions(
+    module_name: str,
+    *,
+    defaults: Mapping[str, ActionDefaults] | None = None,
+    guards: Mapping[str, ActionGuard] | None = None,
+) -> None:
+    """Payload defaults and record guards for a feature's own (already registered) commands."""
+    for table, handlers in ((ACTION_DEFAULTS, defaults or {}), (ACTION_GUARDS, guards or {})):
+        for name, handler in handlers.items():
+            if find_spec(name) is None:
+                raise ValueError(f"{module_name}: '{name}' is not a registered command")
+            if name in table:
+                raise ValueError(f"{module_name}: '{name}' already has one")
+            table[name] = handler  # type: ignore[assignment]
+
+
+def resolve_actions(
+    session: Session,
+    case: Case,
+    user_id: str,
+    enabled: list[ActionView],
+    blocked: list[BlockedAction],
+) -> tuple[list[ActionView], list[BlockedAction]]:
+    """The case view's actions as the gateway will judge them: record guards move an action to
+    blocked, and feature defaults and key contexts resolve its payload_defaults and key."""
+    out: list[ActionView] = []
+    refused = list(blocked)
+    for action in enabled:
+        guard = ACTION_GUARDS.get(action.command)
+        refusal = guard(session, case) if guard is not None else None
+        if refusal is not None:
+            reason = refusal.blocked_reason or refusal.message
+            refused.append(
+                BlockedAction(
+                    command=action.command,
+                    label=action.label,
+                    reason=reason,
+                    blocked_reason=reason,
+                )
+            )
+            continue
+        provider = ACTION_DEFAULTS.get(action.command)
+        keys = KEY_CONTEXTS.get(action.command)
+        if provider is None and keys is None:
+            out.append(action)
+            continue
+        defaults = {**action.payload_defaults, **(provider(session, case) if provider else {})}
+        ctx = {
+            "case_id": case.id,
+            "case_version": case.case_version,
+            "user_id": user_id,
+            **(keys(session, case, defaults) if keys is not None else {}),
+            **defaults,
+        }
+        spec = domain_commands.REGISTRY[action.command]
+        out.append(
+            action.model_copy(
+                update={"payload_defaults": defaults, "idempotency_key": resolve_key(spec, ctx)}
+            )
+        )
+    return out, refused
 
 
 def register_fact_provider(provider: FactProvider) -> None:
@@ -422,6 +501,10 @@ def _execute(
         gate = approval_gate(spec, approval_state(session, case), approval_binding(case))
         if gate is not None:
             raise gate
+    guard = ACTION_GUARDS.get(spec.name)  # stage 8b: the feature's own records
+    refusal = guard(session, case) if guard is not None else None
+    if refusal is not None:
+        raise refusal
     # The client key must equal the server-resolved template (case, actor, payload).
     expected_key = resolve_key(
         spec,

@@ -620,6 +620,50 @@ RETRY = CommandSpec(
 gateway.register_commands(__name__, human={RETRY.name: RETRY}, effects={RETRY.name: _retry_effect})
 
 
+# ---- what the case view offers: the same preconditions the effects check -------------------------
+
+
+def _limit_reached(session: Session, case: Case) -> CommandError | None:
+    if len(_callbacks(session, case.id)) >= MAX_ATTEMPTS:
+        return gateway.blocked("callback_limit", LIMIT_REASON)
+    return None
+
+
+def _no_call(session: Session, case: Case) -> CommandError | None:
+    if latest_callback(session, case.id) is None:
+        return gateway.blocked("callback_not_found", "No verification call on this case.")
+    return None
+
+
+def _note_defaults(session: Session, case: Case) -> dict[str, Any]:
+    row = latest_callback(session, case.id)
+    return {"callback_id": row.id} if row is not None else {}
+
+
+def _failed_agent(session: Session, case: Case) -> WorkflowStep | None:
+    step = agent_step(session, case.id)
+    return step if step is not None and step.status == StepStatus.FAILED.value else None
+
+
+def _agent_not_failed(session: Session, case: Case) -> CommandError | None:
+    if _failed_agent(session, case) is None:
+        return gateway.blocked("invalid_step", "The Live Verification Agent has not failed.")
+    return None
+
+
+def _retry_defaults(session: Session, case: Case) -> dict[str, Any]:
+    step = _failed_agent(session, case)
+    run = session.get(WorkflowRun, step.run_id) if step is not None else None
+    return {"mode": run.mode} if run is not None else {}
+
+
+gateway.register_actions(
+    __name__,
+    defaults={NOTE.name: _note_defaults, RETRY.name: _retry_defaults},
+    guards={START.name: _limit_reached, NOTE.name: _no_call, RETRY.name: _agent_not_failed},
+)
+
+
 def dump_request(session: Session, case_id: str, root: Path) -> Path:
     """Request file for a real capture on a networked machine (latest callback)."""
     row = latest_callback(session, case_id)

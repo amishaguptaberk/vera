@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-010",
+  "requires": "scenario steps not written yet (VER-010 is implemented; covered by its integration tests)",
   "fixture": 33,
   "title": "Dispute status sequence",
   "description": "Fixture 33: Dispute status sequence. prepared -> ready_for_review -> ready_to_submit -> submitted; task/button/chat/activity agree"

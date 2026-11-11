@@ -154,19 +154,18 @@ def _unresolved(session: Session, case_id: str) -> tuple[list[dom.OpenFindingRef
         select(Finding).where(Finding.case_id == case_id, Finding.status == "open")
     ).all()
     out = []
-    for f in sorted(findings, key=lambda x: x.id):
-        stmt = select(FindingLink).where(FindingLink.finding_id == f.id)
-        links = session.scalars(stmt.order_by(FindingLink.id)).all()  # stable request text
-        out.append(
-            dom.OpenFindingRef(
-                finding_id=f.id,
-                kind=f.kind,
-                links=[
-                    dom.ItemRef(record_id=lk.record_id, version=lk.version, field=lk.field)
-                    for lk in links
-                ],
-            )
-        )
+    for f in findings:
+        links = session.scalars(select(FindingLink).where(FindingLink.finding_id == f.id)).all()
+        refs = [
+            dom.ItemRef(record_id=lk.record_id, version=lk.version, field=lk.field) for lk in links
+        ]
+        # Stable request text: links by what they cite, not insertion order.
+        refs.sort(key=lambda r: (r.record_id, r.field, r.version))
+        out.append(dom.OpenFindingRef(finding_id=f.id, kind=f.kind, links=refs))
+    # Findings by what they are and cite; ids (which embed the random run id) only break ties.
+    out.sort(
+        key=lambda o: (o.kind, [(r.record_id, r.field, r.version) for r in o.links], o.finding_id)
+    )
     missing = session.scalars(
         select(EvidenceRecord.id).where(
             EvidenceRecord.case_id == case_id, EvidenceRecord.status == "missing"
@@ -540,6 +539,59 @@ gateway.register_commands(
     },
     after_effects={"review_cardholder_response": _review_after},
     key_context=_request_key,
+)
+
+
+def _failed_draft_run(session: Session, case: Case) -> WorkflowRun | None:
+    run: WorkflowRun | None = _inv().latest_run(session, case.id)
+    if run is None or not run.id.startswith(FU_PREFIX) or run.status != "failed":
+        return None
+    return run
+
+
+def _no_draft(session: Session, case: Case) -> CommandError | None:
+    row = latest_communication(session, case.id)
+    if row is None:
+        return gateway.blocked("communication_not_found", "No follow-up draft yet.")
+    if row.status != "drafted":
+        return gateway.blocked("communication_sent", "The request was already sent.")
+    return None
+
+
+def _has_request(session: Session, case: Case) -> CommandError | None:
+    if latest_communication(session, case.id) is not None:
+        return gateway.blocked("followup_exists", "This case already has a cardholder request.")
+    return None
+
+
+def _nothing_to_retry(session: Session, case: Case) -> CommandError | None:
+    if _failed_draft_run(session, case) is None:
+        return gateway.blocked("invalid_step", "No failed follow-up draft to retry.")
+    return None
+
+
+def _retry_defaults(session: Session, case: Case) -> dict[str, Any]:
+    run = _failed_draft_run(session, case)
+    return {"mode": run.mode} if run is not None else {}
+
+
+def _respond_defaults(session: Session, case: Case) -> dict[str, Any]:
+    row = latest_communication(session, case.id)
+    return {"request_id": row.id} if row is not None else {}
+
+
+gateway.register_actions(
+    __name__,
+    defaults={
+        "retry_follow_up_draft": _retry_defaults,
+        "submit_cardholder_response": _respond_defaults,
+    },
+    guards={
+        "draft_follow_up": _has_request,
+        "retry_follow_up_draft": _nothing_to_retry,
+        "update_communication_draft": _no_draft,
+        "send_communication": _no_draft,
+    },
 )
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(["communication_responses", "communication_drafts", "communications"])

@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-014",
+  "requires": "scenario steps not written yet (VER-014 is implemented; covered by its integration tests)",
   "fixture": 39,
   "title": "Specialist draft -> workflow",
   "description": "Fixture 39: Specialist draft -> workflow. draft created, active version unchanged, case still pinned"

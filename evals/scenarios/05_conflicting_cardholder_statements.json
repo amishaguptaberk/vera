@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-005",
+  "requires": "scenario steps not written yet (VER-005 is implemented; covered by its integration tests)",
   "fixture": 5,
   "title": "Conflicting cardholder statements",
   "description": "Fixture 5: Conflicting cardholder statements. ToSpec 15.5"

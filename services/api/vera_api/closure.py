@@ -598,6 +598,45 @@ gateway.register_commands(
         DISPUTE_OUTCOME.name: _dispute_outcome_effect,
     },
 )
+
+
+# ---- what the case view offers: the same preconditions the effects check -------------------------
+
+
+def _open_items(items: list[ChecklistItem], what: str) -> CommandError | None:
+    try:
+        _require(items, what)
+    except CommandError as err:
+        return gateway.blocked(err.code, err.message)
+    return None
+
+
+def _draft_not_ready(session: Session, case: Case) -> CommandError | None:
+    items = [i for i in checklist(session, case.id).items if i.name in DRAFT_PREREQUISITES]
+    return _open_items(items, "The final update needs recorded outcomes")
+
+
+def _no_drafted_message(session: Session, case: Case) -> CommandError | None:
+    try:
+        _drafted(session, case)
+    except CommandError as err:
+        return gateway.blocked(err.code, err.message)
+    return None
+
+
+def _not_closable(session: Session, case: Case) -> CommandError | None:
+    return _open_items(checklist(session, case.id).items, "The case cannot close")
+
+
+gateway.register_actions(
+    __name__,
+    guards={
+        DRAFT.name: _draft_not_ready,
+        UPDATE.name: _no_drafted_message,
+        SEND.name: _no_drafted_message,
+        CLOSE.name: _not_closable,
+    },
+)
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(["case_closures", "final_messages"])
 

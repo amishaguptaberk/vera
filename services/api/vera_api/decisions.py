@@ -30,7 +30,7 @@ from vera_api.models_decisions import (
     DecisionPacket,
     DecisionPacketContent,
 )
-from vera_api.models_runs import WorkflowStep
+from vera_api.models_runs import WorkflowRun, WorkflowStep
 from vera_api.runner import SpecialistRunner, create_run
 from vera_api.worker import Touch, enqueue, register
 
@@ -530,6 +530,69 @@ gateway.register_commands(
         "reassign_reviewer": _reassign,
     },
     key_context=_keys,
+)
+
+
+# ---- what the case view offers: the same preconditions the effects check -------------------------
+
+
+def _failed_preparer(session: Session, case: Case) -> WorkflowStep | None:
+    packet = latest_packet(session, case.id)
+    if packet is None or packet_content(session, case.id, packet.version) is not None:
+        return None
+    step = session.get(WorkflowStep, (packet.run_id, d.PREPARER))
+    return step if step is not None and step.status == StepStatus.FAILED.value else None
+
+
+def _no_failed_preparer(session: Session, case: Case) -> CommandError | None:
+    if _failed_preparer(session, case) is None:
+        reason = "The decision packet has no failed preparation step to retry."
+        return gateway.blocked("invalid_step", reason)
+    return None
+
+
+def _retry_defaults(session: Session, case: Case) -> dict[str, Any]:
+    step = _failed_preparer(session, case)
+    run = session.get(WorkflowRun, step.run_id) if step is not None else None
+    return {"mode": run.mode} if run is not None else {}
+
+
+def _approval_not_ready(session: Session, case: Case) -> CommandError | None:
+    packet = latest_packet(session, case.id)
+    decision = current_decision(session, case.id)
+    if packet is None or decision is None or decision.decision != "credit":
+        reason = "Record a credit decision before requesting reviewer approval."
+        return gateway.blocked("decision_required", reason)
+    if packet.snapshot_hash != case.evidence_snapshot:
+        return gateway.blocked("packet_stale", "The packet is out of date. Prepare a new version.")
+    return None
+
+
+def _not_approvable(session: Session, case: Case) -> CommandError | None:
+    row = latest_approval(session, case.id)
+    if row is None:
+        return gateway.blocked("precondition_failed", "No approval request for this case.")
+    if (
+        row.status == "stale"
+        or row.snapshot_hash != case.evidence_snapshot
+        or row.policy_version != case.policy_version
+        or row.workflow_version != case.workflow_version
+    ):
+        reason = "The evidence changed after this packet was prepared. The approval is out of date."
+        return gateway.blocked("approval_stale", reason)
+    if row.status != "requested":
+        return gateway.blocked("precondition_failed", f"The approval is already {row.status}.")
+    return None
+
+
+gateway.register_actions(
+    __name__,
+    defaults={"retry_decision_packet": _retry_defaults},
+    guards={
+        "retry_decision_packet": _no_failed_preparer,
+        "request_reviewer_approval": _approval_not_ready,
+        "approve_decision": _not_approvable,
+    },
 )
 gateway.register_fact_provider(_facts)
 gateway.set_approval_provider(_approval_provider)

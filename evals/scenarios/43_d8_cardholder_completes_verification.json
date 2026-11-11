@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-006",
+  "requires": "scenario steps not written yet (VER-006 is implemented; covered by its integration tests)",
   "fixture": 43,
   "title": "D8 cardholder completes verification",
   "description": "Fixture 43: D8 cardholder completes verification. code entered in the cardholder view -> `Identity verified`; event who=cardholder"

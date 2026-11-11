@@ -7,7 +7,6 @@ from typing import Any
 
 import httpx
 import pytest
-from command_payloads import register_reducer_extras, register_test_payloads
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,17 +19,6 @@ from vera_domain.labels import BLOCKER_BY_STEP, describe
 
 CASE = "CHG-1042"
 QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
-
-register_test_payloads(
-    {
-        "start_callback": {"questions": QUESTIONS},
-        "add_callback_note": {"callback_id": "CALL-1042-1", "text": "Left a note."},
-        "retry_callback_agent": {"mode": "replay"},
-        "record_callback": {"callback_id": "CALL-1042-1", "run_id": "r", "outcome": "confirmed"},
-    }
-)
-# What start_callback's effect puts in ctx.extra (reducer/declared-events test).
-register_reducer_extras({"start_callback": {"callback_id": "CALL-1042-1", "attempt": 1}})
 
 
 def version(client: TestClient) -> int:

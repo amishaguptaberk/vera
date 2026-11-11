@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-012-F9",
+  "requires": "scenario steps not written yet (VER-012-F9 is implemented; covered by its integration tests)",
   "fixture": 30,
   "title": "Phone number in chat",
   "description": "Fixture 30: Phone number in chat. recorded as claim, callback target unchanged, no event (needs the Vera rail chat backend; no backend ticket yet)"

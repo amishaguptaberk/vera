@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-006",
+  "requires": "scenario steps not written yet (VER-006 is implemented; covered by its integration tests)",
   "fixture": 27,
   "title": "Identity: expiry + resend",
   "description": "Fixture 27: Identity: expiry + resend. expired event once, resend cooldown enforced, new key"

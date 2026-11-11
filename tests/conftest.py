@@ -11,4 +11,9 @@ if SUPPORT not in sys.path:
 # a core module such as vera_api.evidence directly: evidence imports the gateway, the gateway loads
 # the features, and features read evidence attributes at import. The app and the worker import the
 # gateway first, so production entry points never hit the partial-module cycle.
+# Then register every feature's command test inputs (tests/support/payloads_<feature>.py) up
+# front, so each test file runs alone or together.
+import command_payloads  # noqa: E402
 import vera_api.gateway  # noqa: E402,F401
+
+command_payloads.load_features()

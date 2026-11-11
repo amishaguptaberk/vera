@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-014",
+  "requires": "scenario steps not written yet (VER-014 is implemented; covered by its integration tests)",
   "fixture": 40,
   "title": "Required control removal",
   "description": "Fixture 40: Required control removal. patch rejected for Policy Controller / checkpoint / recheck / decision record / idempotency gate"

@@ -569,6 +569,75 @@ gateway.register_commands(
         "apply_card_controls": _apply_after,
     },
 )
+
+
+# --- what the case view offers: the same preconditions the effects check ---
+
+
+def _status_guard(model: Any, expected: tuple[str, ...], message: str) -> gateway.ActionGuard:
+    def guard(session: Session, case: Case) -> CommandError | None:
+        row = _one(session, model, case.id)
+        current = row.status if row else "none"
+        return None if current in expected else _wrong(message.format(current=current))
+
+    return guard
+
+
+_DISPUTE_STEP = "The dispute packet is {current}; this step is not available."
+_PLAN_STEP = "The control plan is {current}; this step is not available."
+
+
+def _uncertain(session: Session, case: Case) -> AdapterExecution | None:
+    return session.scalars(
+        select(AdapterExecution)
+        .where(AdapterExecution.case_id == case.id, AdapterExecution.status == "uncertain")
+        .order_by(AdapterExecution.id.desc())
+    ).first()
+
+
+def _nothing_uncertain(session: Session, case: Case) -> CommandError | None:
+    if _uncertain(session, case) is None:
+        return gateway.blocked("execution_not_found", "No uncertain result to look up.")
+    return None
+
+
+def _lookup_defaults(session: Session, case: Case) -> dict[str, Any]:
+    row = _uncertain(session, case)
+    return {"idempotency_key": row.idempotency_key} if row is not None else {}
+
+
+def _credit_requested(session: Session, case: Case) -> CommandError | None:
+    row = _one(session, ProvisionalCredit, case.id)
+    if row is not None and row.status in ("issued", "uncertain"):
+        return _wrong("A credit was already requested for this charge.")
+    return None
+
+
+gateway.register_actions(
+    __name__,
+    defaults={"lookup_execution_result": _lookup_defaults},
+    guards={
+        "issue_provisional_credit": _credit_requested,
+        "lookup_execution_result": _nothing_uncertain,
+        "prepare_dispute_packet": _status_guard(DisputePacket, ("none",), _DISPUTE_STEP),
+        "open_dispute_packet": _status_guard(DisputePacket, ("prepared",), _DISPUTE_STEP),
+        "review_dispute_packet": _status_guard(DisputePacket, ("opened",), _DISPUTE_STEP),
+        "submit_dispute": _status_guard(
+            DisputePacket,
+            ("reviewed", "failed"),
+            "The dispute packet is {current}; it cannot be submitted yet.",
+        ),
+        "propose_card_controls": _status_guard(ControlPlan, ("none", "recommended"), _PLAN_STEP),
+        "skip_card_controls": _status_guard(ControlPlan, ("none", "recommended"), _PLAN_STEP),
+        "approve_card_controls": _status_guard(ControlPlan, ("proposed",), _PLAN_STEP),
+        "decline_card_controls": _status_guard(ControlPlan, ("proposed",), _PLAN_STEP),
+        "apply_card_controls": _status_guard(
+            ControlPlan,
+            ("approved",),
+            "The control plan is {current}; controls can be applied only once approved.",
+        ),
+    },
+)
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(
     ["card_controls", "control_plans", "dispute_packets", "provisional_credits"]

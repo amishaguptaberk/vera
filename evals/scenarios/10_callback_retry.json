@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-007",
+  "requires": "scenario steps not written yet (VER-007 is implemented; covered by its integration tests)",
   "fixture": 10,
   "title": "Callback retry",
   "description": "Fixture 10: Callback retry. ToSpec 15.10"

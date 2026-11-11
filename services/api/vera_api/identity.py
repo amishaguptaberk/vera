@@ -237,7 +237,9 @@ def _send(
         sent_at=now,
         last_sent_at=now,
         expires_at=now + timedelta(seconds=dom.EXPIRES_AFTER_SECONDS),
-        created_at=now,
+        # current() orders by created_at: a request sent at the same (demo) instant as the one it
+        # replaces must still sort after it, whatever its random id.
+        created_at=max(now, prev.created_at + timedelta(microseconds=1)) if prev else now,
     )
     session.add(row)
     session.flush()
@@ -398,6 +400,58 @@ gateway.register_commands(
     },
     after_effects={dom.SUBMIT_OTP.name: _after_answer, dom.ANSWER_PUSH.name: _after_answer},
     key_context=_key_context,
+)
+
+
+# ---- what the case view offers: the same preconditions the effects check -------------------------
+
+
+def _ref_defaults(session: Session, case: Case) -> dict[str, Any]:
+    row = current(session, case.id)
+    return {"verification_id": row.id} if row is not None else {}
+
+
+def _already_active(session: Session, case: Case) -> CommandError | None:
+    row = current(session, case.id)
+    if row is not None and row.status in ("requested", "verified"):
+        return gateway.blocked("verification_active", "A verification request is already active.")
+    return None
+
+
+def _not_active(channel: str | None = None, *, resend: bool = False) -> gateway.ActionGuard:
+    def guard(session: Session, case: Case) -> CommandError | None:
+        row = current(session, case.id)
+        if row is None:
+            return gateway.blocked(
+                "verification_not_active", "No verification request has been sent."
+            )
+        if row.status != "requested":
+            reason = f"The verification request is {row.status}."
+            return gateway.blocked("verification_not_active", reason)
+        if resend and row.sends >= dom.MAX_SENDS:
+            return gateway.blocked("send_limit_reached", dom.SEND_LIMIT_REASON)
+        if channel == "otp" and row.channel != "otp":
+            return gateway.blocked("schema_invalid", "This request is a push prompt, not a code.")
+        if channel == "push" and row.channel != "push":
+            return gateway.blocked("schema_invalid", "This request is a code, not a push prompt.")
+        return None
+
+    return guard
+
+
+gateway.register_actions(
+    __name__,
+    defaults={
+        name: _ref_defaults
+        for name in (dom.RESEND.name, dom.CANCEL.name, dom.SUBMIT_OTP.name, dom.ANSWER_PUSH.name)
+    },
+    guards={
+        dom.SEND.name: _already_active,
+        dom.RESEND.name: _not_active(resend=True),
+        dom.CANCEL.name: _not_active(),
+        dom.SUBMIT_OTP.name: _not_active("otp"),
+        dom.ANSWER_PUSH.name: _not_active("push"),
+    },
 )
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(

@@ -9,7 +9,6 @@ from typing import Any
 
 import httpx
 import pytest
-from command_payloads import register_reducer_extras, register_test_payloads
 from conftest import TEST_DB_URL
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -24,38 +23,6 @@ from vera_domain.commands import REGISTRY, CommandSpec, NoPayload, StepSet, redu
 from vera_domain.enums import EventType, Role
 from vera_domain.errors import CommandError
 from vera_domain.policy import RecordFact
-
-register_test_payloads(
-    {
-        "create_decision_packet": {},
-        "retry_decision_packet": {"mode": "replay"},
-        "record_decision": {"decision": "credit", "rationale": "Duplicate charge confirmed."},
-        "request_reviewer_approval": {},
-        "approve_decision": {},
-        "return_decision": {
-            "reason": "Receipt is missing",
-            "next_step": "Attach the receipt",
-            "owner": "usr-sam-rivera",
-        },
-        "remind_reviewer": {},
-        "reassign_reviewer": {"to": "usr-dana-okafor"},
-        "complete_decision_packet": {"packet_version": 1, "run_id": "r"},
-    }
-)
-# What each decisions effect puts in ctx.extra (reducer/declared-events test).
-_PACKET_EXTRA = {"packet_version": 1, "snapshot_hash": "s", "policy_version": 1}
-_APPROVAL_EXTRA = {"approval_id": "APR-1"}
-register_reducer_extras(
-    {
-        "create_decision_packet": _PACKET_EXTRA,
-        "record_decision": _PACKET_EXTRA,
-        "request_reviewer_approval": _APPROVAL_EXTRA,
-        "approve_decision": _APPROVAL_EXTRA,
-        "return_decision": _APPROVAL_EXTRA,
-        "remind_reviewer": _APPROVAL_EXTRA,
-        "reassign_reviewer": _APPROVAL_EXTRA,
-    }
-)
 
 CASE = "CHG-1042"
 REC = Path("evals/recordings")
@@ -220,9 +187,11 @@ def test_material_change_makes_approval_stale_and_approve_is_rejected(
     ).all()
     assert [r[0] for r in stale_events] == [[approval_id]]
     switch(client, "reviewer")
+    blocked = {b["command"]: b["blocked_reason"] for b in view(client)["blocked_actions"]}
     resp = command(client, "approve_decision", f"approve:{CASE}:{approval_id}")
-    assert resp.status_code == 422, resp.text
+    assert resp.status_code == 409, resp.text  # offered as blocked, refused with the same reason
     assert resp.json()["code"] == "approval_stale"
+    assert blocked["approve_decision"] == resp.json()["blocked_reason"]
     shown = packet(client)
     assert shown["approval"]["status"] == "stale" and shown["current"] is False
     assert view(client)["step"] == "stale"

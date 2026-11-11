@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-010",
+  "requires": "a credit decision, which the seeded case cannot reach in REPLAY: the investigation's PO-219/DLV-882 conflicts are never resolved by any command and the reference callback confirms the cardholder authorized the charge, so record_decision 'credit' is policy_blocked and no reviewer approval or credit follows",
   "fixture": 36,
   "title": "Credit-issued case",
   "description": "Fixture 36: Credit-issued case. step is never an earlier task; rail never says `Credit issued` while next task is controls"

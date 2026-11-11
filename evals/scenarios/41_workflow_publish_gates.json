@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "VER-014",
+  "requires": "scenario steps not written yet (VER-014 is implemented; covered by its integration tests)",
   "fixture": 41,
   "title": "Workflow publish gates",
   "description": "Fixture 41: Workflow publish gates. blocked without checks on this draft; blocked on any failing scenario"

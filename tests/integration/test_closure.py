@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from command_payloads import TEST_PAYLOADS, register_reducer_extras, register_test_payloads
+from command_payloads import TEST_PAYLOADS
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -28,24 +28,6 @@ CASE = "CHG-1042"
 NOW = default_demo_clock().now()
 ANALYST = Actor("usr-sam-rivera", "Sam Rivera", Role.ANALYST, frozenset({Role.ANALYST}))
 CLOSE_BODY = {"reason": "All outcomes recorded and sent", "outcome": "resolved"}
-
-register_test_payloads(
-    {
-        "draft_final_message": {},
-        "update_final_message": {"body": "Hello, no further action is needed from you."},
-        "send_final_message": {},
-        "close_case": CLOSE_BODY,
-    }
-)
-# What each closure effect puts in ctx.extra (reducer/declared-events test).
-register_reducer_extras(
-    {
-        "draft_final_message": {"message_id": "FM-1"},
-        "update_final_message": {"message_id": "FM-1"},
-        "send_final_message": {"message_id": "FM-1", "execution_id": "EX-1"},
-        "close_case": {"closure_id": "CLS-1", "monitoring": False},
-    }
-)
 
 
 class Messaging:
@@ -187,8 +169,10 @@ def test_draft_is_blocked_while_required_sources_are_unknown(
     unregister_required_sources(monkeypatch)
     reach_finalprep(db, monkeypatch)
     assert view(client)["step"] == "finalprep"
+    blocked = {b["command"]: b["blocked_reason"] for b in view(client)["blocked_actions"]}
     resp = post(client, "draft_final_message", f"final:{CASE}")
-    assert resp.status_code == 422 and resp.json()["code"] == "closure_incomplete"
+    assert resp.status_code == 409 and resp.json()["code"] == "closure_incomplete"
+    assert blocked["draft_final_message"] == resp.json()["blocked_reason"]
     assert "Decision recorded (unknown) - analyst: Record the decision" in resp.json()["message"]
     items = client.get(f"/api/cases/{CASE}/closure-checklist").json()["items"]
     for item in items:
@@ -332,8 +316,10 @@ def test_close_is_rejected_listing_open_items(
     assert post(client, "draft_final_message", f"final:{CASE}").status_code == 200
     assert post(client, "send_final_message", f"final-send:{CASE}").status_code == 200
     monkeypatch.delitem(closure.CHECKLIST_SOURCES, "approval")
+    blocked = {b["command"]: b["blocked_reason"] for b in view(client)["blocked_actions"]}
     resp = post(client, "close_case", f"close:{CASE}", CLOSE_BODY)
-    assert resp.status_code == 422 and resp.json()["code"] == "closure_incomplete"
+    assert resp.status_code == 409 and resp.json()["code"] == "closure_incomplete"
+    assert blocked["close_case"] == resp.json()["blocked_reason"]
     assert (
         "Approval valid for the decision (unknown) - reviewer: Approve the decision packet"
         in resp.json()["message"]

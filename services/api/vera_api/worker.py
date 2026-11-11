@@ -165,4 +165,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # `python -m vera_api.worker` runs this file as __main__, a second copy of the module whose
+    # HANDLERS no feature registers into. Delegate to the imported module, which they do.
+    from vera_api import worker as _w
+
+    _w.main()
