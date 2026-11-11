@@ -83,7 +83,7 @@ class ReduceContext:
     now: datetime
     resolve_user: Callable[[str], tuple[str, str] | None]  # ref -> (id, name)
     first_report_id: str | None
-    extra: dict[str, Any] = field(default_factory=dict)  # gateway-computed inputs (policy)
+    extra: dict[str, Any] = field(default_factory=dict)  # service effect output, policy input
 
 
 @dataclass(frozen=True)

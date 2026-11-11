@@ -129,7 +129,8 @@ def _receipt_above_threshold(inp: PolicyInput, params: dict[str, Any]) -> bool:
     if inp.amount_cents <= int(params["threshold_cents"]):
         return True
     kinds = set(params["kinds"])
-    return any(r.kind in kinds for r in _active(inp))
+    # Allowlist: a pending, conflicting or superseded receipt is not a present receipt.
+    return any(r.kind in kinds and r.status == "supporting" for r in inp.records)
 
 
 @predicate("no_pending_review")
