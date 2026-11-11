@@ -16,3 +16,4 @@ test-results
 **/playwright-report
 apps/web/prototype
 tmp
+media

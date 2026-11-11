@@ -4,6 +4,10 @@ Vera is a post-report investigation workspace for corporate-card charges. When a
 
 The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**.
 
+[![Vera launch video](media/vera-launch-poster.jpg)](media/vera-launch.mp4)
+
+▶ [Watch the launch video](media/vera-launch.mp4) (2:19)
+
 ## How it works
 
 ```
