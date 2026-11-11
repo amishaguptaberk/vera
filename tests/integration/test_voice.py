@@ -225,10 +225,12 @@ def test_verified_transcript_records_through_gateway_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cid = start(verified)
+    assert voice.call_graph_state(db, cid) == ("await_result",)  # interrupted, checkpointed
     live_agent(monkeypatch, CONFIRMED)
     r = post_signed(verified, transcript_doc())
     assert r.status_code == 200 and r.json()["result"] == "applied"
     assert step(verified) == "working"  # state changes only via record_callback
+    assert voice.call_graph_state(db, cid) == ()  # resumed by the verified webhook
     drain(db)
     assert step(verified) == "packet"
     replay = post_signed(verified, transcript_doc())

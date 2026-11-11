@@ -15,11 +15,13 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, TypedDict
 
 import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
 from sqlalchemy import Engine, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -41,6 +43,7 @@ from vera_domain.voice import (
 )
 
 from vera_api import callbacks, plugins
+from vera_api.graph import postgres_checkpointer
 from vera_api.models import Case
 from vera_api.models_callbacks import (
     Callback,
@@ -345,6 +348,7 @@ def start_provider_call(
         )
     )
     session.flush()
+    pause_for_call(session, row.id)
     enqueue(
         session,
         TIMEOUT_JOB,
@@ -372,6 +376,68 @@ def run_timeout_job(session: Session, payload: dict[str, Any], touch: Touch) -> 
         status=CallStatus.TIMED_OUT,
     )
     process_event(session, event, b"", call.provider)
+
+
+# ---- LangGraph: the attempt pauses (interrupt) until a verified provider result resumes it
+
+
+class CallState(TypedDict, total=False):
+    callback_id: str
+    result: dict[str, Any]
+
+
+def _db_url(session: Session) -> str:
+    bind = session.get_bind()
+    engine = bind.engine if not isinstance(bind, Engine) else bind
+    return engine.url.render_as_string(hide_password=False)
+
+
+def _call_graph(saver: Any, on_result: Callable[[dict[str, Any]], None]) -> Any:
+    def await_result(state: CallState) -> CallState:
+        return {"result": interrupt({"waiting_for": "verified_voice_result"})}
+
+    def continue_after_result(state: CallState) -> CallState:
+        on_result(state["result"])
+        return {}
+
+    g = StateGraph(CallState)
+    g.add_node("await_result", await_result)
+    g.add_node("continue", continue_after_result)
+    g.add_edge(START, "await_result")
+    g.add_edge("await_result", "continue")
+    g.add_edge("continue", END)
+    return g.compile(checkpointer=saver)
+
+
+def pause_for_call(session: Session, callback_id: str) -> None:
+    """Run the attempt's graph to its interrupt (thread_id = callback attempt id)."""
+    with postgres_checkpointer(_db_url(session)) as saver:
+        graph = _call_graph(saver, lambda _r: None)
+        config = {"configurable": {"thread_id": callback_id}}
+        if graph.get_state(config).created_at is None:
+            graph.invoke({"callback_id": callback_id}, config)
+
+
+def resume_call(
+    session: Session,
+    callback_id: str,
+    result: dict[str, Any],
+    on_result: Callable[[dict[str, Any]], None],
+) -> bool:
+    """Resume only an interrupted attempt; a replay finds it finished and does nothing."""
+    with postgres_checkpointer(_db_url(session)) as saver:
+        graph = _call_graph(saver, on_result)
+        config = {"configurable": {"thread_id": callback_id}}
+        if graph.get_state(config).next != ("await_result",):
+            return False
+        graph.invoke(Command(resume=result), config)
+        return True
+
+
+def call_graph_state(session: Session, callback_id: str) -> tuple[str, ...]:
+    with postgres_checkpointer(_db_url(session)) as saver:
+        graph = _call_graph(saver, lambda _r: None)
+        return tuple(graph.get_state({"configurable": {"thread_id": callback_id}}).next)
 
 
 # ---- webhook
@@ -434,18 +500,19 @@ def process_event(session: Session, event: VoiceEvent, raw: bytes, provider: str
         _apply_failure(session, case, row, call, event, now)
     ledger.processed_at = now
     session.commit()
-    if event.kind == "transcript_final":
-        # The Live Verification Agent validates the grounded answers, then record_callback.
-        with _factory(session)() as s:
-            enqueue(
-                s,
-                callbacks.JOB_KIND,
-                {"case_id": case.id, "callback_id": row.id, "run_id": call.run_id},
-                now=now,
-            )
-            s.commit()
-    else:
-        _record_failure(session, case.id, row.id, call.run_id or "", event)
+    case_id, callback_id, run_id = case.id, row.id, call.run_id or ""
+
+    def on_result(result: dict[str, Any]) -> None:
+        if result["kind"] == "transcript_final":
+            # The Live Verification Agent validates the grounded answers, then record_callback.
+            with _factory(session)() as s:
+                payload = {"case_id": case_id, "callback_id": callback_id, "run_id": run_id}
+                enqueue(s, callbacks.JOB_KIND, payload, now=now)
+                s.commit()
+        else:
+            _record_failure(session, case_id, callback_id, run_id, event)
+
+    resume_call(session, callback_id, {"kind": event.kind, "event_id": event.event_id}, on_result)
     return "applied"
 
 
