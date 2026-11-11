@@ -162,15 +162,29 @@ def facts_of(case: Case) -> CaseFacts:
     )
 
 
+# Facts read from the case row itself. No provider may return them: a provider that could set
+# `closed` or `hold` could un-close or un-hold a case.
+BASE_FACTS = frozenset({"opened_at", "closed", "hold", "owner_id", "due_at"})
+
+
+def _check_fact_name(provider: FactProvider, name: str, merged: Mapping[str, Any]) -> None:
+    who = (
+        f"fact provider {getattr(provider, '__module__', '?')}.{getattr(provider, '__name__', '?')}"
+    )
+    if name in BASE_FACTS:
+        raise RuntimeError(f"{who}: '{name}' is a reserved case-row fact")
+    if name not in CaseFacts.model_fields:
+        raise RuntimeError(f"{who}: unknown fact '{name}'")
+    if name in merged:
+        raise RuntimeError(f"{who}: duplicate fact '{name}' (owned by an earlier provider)")
+
+
 def facts_for(session: Session, case: Case) -> CaseFacts:
     """Base facts plus every registered provider's facts (stored rows, never model output)."""
     merged: dict[str, Any] = {}
     for provider in FACT_PROVIDERS:
         for name, value in provider(session, case).items():
-            if name in merged or name not in CaseFacts.model_fields:
-                raise RuntimeError(
-                    f"fact provider {provider.__qualname__}: bad or duplicate fact '{name}'"
-                )
+            _check_fact_name(provider, name, merged)
             merged[name] = value
     # Validate (model_copy would not): a provider returning an unknown value fails loudly.
     return CaseFacts.model_validate({**facts_of(case).model_dump(), **merged})
