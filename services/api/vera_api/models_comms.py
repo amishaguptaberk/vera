@@ -23,6 +23,7 @@ class Communication(Base):
     attachments: Mapped[list[Any]] = mapped_column(JSONB, default=list)
     delivery: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     reminders: Mapped[int] = mapped_column(Integer, default=0)
+    review_recommendation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     response_review: Mapped[str] = mapped_column(String, default="none")
     created_by: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
