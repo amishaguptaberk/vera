@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from vera_domain.adapters import AdapterResult
 from vera_domain.callbacks import (
     LIMIT_REASON,
     MAX_ATTEMPTS,
@@ -31,7 +32,6 @@ from vera_domain.callbacks import (
     reduce_record,
     reduce_start,
 )
-from vera_domain.adapters import AdapterResult
 from vera_domain.clock import Clock
 from vera_domain.commands import CommandSpec
 from vera_domain.enums import Role, register_event_types
@@ -41,9 +41,8 @@ from vera_domain.labels import register_event_summaries
 
 from vera_api import adapters, auth, gateway, plugins
 from vera_api import policy as policy_service
-from vera_api.auth import Actor
+from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
-from vera_api.auth import STAFF_ROLES
 from vera_api.evidence import read_evidence_field, recompute_snapshot
 from vera_api.gateway import EffectContext
 from vera_api.intake import _emit
@@ -322,8 +321,7 @@ def run_call(session: Session, case_id: str, callback_id: str, now: datetime) ->
     answers = []
     if outcome == "confirmed":
         answers = [
-            {"question_id": q["id"], "answer": "yes", "line_seq": len(lines)}
-            for q in row.questions
+            {"question_id": q["id"], "answer": "yes", "line_seq": len(lines)} for q in row.questions
         ]
     payload = {
         "callback_id": callback_id,

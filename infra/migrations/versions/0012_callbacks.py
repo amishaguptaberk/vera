@@ -50,4 +50,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("drop table callback_notes; drop table callback_transcript_lines; drop table callbacks;")
+    op.execute(
+        "drop table callback_notes; drop table callback_transcript_lines; drop table callbacks;"
+    )

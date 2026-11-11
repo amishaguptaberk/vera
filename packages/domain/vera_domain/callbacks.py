@@ -65,7 +65,14 @@ START_STEPS = StepSet(
     )
 )
 WORKING_STEPS = StepSet(include=frozenset({(CaseState.CALLBACK_PENDING, CaseStep.WORKING)}))
-NOTE_STEPS = StepSet(exclude_states=frozenset({CaseState.CLOSED}))
+NOTE_STEPS = StepSet(  # a note needs a call on the current cycle
+    include=frozenset(
+        {
+            (CaseState.CALLBACK_PENDING, CaseStep.WORKING),
+            (CaseState.CALLBACK_PENDING, CaseStep.CALLFAIL),
+        }
+    )
+)
 
 
 def reduce_start(f: CaseFacts, p: StartCallbackPayload, ctx: ReduceContext) -> Reduction:
