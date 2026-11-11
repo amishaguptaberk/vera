@@ -70,9 +70,7 @@ def list_runs(case_id: str, request: Request) -> list[RunOut]:
                     created_at=run.created_at,
                     steps=[
                         StepOut.model_validate(s, from_attributes=True).model_copy(
-                            update={
-                                "replayed": run.mode == "live" and s.execution_mode == "replay"
-                            }
+                            update={"replayed": run.mode == "live" and s.execution_mode == "replay"}
                         )
                         for s in steps
                     ],

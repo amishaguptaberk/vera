@@ -87,3 +87,34 @@ tool-call support of `VERA_MODEL_ID`; `python -m vera_api.model_client record --
 Schema: migration 0004 creates `workflow_runs`, `workflow_steps`, `jobs` and, through
 `PostgresSaver.setup()`, the LangGraph checkpointer tables (dropped on downgrade). Run the worker
 with `python -m vera_api.worker`.
+
+## Investigation (VER-003B): run it in REPLAY and LIVE
+
+`start_investigation` (analyst, after `open_case`, key `inv:{case_id}`) creates a run pinned to
+the case's workflow and policy versions and enqueues a `specialist_runner` job. The worker runs
+`charge_investigator` ∥ `related_transaction_investigator` → `receipt_document_reviewer` → `pc1`
+(policy check) through LangGraph. A failed step stops the run; the case offers
+`retry_specialist_step {step_key, mode: live|replay}` and `hold_case` in `recovery_actions`.
+
+Configuration (names only; never commit values): `VERA_EXECUTION_MODE` (`live` or `replay`;
+unset outside tests is a command error), `NVIDIA_API_KEY` (LIVE only), `VERA_MODEL_ID`,
+`VERA_BASE_URL` (alias `VERA_MODEL_BASE_URL`), `VERA_RECORDINGS_DIR` (default `evals/recordings`).
+
+REPLAY (offline):
+
+```bash
+export VERA_EXECUTION_MODE=replay
+uv run uvicorn vera_api.app:create_app --factory --port 8000   # API
+uv run python -m vera_api.worker                 # worker, in a second shell
+```
+
+LIVE (needs network and the key in the environment):
+
+```bash
+export VERA_EXECUTION_MODE=live NVIDIA_API_KEY=... VERA_MODEL_ID=...
+uv run python -m vera_api.model_client probe
+uv run python -m vera_api.investigation dump-requests   # evals/requests/{specialist}/v1/CHG-1042.json
+```
+
+The committed recordings are authored reference outputs (`model_id: authored-reference`); see
+`evals/recordings/README.md` for capturing real ones.
