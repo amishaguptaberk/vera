@@ -122,7 +122,21 @@ def _issue_effect(
         },
         now=now,
     )
+    if out.status != "failed":  # an execution exists: the approval it ran under is used up
+        _consume_approval(session, case, str(out.execution_id), now)
     return _settle_credit(case, row, out, now)
+
+
+def _consume_approval(session: Session, case: Case, execution_id: str, now: datetime) -> None:
+    """Marks the case's approved approval (VER-009) consumed by this credit execution, so a later
+    evidence change cannot stale an approval whose money already moved. The gateway's approval
+    gate has already checked it; no stored approval row (no decisions feature) means nothing to
+    consume."""
+    from vera_api import decisions
+
+    row = decisions.latest_approval(session, case.id)
+    if row is not None and row.status == "approved":
+        decisions.mark_approval_consumed(session, row.id, execution_id, now)
 
 
 def _lookup_effect(
