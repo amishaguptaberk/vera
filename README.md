@@ -1,54 +1,22 @@
 # Vera
 
-Vera is a post-report investigation workspace for corporate-card charges. When a cardholder reports a charge they do not recognise, Vera opens a case, gathers the source records, runs a team of LLM agents on NVIDIA-hosted models (Llama 3.3 70B through the NVIDIA API) that read the evidence and reason over it, asks the cardholder targeted questions, verifies identity, places an analyst-approved verification call, prepares a decision packet for a reviewer, and carries the approved outcome through provisional credit, dispute, card controls, the final message and closure.
+Vera is an investigation workspace for disputed corporate-card charges. When a cardholder reports a charge they do not recognise, Vera opens a case, gathers the source records, runs a team of LLM agents on NVIDIA-hosted models that read the evidence and reason over it, asks the cardholder targeted questions, verifies identity, places an analyst-approved verification call, prepares a decision packet for a reviewer, and carries the approved outcome through provisional credit, dispute, card controls, the final message and closure.
 
 Each specialist is an LLM-powered, tool-constrained agent that reads scoped evidence, produces structured findings, and hands work to the next workflow step. The models interpret evidence and recommend actions; deterministic policy checks and human approvals control anything consequential.
 
-The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**.
-
 [![Vera launch video](media/vera-launch-poster.jpg)](media/vera-launch.mp4)
 
-▶ [Watch the launch video](media/vera-launch.mp4) (2:19)
+[Watch the launch video](media/vera-launch.mp4) (2:19)
 
-## Agents, not scripts
+## Features
 
-Vera's investigation is done by nine specialist agents running on **NVIDIA-hosted models** (`meta/llama-3.3-70b-instruct` by default via `integrate.api.nvidia.com`; any NVIDIA API model can be set with `VERA_MODEL_ID`):
-
-| Agent | What it decides |
-|---|---|
-| Charge Investigator | Whether the charge matches the purchase order, delivery and card records |
-| Receipt Document Reviewer | Whether the receipt agrees with the order and what was received |
-| Related Transaction Investigator | Which other charges at the merchant belong to the same pattern |
-| Cardholder Follow-up | Which targeted questions to ask the cardholder, from the open findings |
-| Response Reviewer | Whether the cardholder's reply resolves, contradicts or leaves open each finding |
-| Live Verification Agent | The answers given on the verification call, grounded in the transcript |
-| Decision Packet Preparer | The cited summary and recommendation a reviewer decides on |
-| Dispute Packet Preparer | The network reason code and cited dispute narrative |
-| Prevention Planner | Which card controls would stop a repeat |
-
-### Why NVIDIA
-
-- **Card data can stay in-house.** The models Vera uses on NVIDIA's hosted API are open-weight models that also ship as self-hosted NIM containers, so a bank can run the same model in its own cloud or data centre. Moving there is one setting (`VERA_BASE_URL`), not a code change.
-- **The API fits the agent loop.** NVIDIA's endpoint is OpenAI-compatible, with tool calling and JSON-mode output, which is what the runner's read-then-answer loop and schema validation need. `uv run python -m vera_api.model_client probe` checks that a chosen model supports both before you rely on it.
-- **Choice of model without lock-in.** Llama, Nemotron and other catalogue models are swapped with `VERA_MODEL_ID`. Every agent step records the model id it ran on, so an audit shows exactly which model produced each finding.
-
-Each agent runs a tool-calling loop: the model decides which evidence fields to read through a scoped tool gateway (up to four rounds), then returns typed findings. Every finding must cite fields the agent actually read; output that fails the schema or cites evidence it never read is rejected, and the agent is re-prompted with the reason (up to two retries).
-
-### Orchestration with LangGraph
-
-Workflows are data: versioned node and edge lists that compile to a LangGraph `StateGraph`, checkpointed in Postgres so a run resumes where it stopped after a worker restart. The investigation graph fans out and joins:
-
-```
-            ┌─► Charge Investigator ──────────────┐
-  start ────┤                                     ├─► Receipt Document Reviewer ─► Policy check ─► end
-            └─► Related Transaction Investigator ─┘
-```
-
-The verification call is a second graph that pauses on a LangGraph `interrupt` after the analyst approves the questions and the cardholder consents, and resumes only when the provider's signed webhook delivers the transcript. Follow-up questions, response review, decision and dispute packets, and the prevention plan run as jobs on a Postgres-backed queue as the case reaches each step.
-
-The agents gather evidence and recommend; they never move money or change a case on their own. A deterministic Policy Controller and a human reviewer gate every credit, dispute and card control.
-
-`infra/demo.sh up` starts in **replay** mode, which feeds each agent a recorded model response through the same loop and validators, so the demo is repeatable offline. `infra/demo.sh live` (with `NVIDIA_API_KEY` exported) runs the agents against the live NVIDIA endpoint.
+- Case intake, evidence gathering and a single derived case state for every charge report
+- Nine LLM specialists for investigation, cardholder follow-up, decision and dispute packets, and prevention
+- Cardholder questions, one-time-code identity checks and consented voice verification calls
+- Reviewer approval bound to the evidence snapshot and policy version
+- Provisional credit, network dispute, card controls and closure through simulated adapters
+- Role-based views for the analyst, reviewer, card admin and cardholder
+- Full audit trail of every command and agent step
 
 ## Architecture
 
@@ -70,19 +38,47 @@ Next.js UI ──► FastAPI command gateway ──► PostgreSQL
 - Live model failures are explicit. A recorded response is used only when an analyst retries a step in replay mode, and the step is labelled as replayed.
 - One-time codes are never stored or shown to staff; only a keyed hash is kept.
 
-## Roles in the demo
+### Specialists
 
-Switch with **Viewing as …** in the top bar (synthetic environment only):
-
-| Role | Person |
+| Specialist | Responsibility |
 |---|---|
-| Finance analyst (also ops admin) | Sam Rivera |
-| Reviewer, card admin | Dana Okafor |
-| Cardholder | Priya Shah |
+| Charge Investigator | Checks the charge against the purchase order, delivery and card records |
+| Related Transaction Investigator | Finds other charges at the merchant that belong to the same pattern |
+| Receipt Document Reviewer | Checks the receipt against the order and what was received |
+| Cardholder Follow-up | Drafts targeted questions for the cardholder from the open findings |
+| Response Reviewer | Classifies the cardholder's reply against each finding |
+| Live Verification Agent | Extracts the answers given on the verification call, grounded in the transcript |
+| Decision Packet Preparer | Writes the cited summary and recommendation a reviewer decides on |
+| Dispute Packet Preparer | Selects the network reason code and writes the cited dispute narrative |
+| Prevention Planner | Recommends card controls that would stop a repeat |
 
-## Run the demo
+Each specialist runs in a tool-calling loop. The model chooses which evidence fields to read through a scoped tool gateway (up to four rounds) and returns typed findings. Every finding must cite fields the agent actually read; output that fails its schema or cites evidence it never read is rejected and the agent is re-prompted with the reason (up to two retries).
 
-Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22, PostgreSQL 16.
+### Workflow orchestration
+
+Workflows are versioned node and edge definitions compiled to LangGraph `StateGraph`s and checkpointed in Postgres, so a run resumes where it stopped after a worker restart. The investigation graph runs two specialists in parallel and joins before the receipt review and policy check:
+
+```
+            ┌─► Charge Investigator ──────────────┐
+  start ────┤                                     ├─► Receipt Document Reviewer ─► Policy check ─► end
+            └─► Related Transaction Investigator ─┘
+```
+
+The verification call is a separate graph that pauses on an `interrupt` after the analyst approves the questions and the cardholder consents, and resumes only when the provider's signed webhook delivers the transcript. The remaining specialists run as jobs on the Postgres-backed queue as the case reaches each step.
+
+### Models
+
+Specialists call `meta/llama-3.3-70b-instruct` through NVIDIA's OpenAI-compatible API by default, using tool calling and JSON-mode output. Any model on the NVIDIA API can be selected with `VERA_MODEL_ID`, and `VERA_BASE_URL` points the client at a self-hosted NIM container so card data can stay inside the operator's own infrastructure. Each step records the model id it ran on.
+
+## Getting started
+
+### Prerequisites
+
+- Python 3.12 with [uv](https://docs.astral.sh/uv/)
+- Node 22
+- PostgreSQL 16
+
+### Run the demo
 
 ```bash
 infra/dev-db.sh start      # local Postgres on 127.0.0.1:54329 (or point VERA_DATABASE_URL at your own)
@@ -92,15 +88,23 @@ infra/demo.sh reset        # fresh seed between takes
 infra/demo.sh down
 ```
 
+The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**. Switch roles with **Viewing as …** in the top bar:
+
+| Role | Person |
+|---|---|
+| Finance analyst (also ops admin) | Sam Rivera |
+| Reviewer, card admin | Dana Okafor |
+| Cardholder | Priya Shah |
+
 If Postgres binaries are not in `/usr/lib/postgresql/16/bin`, set `VERA_PGBIN`. With Docker: `docker compose -f infra/docker-compose.yml up`.
 
 ### Live model
 
-Replay mode uses reference recordings in `evals/recordings/` and needs no key. To run the specialists against the model provider:
+By default the demo runs in replay mode, which feeds each specialist a reference recording from `evals/recordings/` through the same loop and validators, so it is repeatable and needs no key. To run the specialists against the live model:
 
 ```bash
 export NVIDIA_API_KEY=... VERA_MODEL_ID=meta/llama-3.3-70b-instruct
-uv run python -m vera_api.model_client probe
+uv run python -m vera_api.model_client probe   # checks JSON-mode and tool-call support
 NVIDIA_API_KEY=$NVIDIA_API_KEY infra/demo.sh live
 ```
 
@@ -125,7 +129,7 @@ cd apps/web && npm ci
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-## Repository
+## Project structure
 
 | Path | Contents |
 |---|---|
@@ -135,3 +139,4 @@ npm run typecheck && npm run lint && npm test && npm run build
 | `apps/web` | Next.js app; `apps/web/prototype` is the original design prototype |
 | `evals` | Scenario harness and reference recordings |
 | `tests` | Unit, integration, contract and scenario tests |
+| `media` | Launch video |
