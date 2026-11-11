@@ -14,7 +14,7 @@ import os
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 import httpx
@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from vera_domain.enums import Role
 from vera_domain.errors import CommandError
 from vera_domain.voice import (
+    FINAL_STATUSES,
     CallStarted,
     CallStatus,
     Question,
@@ -48,7 +49,7 @@ from vera_api.models_callbacks import (
     VoiceTranscriptVersion,
     VoiceWebhookEvent,
 )
-from vera_api.worker import enqueue
+from vera_api.worker import Touch, enqueue, register
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +77,8 @@ REQUIRED_ENV = (
     "ELEVENLABS_AGENT_PHONE_NUMBER_ID",
     "ELEVENLABS_WEBHOOK_SECRET",
 )
+TIMEOUT_JOB = "voice_call_timeout"
+CALL_TIMEOUT = timedelta(minutes=10)  # demo clock
 SIGNATURE_TOLERANCE_SECS = 30 * 60  # the provider SDK's tolerance
 PURPOSE = "Confirm whether the cardholder placed and authorizes the disputed order"
 
@@ -342,7 +345,33 @@ def start_provider_call(
         )
     )
     session.flush()
+    enqueue(
+        session,
+        TIMEOUT_JOB,
+        {"callback_id": row.id, "provider_call_id": started.provider_call_id},
+        now=now,
+        run_after=now + CALL_TIMEOUT,
+    )
     return True
+
+
+@register(TIMEOUT_JOB)
+def run_timeout_job(session: Session, payload: dict[str, Any], touch: Touch) -> None:
+    """A call with no final event by the deadline is timed out through the same event path."""
+    call = session.scalars(
+        select(VoiceCall).where(VoiceCall.provider_call_id == str(payload["provider_call_id"]))
+    ).first()
+    if call is None or call.status in {s.value for s in FINAL_STATUSES}:
+        session.rollback()
+        return
+    event = VoiceEvent(
+        "initiation_failure",
+        f"timeout:{call.callback_id}",
+        call.provider_call_id,
+        failure_reason="timed_out",
+        status=CallStatus.TIMED_OUT,
+    )
+    process_event(session, event, b"", call.provider)
 
 
 # ---- webhook

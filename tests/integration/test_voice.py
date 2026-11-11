@@ -280,3 +280,27 @@ def test_busy_goes_to_callfail_and_unknown_call_is_orphan(
     actions = {a["command"] for a in verified.get(f"/api/cases/{CASE}").json()["available_actions"]}
     assert "start_callback" in actions
     assert post_signed(verified, fail).json()["result"] == "duplicate"
+
+
+def test_pending_call_times_out_to_callfail_once(
+    verified: TestClient, db: Session, provider_calls: list[httpx.Request]
+) -> None:
+    start(verified)
+    drain(db)  # the worker clock runs past the 10-minute deadline
+    assert step(verified) == "callfail"
+    v = verified.get(f"/api/cases/{CASE}/callbacks").json()[0]
+    detail = verified.get(f"/api/cases/{CASE}/callbacks/{v['id']}").json()
+    assert detail["voice"]["call_status"] == "timed_out"
+    late = post_signed(verified, transcript_doc())
+    assert late.json()["result"] == "stale"
+    assert count(db, "voice_transcript_versions") == 0
+
+
+def test_signature_scheme_matches_provider_sdk() -> None:
+    from elevenlabs import ElevenLabs
+
+    body = json.dumps(transcript_doc()).encode()
+    header = voice.sign(SECRET, body, int(time.time()))
+    sdk = ElevenLabs(api_key="unused-not-real")
+    event = sdk.webhooks.construct_event(body.decode(), header, SECRET)
+    assert event["data"]["conversation_id"] == "conv_abc"
