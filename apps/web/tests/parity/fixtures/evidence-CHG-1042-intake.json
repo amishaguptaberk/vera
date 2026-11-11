@@ -1,0 +1,134 @@
+{
+    "snapshot_hash": "43aa1b74586685e8c58b4872ebf31fa10880de0fa8aa77b336568861e2a788ea",
+    "records": [
+        {
+            "record_id": "CHG-1042",
+            "kind": "charge",
+            "status": "supporting",
+            "current_version": 1,
+            "fields": {
+                "currency": "USD",
+                "merchant": "Northstar Equipment",
+                "posted_at": "2026-11-08T22:30:00+00:00",
+                "card_last4": "4418",
+                "amount_cents": 284000,
+                "cardholder_id": "chd-priya-shah"
+            }
+        },
+        {
+            "record_id": "CHG-1048",
+            "kind": "related_charge",
+            "status": "pending_review",
+            "current_version": 1,
+            "fields": {
+                "amount_cents": 62000
+            }
+        },
+        {
+            "record_id": "CHG-1051",
+            "kind": "related_charge",
+            "status": "pending_review",
+            "current_version": 1,
+            "fields": {
+                "merchant": "Northstar Equipment",
+                "amount_cents": 120000
+            }
+        },
+        {
+            "record_id": "DLV-882",
+            "kind": "delivery_record",
+            "status": "supporting",
+            "current_version": 1,
+            "fields": {
+                "received_quantity": 2
+            }
+        },
+        {
+            "record_id": "PO-219",
+            "kind": "purchase_order",
+            "status": "supporting",
+            "current_version": 1,
+            "fields": {
+                "merchant": "Northstar Equipment",
+                "approved_quantity": 1,
+                "approved_amount_cents": 240000
+            }
+        },
+        {
+            "record_id": "PRF-4418",
+            "kind": "cardholder_profile",
+            "status": "supporting",
+            "current_version": 1,
+            "fields": {
+                "name": "Priya Shah",
+                "phone": "(415) 555-0182",
+                "verification_target": "phone"
+            }
+        },
+        {
+            "record_id": "REP-1042",
+            "kind": "initial_report",
+            "status": "pending_review",
+            "current_version": 1,
+            "fields": {
+                "statement": "I do not recognize this charge."
+            }
+        }
+    ],
+    "open_conflicts": [],
+    "missing": [
+        "receipt"
+    ],
+    "checks": [
+        {
+            "key": "claim_review",
+            "label": "Claim reviewed",
+            "kinds": [
+                "initial_report"
+            ],
+            "status": "current",
+            "stale_reason": null
+        },
+        {
+            "key": "identity",
+            "label": "Cardholder identity",
+            "kinds": [
+                "cardholder_profile"
+            ],
+            "status": "current",
+            "stale_reason": null
+        },
+        {
+            "key": "purchase_records",
+            "label": "Purchase records agree",
+            "kinds": [
+                "purchase_order",
+                "delivery_record",
+                "charge"
+            ],
+            "status": "current",
+            "stale_reason": null
+        },
+        {
+            "key": "receipt_required",
+            "label": "Receipt required above $75",
+            "kinds": [
+                "receipt",
+                "charge"
+            ],
+            "status": "current",
+            "stale_reason": null
+        },
+        {
+            "key": "related_charges",
+            "label": "Related charges ruled out",
+            "kinds": [
+                "related_charge",
+                "charge"
+            ],
+            "status": "current",
+            "stale_reason": null
+        }
+    ],
+    "findings": []
+}

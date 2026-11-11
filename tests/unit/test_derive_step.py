@@ -71,7 +71,7 @@ ROWS: list[tuple[str, dict[str, Any], S, T]] = [
     ),
     ("row17-clear", {**PACKET, "decision": "clear"}, S.REMEDIATION_PENDING, T.FINALPREP),
     ("row17-violation", {**PACKET, "decision": "violation"}, S.REMEDIATION_PENDING, T.FINALPREP),
-    ("row17-dispute", {**PACKET, "decision": "dispute"}, S.DISPUTE_PREPARED, T.CTL_PREP),
+    ("row17-dispute", {**PACKET, "decision": "dispute"}, S.DISPUTE_PREPARED, T.DSP_PREPARE),
     ("row18-approved", APPROVED, S.CREDIT_APPROVED, T.ISSUE),
     (
         "row19-returned",
@@ -85,7 +85,31 @@ ROWS: list[tuple[str, dict[str, Any], S, T]] = [
         S.DECISION_PENDING,
         T.STALE,
     ),
-    ("row21-issued", ISSUED, S.CREDIT_ISSUED, T.CTL_PREP),
+    ("row21-issued-dispute-first", ISSUED, S.DISPUTE_PREPARED, T.DSP_PREPARE),
+    (
+        "row21-dispute-submitted-controls-none",
+        {**ISSUED, "dispute_status": "submitted"},
+        S.CREDIT_ISSUED,
+        T.CTL_PREP,
+    ),
+    (
+        "row23-uncertain-stale",
+        {**PACKET, "approval_status": "stale", "credit_status": "uncertain"},
+        S.CREDIT_APPROVED,
+        T.CREDIT_CHECK,
+    ),
+    (
+        "row23-uncertain-returned",
+        {**PACKET, "approval_status": "returned", "credit_status": "uncertain"},
+        S.CREDIT_APPROVED,
+        T.CREDIT_CHECK,
+    ),
+    (
+        "row23-uncertain-requested",
+        {**PACKET, "approval_status": "requested", "credit_status": "uncertain"},
+        S.CREDIT_APPROVED,
+        T.CREDIT_CHECK,
+    ),
     ("row21-plan-ready", {**ISSUED, "controls_status": "recommended"}, S.CREDIT_ISSUED, T.CONTROLS),
     ("row22-failed", {**APPROVED, "credit_status": "failed"}, S.CREDIT_APPROVED, T.ISSUE),
     (
@@ -194,7 +218,7 @@ def test_hold_restores_the_step_underneath() -> None:
 def test_later_stage_beats_earlier_stage() -> None:
     # A stale approval beats a ready packet; an issued credit beats the approval's status.
     assert derive_step(facts({**PACKET, "approval_status": "stale"}))[1] == T.STALE
-    assert derive_step(facts({**ISSUED, "approval_status": "stale"}))[1] == T.CTL_PREP
+    assert derive_step(facts({**ISSUED, "approval_status": "stale"}))[1] == T.DSP_PREPARE
     # A failed callback beats the verified identity; a verified identity beats the review.
     assert derive_step(facts({**CALL, "callback_status": "no_answer"}))[1] == T.CALLFAIL
     # An unopened case stays reported whatever else is stored.

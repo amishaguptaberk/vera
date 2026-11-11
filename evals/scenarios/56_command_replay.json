@@ -1,0 +1,45 @@
+{
+  "title": "The same key replays: one effect, attempts counted",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "hold_case",
+      "payload": {
+        "reason": "Waiting for the bank",
+        "next_owner": "usr-dana-okafor"
+      },
+      "times": 2,
+      "expect_each": [
+        {
+          "http": 200,
+          "result_status": "recorded"
+        },
+        {
+          "http": 200,
+          "result_status": "replayed"
+        }
+      ],
+      "assert": {
+        "state": "held",
+        "version": 3,
+        "events": {
+          "types": [
+            "case.opened",
+            "case.held"
+          ]
+        },
+        "idempotency": [
+          {
+            "key": "hold:CHG-1042:2",
+            "attempts": 2,
+            "status": "completed"
+          }
+        ]
+      }
+    }
+  ]
+}

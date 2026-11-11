@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-012-F9",
+  "fixture": 31,
+  "title": "Reviewer chat approval attempt",
+  "description": "Fixture 31: Reviewer chat approval attempt. canned refusal, approval still pending, no event (needs the Vera rail chat backend)"
+}

@@ -1,0 +1,96 @@
+{
+  "title": "Investigation runs in REPLAY: grounded findings, draft step, policy evaluated after specialists",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "assert": {
+        "state": "investigating",
+        "step": "working",
+        "runs": {
+          "count": 1,
+          "mode": "replay",
+          "workflow_version": 3
+        }
+      }
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "state": "investigating",
+        "step": "draft",
+        "runs": {
+          "count": 1,
+          "status": "succeeded",
+          "mode": "replay",
+          "workflow_version": 3,
+          "steps": {
+            "charge_investigator": "succeeded",
+            "related_transaction_investigator": "succeeded",
+            "receipt_document_reviewer": "succeeded"
+          },
+          "execution_modes": {
+            "charge_investigator": "replay"
+          }
+        },
+        "findings": {
+          "count": 6,
+          "all_cited": true,
+          "expect": [
+            {
+              "kind": "conflict",
+              "cites": [
+                [
+                  "PO-219",
+                  "approved_quantity"
+                ],
+                [
+                  "DLV-882",
+                  "received_quantity"
+                ]
+              ]
+            },
+            {
+              "kind": "related_charge",
+              "cites": [
+                [
+                  "CHG-1051",
+                  "merchant"
+                ],
+                [
+                  "CHG-1051",
+                  "amount_cents"
+                ]
+              ]
+            }
+          ]
+        },
+        "evidence": {
+          "missing": [
+            "receipt"
+          ],
+          "open_conflicts": 2
+        },
+        "events": {
+          "mode": "subsequence",
+          "types": [
+            "case.opened",
+            "investigation.started",
+            "run.step_started",
+            "run.step_succeeded",
+            "policy.evaluated",
+            "investigation.completed"
+          ]
+        }
+      }
+    }
+  ]
+}

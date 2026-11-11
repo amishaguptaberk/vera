@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-010",
+  "fixture": 34,
+  "title": "Dispute submission failure + retry",
+  "description": "Fixture 34: Dispute submission failure + retry. `failed` then `submitted` once"
+}

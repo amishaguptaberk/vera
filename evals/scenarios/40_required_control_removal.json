@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-014",
+  "fixture": 40,
+  "title": "Required control removal",
+  "description": "Fixture 40: Required control removal. patch rejected for Policy Controller / checkpoint / recheck / decision record / idempotency gate"
+}

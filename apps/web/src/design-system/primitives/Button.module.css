@@ -1,0 +1,73 @@
+/* Prototype .btn (Main.dc.html:26-37, 439, 873-874). Heights follow the prototype's applied cascade:
+   40px, and 34px for .sm (Handoff §9.4 says 30px; see tests/parity/ACCEPTED.md). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-h-max);
+  padding: 0 14px;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--btn-border);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 510;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+  white-space: nowrap;
+}
+.btn:hover {
+  border-color: var(--ink);
+}
+.btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.go {
+  background: var(--chart);
+  border-color: var(--chart);
+  color: var(--ink);
+}
+.go:hover {
+  background: #d6e41a;
+  border-color: #d6e41a;
+}
+.dark {
+  background: var(--btn-dark);
+  border-color: var(--btn-dark);
+  color: var(--paper);
+}
+.dark:hover {
+  background: #000;
+}
+.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink2);
+  padding: 0 10px;
+}
+.ghost:hover {
+  background: var(--rule2);
+}
+.sm {
+  min-height: var(--control-h-sm-proto);
+  font-size: 12.5px;
+  padding: 0 10px;
+}
+.demo {
+  border: 1px dashed #6d6c6b;
+  background: var(--paper);
+  color: var(--ink2);
+}
+.icon {
+  font-size: 16px;
+  padding: 0 8px;
+}
+.btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}

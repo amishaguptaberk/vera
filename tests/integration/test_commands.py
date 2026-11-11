@@ -83,6 +83,23 @@ def snap(db_url: str) -> Iterator[Any]:
     engine.dispose()
 
 
+def matrix_payload(command: str) -> dict[str, Any]:
+    """A human command with no registered test payload fails loudly (register_test_payloads);
+    a service command is rejected at the role gate before its payload is read."""
+    if command in REGISTRY:
+        return PAYLOADS[command]
+    return PAYLOADS.get(command, {})
+
+
+def test_a_human_command_without_a_test_payload_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(REGISTRY, "t_no_payload", REGISTRY["open_case"])
+    with pytest.raises(KeyError):
+        matrix_payload("t_no_payload")
+    assert matrix_payload("complete_investigation") == {}
+
+
 def forbidden_pairs() -> list[tuple[str, Role]]:
     import vera_api.gateway  # noqa: F401  (loads every feature module's commands)
 
@@ -97,7 +114,7 @@ def test_role_that_does_not_hold_command_gets_403_and_nothing_is_written(
     before = snap()
     if role in HUMAN_ROLES:
         switch(client, role)
-        resp = send(client, command, key=f"k-{command}-{role}", payload=PAYLOADS.get(command, {}))
+        resp = send(client, command, key=f"k-{command}-{role}", payload=matrix_payload(command))
         assert resp.status_code == 403
         assert resp.json()["code"] == "role_forbidden"
     else:
@@ -119,7 +136,7 @@ def test_role_that_does_not_hold_command_gets_403_and_nothing_is_written(
                 command=command,
                 key=f"k-{command}-{role}",
                 expected_version=before["case"][0],
-                payload=PAYLOADS.get(command, {}),
+                payload=matrix_payload(command),
                 actor=actor,
                 request_id="t",
             )
