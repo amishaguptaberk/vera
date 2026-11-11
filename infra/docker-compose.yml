@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: vera
+      POSTGRES_PASSWORD: vera
+      POSTGRES_DB: vera
+    ports:
+      - "54329:5432"
+    volumes:
+      - vera-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vera -d vera"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  vera-pg:
