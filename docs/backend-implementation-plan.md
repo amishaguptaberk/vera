@@ -14,7 +14,7 @@ Where sources disagree, §15 records the reconciliation.
 ## 1. Repository map
 
 ```text
-/apps/web                 frontend; /apps/web/prototype is the v34 baseline export
+/apps/web                 Next.js app (docs/frontend-architecture.md); /apps/web/prototype is the v34 reference
 /services/api             FastAPI app: routers (queries, commands, ask, stream), auth/role dependency
 /services/worker          job loop: specialist runs, adapters, deadlines, expiry, reconciliation
 /packages/domain          pure Python: enums, Pydantic records, reducers, step derivation,
@@ -135,7 +135,7 @@ Each command is one registry entry: `CommandSpec(name, role, payload_model, allo
 
 Queries and commands exactly as Handoff §3.2–§3.4 and §10.2. Additions:
 
-- `GET /api/cases/{id}/available-actions` (prompt VER-002) — same `ActionView[]` embedded in `CaseView`.
+- `GET /api/cases/{id}/available-actions` (prompt VER-002) — same `ActionView[]` embedded in `CaseView`. `ActionView` gains `idempotency_key`, computed by the server from the Handoff §10.6 templates; the client echoes it.
 - `GET /api/session`, `POST /api/session/role` — demo role selection (view change only; writes nothing to the case, no event).
 - `POST /api/demo/reset`, `/api/demo/advance-clock`, `/api/demo/material-change`, `/api/demo/adapter-fault` — synthetic environment only.
 - OpenAPI is generated from the Pydantic models and snapshot-tested in `tests/contracts`; `CaseView` TypeScript types are generated from it for the frontend.
@@ -197,13 +197,15 @@ VER-001 persist/read CHG-1042 (includes repo scaffold, migrations baseline, seed
        │         └─ VER-009 decision packet + reviewer action   (also needs VER-007)
        │              └─ VER-010 credit, dispute, controls
        │                   └─ VER-011 final communication + closure
-       ├─ VER-012 frontend connection — sliced: 012a Cases + case shell after 002; 012b–e follow each backend slice
-       └─ VER-013 evaluation + CI — harness after 002; fixtures added with each slice; full suite last
+       ├─ VER-012 frontend port — slices F0–F11 in docs/frontend-architecture.md §8;
+       │    F0/F1 start now, each later slice follows its backend ticket
+       ├─ VER-013 evaluation + CI — harness after 002; fixtures added with each slice; full suite last
+       └─ VER-014 automations versioning (after 003 and 008) → unblocks F10
 ```
 
-Parallel frontiers (max three builders, disjoint `OWNS`): after 002 → {004, 012a, 013 harness}; after 004 → {003, 005, 008}; then {006 → 007} alongside 008; 009, 010, 011 are serial because they share the gateway registry and case reducer.
+Parallel frontiers (max three builders, disjoint `OWNS`): now → {001, 012-F0}; after 002 → {004, 012-F1, 013 harness}; after 004 → {003, 005, 008}; then {006 → 007} alongside 008; 009, 010, 011 are serial because they share the gateway registry and case reducer.
 
-The prompt lists VER-004 after VER-003, but 003 needs somewhere typed to write findings, so 004's record layer goes first. Not covered by any listed ticket: workflow/specialist/policy draft-validate-check-publish APIs (Epic H, I; fixtures 39–41, 46). Proposed **VER-014 Automations versioning**, depending on 003 and 008 — see §16 U5.
+The prompt lists VER-004 after VER-003, but 003 needs somewhere typed to write findings, so 004's record layer goes first. **VER-014 Automations versioning** (added, D-D) covers workflow/specialist/policy draft, validate, check and publish APIs (Epics H, I; fixtures 39–41, 46).
 
 ## 15. Reconciliations between sources
 
