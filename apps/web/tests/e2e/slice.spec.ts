@@ -44,6 +44,12 @@ test('known-good journey: CHG-1042 investigation → evidence → run details �
   await expect(page).toHaveURL(/tab=decision/);
   await expect(page.getByTestId('policy-status')).toHaveText('blocked');
 
+  // Vera rail: a question gets the server's answer in place (no crash, no blank rail).
+  const rail = page.getByRole('complementary', { name: 'Conversation with Vera' });
+  await rail.getByPlaceholder('Ask about this case').fill('Why is the policy blocked?');
+  await rail.getByRole('button', { name: 'Send' }).click();
+  await expect(rail).toContainText('Blocked · evidence conflict');
+
   // Demo material change: DLV-882 v2 → the purchase-records check goes stale, a conflict drops, policy re-evaluated.
   await page.getByText('Demo controls').click();
   await page.getByRole('button', { name: 'Simulate material change' }).click();

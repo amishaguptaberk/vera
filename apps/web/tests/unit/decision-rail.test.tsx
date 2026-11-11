@@ -18,3 +18,13 @@ describe('Vera rail pairs', () => {
     expect(pairs).toHaveLength(2);
   });
 });
+
+describe('ask wire shape', () => {
+  it('accepts the API answer shape (cites + paragraphs) without crashing the rail', async () => {
+    const { normalizeAsk } = await import('@/features/decision/queries');
+    const r = normalizeAsk({ intent: 'policy', title: 'Policy', paragraphs: ['Blocked · evidence conflict'], cites: [{ record_id: 'CHG-1042', version: 1, field: 'amount_cents' }], actions: [], signature: 's' });
+    expect(r.citations).toEqual([{ record_id: 'CHG-1042', version: 1, field: 'amount_cents' }]);
+    expect(r.answer).toBe('Blocked · evidence conflict');
+    expect(r.refused).toBe(false);
+  });
+});

@@ -54,8 +54,10 @@ test('journey: follow-up → cardholder reply with attachment → analyst review
   await page.getByRole('tab', { name: 'Decision' }).click();
   await expect(page.getByTestId('decision-packet')).toBeVisible({ timeout: 30_000 });
   await expect(acts).toHaveCount(1);
+  await expect.poll(async () => (await caseView(request)).step, { timeout: 30_000 }).toBe('decide');
+  await expect(page.locator('[data-step="decide"]').first()).toBeVisible();
   await acts.getByRole('button', { name: 'Evaluate policy' }).click();
-  await expect(acts.getByRole('button', { name: 'Record decision' })).toBeVisible();
+  await expect(acts.getByRole('button', { name: 'Record decision' })).toBeVisible({ timeout: 10_000 });
   await acts.getByRole('button', { name: 'Record decision' }).click();
   await page.getByLabel('Decision (credit, dispute, clear, violation or unresolved)').fill('dispute');
   await page.getByLabel('Your rationale').fill('Receipt confirms 2 of 3 items; dispute the missing item.');
