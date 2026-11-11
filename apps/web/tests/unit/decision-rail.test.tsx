@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addPair, type RailPair } from '@/features/decision/rail-state';
 
-const ans = (answer: string, ids: string[] = [], signature?: string) => ({ answer, citations: ids.map((record_id) => ({ record_id })), refused: false, signature });
+const ans = (answer: string, ids: string[] = [], signature?: string) => ({ answer, citations: ids.map((record_id) => ({ record_id, version: 1, field: 'phone' })), refused: false, signature });
 
 describe('Vera rail pairs', () => {
   it('repeating a question with the same signature replaces the earlier pair', () => {

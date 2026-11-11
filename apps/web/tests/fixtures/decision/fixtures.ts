@@ -35,18 +35,29 @@ export const analystCase = (step: string, actions: ActionView[] = []): CaseView 
 export const packet = (over: Partial<DecisionPacket> = {}): DecisionPacket => ({
   case_id: 'CHG-1042',
   version: 2,
-  policy_version: 3,
+  latest_version: 2,
+  current: true,
+  snapshot_hash: 'snap-2',
   workflow_version: 4,
-  status: 'sent',
-  stale: false,
-  sections: [
-    { key: 'charge', label: 'Original charge', value: 'CHG-1042 · $2,840.00 · Northstar Equipment LLC' },
-    { key: 'claim', label: 'Cardholder claim', value: 'REP-1042: “I do not recognize this charge.” (claim)' },
+  policy_version: 3,
+  policy_evaluation_id: 11,
+  statements: [
+    { text: 'CHG-1042 · $2,840.00 · Northstar Equipment LLC', record_id: 'CHG-1042', version: 1, field: 'amount' },
+    { text: '“I do not recognize this charge.” (claim)', record_id: 'REP-1042', version: 1, field: 'statement' },
   ],
-  citations: ['CHG-1042', 'REP-1042'],
-  policy: { label: 'Eligible for temporary credit', rules: [{ label: 'Receipt matches PO', passed: false, record_ids: ['PO-219'] }] },
-  approvals: [],
+  open_conflicts: [],
+  missing: [],
+  policy: { label: 'Eligible for temporary credit', status: 'eligible', policy_version: 3, rules_failed: ['Receipt matches PO'], evidence_used: ['PO-219'] },
+  recommendation: 'Temporary credit while the dispute is prepared.',
+  decision: null,
+  approval: null,
+  created_by: 'usr-sam-rivera',
+  created_at: '2026-11-10T15:00:00Z',
   ...over,
+});
+
+export const approval = (status: string, return_reason: string | null = null) => ({
+  approval_id: 'APR-1042', case_id: 'CHG-1042', packet_version: 2, policy_version: 3, workflow_version: 4, status, reviewer_id: 'usr-dana-okafor', return_reason,
 });
 
 export const askContact: AskResponse = {

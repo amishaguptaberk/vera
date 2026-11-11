@@ -67,7 +67,7 @@ export function pairMessages(pairs: readonly RailPair[]): RailMessage[] {
       who: 'Vera',
       title: p.response.title ?? null,
       paras: p.response.paragraphs?.length ? p.response.paragraphs : [p.response.answer],
-      cites: p.response.citations.map((x) => ({ record_id: x.record_id, label: x.version != null ? `${x.record_id} v${x.version}` : x.record_id })),
+      cites: p.response.citations.map((x) => ({ record_id: x.record_id, label: `${x.record_id} v${x.version}` })),
       actions: (p.response.actions ?? []).map((a, i) => ({ key: `${p.id}:${i}`, label: a.label })),
     },
   ]);
@@ -81,7 +81,6 @@ export function VeraRailPanel({ c, role, open, onClose, selected, onSelectRecord
   const run = useRunCommand(c.case_id);
   const [pairs, setPairs] = useState<RailPair[]>([]);
   const [input, setInput] = useState('');
-  const [lastIntent, setLastIntent] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const messages = useMemo(() => {
@@ -95,11 +94,10 @@ export function VeraRailPanel({ c, role, open, onClose, selected, onSelectRecord
     if (!q || ask.isPending) return;
     setErr(null);
     ask.mutate(
-      { text: q, role, last_intent: lastIntent },
+      { text: q },
       {
         onSuccess: (r) => {
           setInput('');
-          setLastIntent(r.intent ?? null);
           setPairs((prev) => addPair(prev, q, r));
         },
         onError: (e) => setErr(e.status === 404 ? 'Asking Vera is not available yet.' : e.message),

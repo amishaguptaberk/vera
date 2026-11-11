@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReviewerControls } from '@/components/decision';
 import { DecisionPanel, ReviewerPanel, VeraRailPanel } from '@/features/decision';
-import { analystCase, askContact, askRefusal, packet, reviewerCase } from '../fixtures/decision/fixtures';
+import { analystCase, approval, askContact, askRefusal, packet, reviewerCase } from '../fixtures/decision/fixtures';
 import { mockFetch, renderWithProviders } from './helpers';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -21,9 +21,9 @@ describe('reviewer stale state', () => {
   });
 
   it('reviewer panel: server packet stale → banner, approve disabled', async () => {
-    mockFetch(() => packet({ stale: true, stale_reason: 'DLV-882 v2' }));
+    mockFetch(() => packet({ version: 1, latest_version: 2, current: false }));
     renderWithProviders(<ReviewerPanel c={reviewerCase('waitrv')} />);
-    expect((await screen.findByRole('alert')).textContent).toContain('(DLV-882 v2)');
+    expect((await screen.findByRole('alert')).textContent).toContain('(packet v1, latest v2)');
     expect((screen.getByRole('button', { name: 'Approve temporary credit' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
@@ -60,7 +60,7 @@ describe('analyst decision tab', () => {
   });
 
   it('returned step shows the reviewer reason', async () => {
-    mockFetch(() => packet({ status: 'returned', return_reason: 'Receipt missing' }));
+    mockFetch(() => packet({ approval: approval('returned', 'Receipt missing') }));
     renderWithProviders(<DecisionPanel c={analystCase('returned')} />);
     expect(await screen.findByText('“Receipt missing” Update the rationale and resend.')).toBeTruthy();
   });
@@ -93,7 +93,7 @@ describe('Vera rail', () => {
     await user.type(screen.getByLabelText('Message Vera'), 'Who do I call?{Enter}');
     await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/ask'))).toHaveLength(2));
     await waitFor(() => expect(screen.getAllByText('The approved contact is Priya Shah · (415) 555-0182.')).toHaveLength(1));
-    expect(JSON.parse(calls.find((c) => c.url.endsWith('/ask'))!.body!)).toEqual({ text: 'Who do I call?', role: 'analyst', last_intent: null });
+    expect(JSON.parse(calls.find((c) => c.url.endsWith('/ask'))!.body!)).toEqual({ text: 'Who do I call?' });
   });
 
   it('"approve this" shows the server refusal and offers no button', async () => {

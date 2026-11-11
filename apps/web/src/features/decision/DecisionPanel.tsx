@@ -13,13 +13,26 @@ import styles from './panel.module.css';
 
 export type DecisionPanelProps = { c: CaseView; selected?: string | null; onSelectRecord?: (recordId: string) => void };
 
-/** Server packet → presentational props. Labels and values are the server's; nothing is computed. */
-export function packetProps(p: DecisionPacket, c?: CaseView) {
-  const policy = p.policy ?? (c?.policy ? { label: c.policy.label, rules: c.policy.rules_failed.map((label) => ({ label, passed: false, record_ids: c.policy!.evidence_used })) } : null);
-  const versions = [`Packet v${p.version}`, p.policy_version != null ? `policy v${p.policy_version}` : null, p.workflow_version != null ? `workflow v${p.workflow_version}` : null]
-    .filter(Boolean)
-    .join(' · ');
-  return { sections: p.sections, refs: p.citations ?? [], policy, versions };
+/** Server packet → presentational props. Every label/value is the server's text; nothing is computed. */
+export function packetProps(p: DecisionPacket) {
+  const sections = [
+    ...p.statements.map((st, i) => ({ key: `st-${i}`, label: `${st.record_id} v${st.version} · ${st.field}`, value: st.text })),
+    ...(p.missing.length ? [{ key: 'missing', label: 'Missing', value: p.missing.join(' · ') }] : []),
+    ...(p.open_conflicts.length
+      ? [{ key: 'conflicts', label: 'Open conflicts', value: p.open_conflicts.map((c) => String(c.summary ?? c.text ?? c.record_id ?? '')).filter(Boolean).join(' · ') }]
+      : []),
+    { key: 'rec', label: 'Recommendation', value: p.recommendation },
+    ...(p.decision ? [{ key: 'decision', label: 'Decision', value: p.decision }] : []),
+  ];
+  const policy = p.policy
+    ? { label: p.policy.label, rules: (p.policy.rules_failed ?? []).map((label) => ({ label, passed: false, record_ids: p.policy!.evidence_used ?? [] })) }
+    : null;
+  const versions = `Packet v${p.version} of v${p.latest_version} · policy v${p.policy_version} · workflow v${p.workflow_version}`;
+  const refs = [...new Set(p.statements.map((s) => s.record_id))];
+  const approvals = p.approval
+    ? [{ id: p.approval.approval_id, status: p.approval.status, reviewer: p.approval.reviewer_id, reason: p.approval.return_reason ?? null }]
+    : [];
+  return { sections, refs, policy, versions, approvals };
 }
 
 /** Analyst Decision tab: decide / waiting on reviewer / returned / stale (prototype focus card for those steps). */
@@ -29,7 +42,8 @@ export function DecisionPanel({ c, selected, onSelectRecord }: DecisionPanelProp
   const [form, setForm] = useState<ActionView | null>(null);
   const [vals, setVals] = useState<Record<string, string>>({});
   const p = packet.data;
-  const returned = c.step === 'returned' && p?.return_reason ? [`“${p.return_reason}” Update the rationale and resend.`] : [];
+  const reason = p?.approval?.return_reason;
+  const returned = c.step === 'returned' && reason ? [`“${reason}” Update the rationale and resend.`] : [];
   const act = (a: ActionView) => {
     if (commandForms[a.command]?.length) {
       setForm(a);
@@ -49,8 +63,8 @@ export function DecisionPanel({ c, selected, onSelectRecord }: DecisionPanelProp
         ) : null}
         {p ? (
           <>
-            <PacketView {...packetProps(p, c)} selected={selected} onSelectRecord={onSelectRecord} />
-            <ApprovalHistory items={p.approvals ?? []} />
+            <PacketView {...packetProps(p)} selected={selected} onSelectRecord={onSelectRecord} />
+            <ApprovalHistory items={packetProps(p).approvals} />
           </>
         ) : null}
         {form ? (
