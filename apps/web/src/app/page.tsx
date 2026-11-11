@@ -1,5 +1,6 @@
-// The shell (sidebar, top bar, environment pill) comes from the root layout via features/shell.
-// Real pages arrive in later slices (F2: /cases).
+import { redirect } from 'next/navigation';
+
+// The Cases queue is the landing route.
 export default function Home() {
-  return <main />;
+  redirect('/cases');
 }
