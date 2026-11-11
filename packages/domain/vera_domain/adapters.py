@@ -1,6 +1,6 @@
 """Adapter execution types (pure). The executor lives in vera_api.adapters."""
 
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -19,5 +19,6 @@ class AdapterResult(BaseModel, frozen=True):
     replayed: bool = False
 
 
+@runtime_checkable
 class SimulatedAdapter(Protocol):
     def call(self, operation: str, request: dict[str, Any]) -> AdapterResult: ...

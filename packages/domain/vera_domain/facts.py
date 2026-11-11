@@ -93,18 +93,21 @@ _DISPUTE_STEP: dict[str, CaseStep] = {
 def _tracks(f: CaseFacts) -> tuple[CaseState, CaseStep] | None:
     """Rows 21, 24-27: the dispute and card-control tracks after the credit / dispute decision.
 
-    The analyst's own next action comes first (control plan, then dispute steps); the case waits
-    on the card admin only once the dispute is submitted. None = both tracks are finished.
+    Same focus as the prototype's `tracks()`: a control plan that is already recommended is sent
+    first (controls); otherwise the dispute is worked to submission (dsp_*, starting at
+    dsp_prepare); only then the control track: none -> ctl_prep, proposed -> waitctl, approved ->
+    ctl_apply (the card admin applies; the analyst's copy for that step is "Waiting on card admin
+    to apply controls"). None = both tracks are finished (finalprep).
     """
     ctl_state = (
         CaseState.CREDIT_ISSUED if f.credit_status == "issued" else CaseState.DISPUTE_PREPARED
     )
-    if f.controls_status == "none":
-        return ctl_state, CaseStep.CTL_PREP
     if f.controls_status == "recommended":
         return ctl_state, CaseStep.CONTROLS
     if f.dispute_status != "submitted":
         return CaseState.DISPUTE_PREPARED, _DISPUTE_STEP[f.dispute_status]
+    if f.controls_status == "none":
+        return ctl_state, CaseStep.CTL_PREP
     if f.controls_status == "proposed":
         return ctl_state, CaseStep.WAITCTL
     if f.controls_status == "approved":
@@ -149,9 +152,9 @@ def derive_step(facts: CaseFacts) -> tuple[CaseState, CaseStep]:
     """The ONLY source of state/step (Handoff 4.2). Total; the latest stage reached wins.
 
     Precedence: closed > monitoring > hold > not opened > final update (close, final) >
-    no-credit decision (finalprep) > credit/dispute tracks > approval (stale, returned, waitrv,
-    issue/credit_check) > packet > callback > identity > response review > cardholder request >
-    investigation.
+    no-credit decision (finalprep) > credit/dispute tracks > unconfirmed credit (credit_check) >
+    approval (stale, returned, waitrv, issue) > packet > callback > identity > response review >
+    cardholder request > investigation.
     """
     f = facts
     if f.closed:
@@ -170,6 +173,8 @@ def derive_step(facts: CaseFacts) -> tuple[CaseState, CaseStep]:
         return CaseState.REMEDIATION_PENDING, CaseStep.FINALPREP
     if f.decision == "dispute" or f.credit_status == "issued":  # rows 17, 21, 24-27
         return _tracks(f) or (CaseState.REMEDIATION_PENDING, CaseStep.FINALPREP)
+    if f.credit_status == "uncertain":  # row 23: an unconfirmed credit result outranks approval
+        return CaseState.CREDIT_APPROVED, CaseStep.CREDIT_CHECK
     if f.approval_status == "stale":  # row 20
         return CaseState.DECISION_PENDING, CaseStep.STALE
     if f.approval_status == "returned":  # row 19
@@ -177,6 +182,5 @@ def derive_step(facts: CaseFacts) -> tuple[CaseState, CaseStep]:
     if f.approval_status == "requested":  # row 16
         return CaseState.REVIEWER_PENDING, CaseStep.WAITRV
     if f.approval_status == "approved":  # rows 18, 22, 23
-        step = CaseStep.CREDIT_CHECK if f.credit_status == "uncertain" else CaseStep.ISSUE
-        return CaseState.CREDIT_APPROVED, step
+        return CaseState.CREDIT_APPROVED, CaseStep.ISSUE
     return _pre_decision(f)

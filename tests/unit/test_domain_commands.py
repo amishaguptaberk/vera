@@ -34,38 +34,48 @@ def test_derive_step_is_a_pure_function_of_facts() -> None:
     )
 
 
-def test_every_reducer_emits_exactly_its_declared_events() -> None:
-    from vera_domain.commands import (
-        HoldPayload,
-        LinkReportPayload,
-        ReassignPayload,
-        RetryStepPayload,
-    )
+def reduce_registered(name: str) -> tuple[str, ...]:
+    """Run a registered command's reducer on its registered test payload and extras."""
+    from command_payloads import REDUCER_EXTRAS, TEST_PAYLOADS
 
-    payloads = {
-        "open_case": NoPayload(),
-        "hold_case": HoldPayload(reason="long enough", next_owner="u"),
-        "resume_case": NoPayload(),
-        "reassign_case": ReassignPayload(to="u", reason="x"),
-        "link_report": LinkReportPayload(report_id="REP-9", statement="again"),
-        "evaluate_policy": NoPayload(),
-        "start_investigation": NoPayload(),
-        "retry_specialist_step": RetryStepPayload(step_key="charge_investigator", mode="replay"),
-    }
+    spec = REGISTRY[name]
+    if name not in TEST_PAYLOADS:
+        pytest.fail(
+            f"command '{name}' is registered but has no test payload: call "
+            f"register_test_payloads({{'{name}': {{...}}}}) (tests/support/command_payloads.py)"
+        )
+    payload = spec.payload_model.model_validate(TEST_PAYLOADS[name])
     ctx = ReduceContext("C", "u", "U", Role.ANALYST, NOW, lambda r: (r, r), "REP-1")
-    ctx.extra["run"] = {"run_id": "r", "mode": "replay"}
-    ctx.extra["policy"] = {
-        "status": "eligible",
-        "code": "CREDIT_ELIGIBLE",
-        "label": "Eligible",
-        "rules_failed": [],
-        "evidence_used": [],
-        "snapshot_hash": "s",
-        "policy_version": 1,
-    }
-    for name, spec in REGISTRY.items():
-        red = spec.reducer(CaseFacts(owner_id="u"), payloads[name], ctx)
-        assert tuple(e.type for e in red.events) == spec.events
+    ctx.extra.update(REDUCER_EXTRAS.get(name, {}))
+    try:
+        red = spec.reducer(CaseFacts(owner_id="u"), payload, ctx)
+    except KeyError as missing:
+        pytest.fail(
+            f"reducer of '{name}' read ctx.extra[{missing}] and found nothing: call "
+            f"register_reducer_extras({{'{name}': {{...}}}}) (tests/support/command_payloads.py)"
+        )
+    return tuple(e.type for e in red.events)
+
+
+def test_every_reducer_emits_exactly_its_declared_events() -> None:
+    for name, spec in list(REGISTRY.items()):
+        assert reduce_registered(name) == spec.events, name
+
+
+def test_reducer_test_fails_loudly_for_a_command_without_payload_or_extras(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from command_payloads import REDUCER_EXTRAS, TEST_PAYLOADS
+
+    monkeypatch.setitem(REGISTRY, "t_unregistered", REGISTRY["open_case"])
+    with pytest.raises(pytest.fail.Exception, match="register_test_payloads"):
+        reduce_registered("t_unregistered")
+    monkeypatch.setitem(REGISTRY, "t_needs_extra", REGISTRY["evaluate_policy"])
+    monkeypatch.setitem(TEST_PAYLOADS, "t_needs_extra", {})
+    with pytest.raises(pytest.fail.Exception, match="register_reducer_extras"):
+        reduce_registered("t_needs_extra")
+    monkeypatch.setitem(REDUCER_EXTRAS, "t_needs_extra", REDUCER_EXTRAS["evaluate_policy"])
+    assert reduce_registered("t_needs_extra") == ("policy.evaluated",)
 
 
 def test_closed_and_step_gates_share_one_reason() -> None:
