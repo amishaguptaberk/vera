@@ -106,7 +106,14 @@ export type SpecialistView = {
   available_actions: AutomationAction[];
 };
 
-export type SpecialistsView = { specialists: SpecialistView[]; available_actions: AutomationAction[] };
+export type SpecialistsView = {
+  specialists: SpecialistView[];
+  available_actions: AutomationAction[];
+  /** Server-owned option lists for the new-specialist form (approved tool library etc.). */
+  options?: { records: string[]; tools: string[]; outputs: string[]; handoffs: string[] };
+  /** "Restricted by Vera" list (copy owned by the server). */
+  restricted?: string[];
+};
 
 export type PolicyRule = {
   id: string;

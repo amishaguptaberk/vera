@@ -36,7 +36,7 @@ const edgeId = (e: { source: string; target: string; outcome: string }) => `${e.
 export function WorkflowsPage({ workflowId = WORKFLOW_ID }: { workflowId?: string }) {
   const q = useWorkflow(workflowId);
   if (q.isPending) return <WorkflowShell message="Loading workflow…" />;
-  if (q.isError) return <WorkflowShell message={isNotAvailable(q.error) ? 'Not available yet' : q.error.message} />;
+  if (q.isError) return <WorkflowShell message={isNotAvailable(q.error) ? 'Not available yet' : (q.error as Error).message} />;
   return <WorkflowBuilder detail={q.data} />;
 }
 
@@ -64,7 +64,8 @@ function WorkflowShell({ message }: { message: string }) {
   );
 }
 
-export function WorkflowBuilder({ detail }: { detail: WorkflowDetail }) {
+/** `onCommand` replaces the network call (preview passes a no-op). */
+export function WorkflowBuilder({ detail, onCommand }: { detail: WorkflowDetail; onCommand?: (command: string) => void }) {
   const [view, setView] = useState<'draft' | number>(detail.draft ? 'draft' : detail.active_version);
   const [selected, setSelected] = useState<Selection>(null);
   const cmd = useAutomationCommand();
@@ -105,7 +106,9 @@ export function WorkflowBuilder({ detail }: { detail: WorkflowDetail }) {
   const updateAction = detail.available_actions.find((a) => a.command === 'update_workflow_draft');
   const run = (command: string, payload?: Record<string, unknown>) => {
     const action = detail.available_actions.find((a) => a.command === command);
-    if (action) cmd.mutate({ action, payload });
+    if (!action) return;
+    if (onCommand) onCommand(command);
+    else cmd.mutate({ action, payload });
   };
 
   const selNode = selected?.t === 'node' ? byKey.get(selected.k) : undefined;
@@ -167,7 +170,7 @@ export function WorkflowBuilder({ detail }: { detail: WorkflowDetail }) {
 
   const actions: ToolbarAction[] = detail.available_actions
     .filter((a) => a.command !== 'update_workflow_draft')
-    .map((a) => ({ command: a.command, label: a.label, enabled: a.enabled && !cmd.isPending, blockedReason: a.blocked_reason, variant: VARIANT[a.command] ?? ['sm'], onRun: () => cmd.mutate({ action: a }) }));
+    .map((a) => ({ command: a.command, label: a.label, enabled: a.enabled && !cmd.isPending, blockedReason: a.blocked_reason, variant: VARIANT[a.command] ?? ['sm'], onRun: () => (onCommand ? onCommand(a.command) : cmd.mutate({ action: a })) }));
 
   const pin = detail.pinned_cases
     .map((c) => (c.version === detail.active_version ? `Used by ${c.case_id}` : `${c.case_id} stays on v${c.version} · new cases use v${detail.active_version}`))
