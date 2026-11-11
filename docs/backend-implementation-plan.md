@@ -182,3 +182,51 @@ One worker process, Postgres-backed queue (`jobs` table, `FOR UPDATE SKIP LOCKED
 - `evals/replay` — fixtures 1–46, each a YAML script of commands with assertions on state, step, available actions, evidence status, findings/claims, policy result, approval validity, event sequence, idempotency rows, adapter call counts and recovery action. Failure output names case, workflow version, step and invariant (US-K03).
 - Playwright — analyst, cardholder, reviewer/card-admin, material-change journeys (with VER-012).
 - CI (GitHub Actions): ruff, ruff format --check, mypy, alembic upgrade on a Postgres service, pytest (unit, integration, contracts, replay), frontend test + build.
+
+## 14. Ticket dependencies
+
+```text
+VER-001 persist/read CHG-1042 (includes repo scaffold, migrations baseline, seed, reset)
+  └─ VER-002 command gateway + available actions
+       ├─ VER-004 evidence provenance, snapshots, stale invalidation
+       │    ├─ VER-003 LangGraph investigation (writes findings through VER-004 records)
+       │    ├─ VER-005 follow-up, send, reply, attachment
+       │    │    └─ VER-006 OTP/push identity verification
+       │    │         └─ VER-007 analyst-approved callback
+       │    └─ VER-008 Policy Controller
+       │         └─ VER-009 decision packet + reviewer action   (also needs VER-007)
+       │              └─ VER-010 credit, dispute, controls
+       │                   └─ VER-011 final communication + closure
+       ├─ VER-012 frontend connection — sliced: 012a Cases + case shell after 002; 012b–e follow each backend slice
+       └─ VER-013 evaluation + CI — harness after 002; fixtures added with each slice; full suite last
+```
+
+Parallel frontiers (max three builders, disjoint `OWNS`): after 002 → {004, 012a, 013 harness}; after 004 → {003, 005, 008}; then {006 → 007} alongside 008; 009, 010, 011 are serial because they share the gateway registry and case reducer.
+
+The prompt lists VER-004 after VER-003, but 003 needs somewhere typed to write findings, so 004's record layer goes first. Not covered by any listed ticket: workflow/specialist/policy draft-validate-check-publish APIs (Epic H, I; fixtures 39–41, 46). Proposed **VER-014 Automations versioning**, depending on 003 and 008 — see §16 U5.
+
+## 15. Reconciliations between sources
+
+| # | Conflict | Resolution |
+|---|---|---|
+| R1 | Prompt command names (`create_follow_up`, `approve_send`, `record_reply`, `request_verification`, `verify_identity`, `approve_callback`, `record_call_result`, `prepare_decision_packet`, `prepare_dispute`) differ from Handoff §3.3 | Handoff names are canonical (`draft_follow_up`, `send_communication`, `submit_cardholder_response`, `send_verification_request`, `submit_otp` / `answer_verification_push`, `start_callback`, `record_callback`, `create_decision_packet`, `prepare_dispute_packet`). `approve_callback` is not a separate command: `start_callback` by the analyst is the approval and emits `callback.approved` + `callback.started`. |
+| R2 | Handoff gate order lists Idempotency after Permission, then says it runs before the step check | Replay lookup is stage 3 (§6); the key is written in stage 9. |
+| R3 | Policy vocabulary: prompt `blocked/needs-evidence/eligible/ineligible` vs Handoff `code` + `credit_eligible` | Both: `status` (four values) and `code`/`label`. |
+| R4 | Identity states: prompt adds `failed`, `locked`; Handoff adds `cancelled` | Enum: `ready_to_verify, request_sent, awaiting_cardholder_verification, identity_verified, locked, expired, denied, cancelled, failed`. `locked` = three wrong codes (analyst label `Verification failed`); `failed` = request could not be delivered. |
+| R5 | Callback outcomes: prompt has five, Handoff three | `confirmed, contradicted, voicemail, no_answer, incomplete`; only `confirmed` satisfies the check. |
+| R6 | ToSpec lists Redis and "LangGraph only if needed"; prompt makes LangGraph the runtime and allows "Redis or a small worker queue" | LangGraph + Postgres checkpointer; Postgres job queue; no Redis. |
+| R7 | ToSpec §13.2 `Work to review` columns vs D1 | D1 five-column queue. |
+| R8 | ToSpec: analyst/admin applies controls; D7 | Card admin approves and applies. |
+| R9 | `docker compose up -d postgres redis` in the test gates | Compose file ships with `postgres` only (plus api, worker, web). This build workspace has no Docker daemon, so local runs use the installed Postgres 16 binaries via `infra/dev-db.sh`; the compose path will be written but can only be verified on a machine with Docker. |
+| R10 | Python 3.12 required; workspace default is 3.13 | venv on the installed `python3.12`. |
+
+## 16. Unresolved assumptions — need an answer before VER-001
+
+| # | Question | Default if unanswered |
+|---|---|---|
+| U1 | **Frontend path.** The prototype is a 611 KB single-file design export on a custom runtime; ToSpec recommends Next.js. Option A: keep the export and swap its logic class's state for API calls (fastest, pixel-identical, hard to maintain). Option B: port to Next.js/React components replicating the markup and tokens (matches ToSpec, more work, risk of visual drift). | A for the demo |
+| U2 | **Where the repo lives.** It is currently only in the cloud workspace; nothing is pushed. A connected folder on your computer or a GitHub repo is needed for the work to outlive this session. | stay local, no push |
+| U3 | **Model-backed specialists.** Deterministic fixture-backed specialists first; optional model phrasing later. Is a model call wanted in the demo at all, and with which key/runtime? | deterministic only |
+| U4 | **Ticket skills.** `to-tickets` and `run-tickets` in the plugin are user-invoked only; the assistant cannot start them. | wait for you to run them |
+| U5 | **VER-014 Automations versioning** as an added ticket (see §14). | add it |
+| U6 | ToSpec §18 #1–3 are settled by the prototype (five controls, immediate synthetic credit, full transcript + structured record). #4–7 (runtime, Langfuse in CI, auth, retention) remain open; defaults: LangGraph, Langfuse off in CI, demo cookie session, no retention policy. | as stated |
