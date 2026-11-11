@@ -43,8 +43,18 @@ def test_every_reducer_emits_exactly_its_declared_events() -> None:
         "resume_case": NoPayload(),
         "reassign_case": ReassignPayload(to="u", reason="x"),
         "link_report": LinkReportPayload(report_id="REP-9", statement="again"),
+        "evaluate_policy": NoPayload(),
     }
     ctx = ReduceContext("C", "u", "U", Role.ANALYST, NOW, lambda r: (r, r), "REP-1")
+    ctx.extra["policy"] = {
+        "status": "eligible",
+        "code": "CREDIT_ELIGIBLE",
+        "label": "Eligible",
+        "rules_failed": [],
+        "evidence_used": [],
+        "snapshot_hash": "s",
+        "policy_version": 1,
+    }
     for name, spec in REGISTRY.items():
         red = spec.reducer(CaseFacts(owner_id="u"), payloads[name], ctx)
         assert tuple(e.type for e in red.events) == spec.events
