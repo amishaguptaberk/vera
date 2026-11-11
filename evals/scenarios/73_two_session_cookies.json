@@ -1,0 +1,15 @@
+{
+  "title": "Two session cookies resolve to no session (default analyst), never a privilege",
+  "steps": [
+    {
+      "as": "reviewer",
+      "get": "/api/session",
+      "json": {
+        "active_role": "reviewer"
+      }
+    },
+    {
+      "service": "two_cookies"
+    }
+  ]
+}

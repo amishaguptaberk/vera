@@ -1,0 +1,41 @@
+{
+  "title": "Evidence change re-evaluates policy with a new snapshot",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "evidence": {
+          "remember_snapshot": "h0"
+        }
+      }
+    },
+    {
+      "service": "demo",
+      "demo": "material-change",
+      "assert": {
+        "evidence": {
+          "snapshot_changed_since": "h0"
+        },
+        "events": {
+          "types": [
+            "policy.evaluated",
+            "evidence.version_added",
+            "policy.evaluated"
+          ]
+        },
+        "sql": [
+          {
+            "name": "two evaluations, newest on the new snapshot",
+            "query": "select count(*) from policy_evaluations where case_id='CHG-1042'",
+            "equals": [
+              [
+                2
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

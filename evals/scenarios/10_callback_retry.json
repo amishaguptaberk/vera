@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-007",
+  "fixture": 10,
+  "title": "Callback retry",
+  "description": "Fixture 10: Callback retry. ToSpec 15.10"
+}

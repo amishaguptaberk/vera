@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-005",
+  "fixture": 4,
+  "title": "Incomplete response",
+  "description": "Fixture 4: Incomplete response. ToSpec 15.4"
+}

@@ -1,0 +1,69 @@
+{
+  "title": "Ungrounded specialist output fails the step; replay retry resumes",
+  "steps": [
+    {
+      "service": "recordings",
+      "variant": "ungrounded"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "state": "investigating",
+        "step": "working",
+        "runs": {
+          "status": "failed",
+          "steps": {
+            "charge_investigator": "failed",
+            "related_transaction_investigator": "succeeded"
+          },
+          "failure_reasons": {
+            "charge_investigator": "ungrounded"
+          }
+        },
+        "recovery_actions": [
+          "retry_specialist_step",
+          "hold_case"
+        ],
+        "actions_exclude": [
+          "retry_specialist_step"
+        ]
+      }
+    },
+    {
+      "service": "replay_recordings"
+    },
+    {
+      "as": "analyst",
+      "command": "retry_specialist_step",
+      "payload": {
+        "mode": "replay"
+      }
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "step": "draft",
+        "runs": {
+          "status": "succeeded"
+        },
+        "recovery_actions": [],
+        "findings": {
+          "count": 6,
+          "all_cited": true
+        }
+      }
+    }
+  ]
+}

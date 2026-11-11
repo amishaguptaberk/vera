@@ -1,0 +1,56 @@
+{
+  "title": "Policy result follows persisted evidence: needs evidence, then blocked by an open conflict",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "policy": {
+          "status": "needs_evidence"
+        },
+        "events": {
+          "types": [
+            "policy.evaluated"
+          ]
+        }
+      }
+    },
+    {
+      "service": "reset"
+    },
+    {
+      "service": "record_finding",
+      "payload": {
+        "finding_id": "FND-Q",
+        "kind": "conflict",
+        "statement": "The purchase order approves one unit but the delivery record shows two.",
+        "conflict_field": "quantity",
+        "links": [
+          {
+            "record_id": "PO-219",
+            "version": 1,
+            "field": "approved_quantity"
+          },
+          {
+            "record_id": "DLV-882",
+            "version": 1,
+            "field": "received_quantity"
+          }
+        ]
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "policy": {
+          "status": "blocked",
+          "code": "EVIDENCE_CONFLICT"
+        },
+        "evidence": {
+          "open_conflicts": 1
+        }
+      }
+    }
+  ]
+}
