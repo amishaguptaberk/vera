@@ -17,10 +17,9 @@ from vera_domain.errors import CommandError
 from vera_domain.evidence import content_hash
 from vera_domain.labels import register_event_summaries, register_labels
 
-from vera_api import adapters, auth, gateway, plugins
+from vera_api import adapters, auth, evidence, gateway, plugins
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
-from vera_api.evidence import recompute_snapshot
 from vera_api.gateway import EffectContext
 from vera_api.models import CardTransaction, Case, User
 from vera_api.models_comms import Communication, CommunicationDraft, CommunicationResponse
@@ -310,7 +309,7 @@ def _respond(
             )
         )
         session.flush()
-        recompute_snapshot(session, case)
+        evidence.recompute_snapshot(session, case)
     rsp = CommunicationResponse(
         id=f"RSP-{row.id.removeprefix('MSG-')}",
         communication_id=row.id,

@@ -11,11 +11,11 @@ import hmac
 import secrets
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -25,14 +25,31 @@ from vera_domain.clock import Clock
 from vera_domain.enums import Role
 from vera_domain.errors import CommandError
 
-from vera_api import adapters, gateway, plugins, worker
+from vera_api import adapters, auth, gateway, plugins, worker
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
-from vera_api.evidence import DbSession, ReaderDep
 from vera_api.gateway import EffectContext, Outcome
 from vera_api.intake import _emit
 from vera_api.models import Case, User
 from vera_api.models_identity import IdentityVerification, VerificationAttempt, VerificationOutbox
+
+
+# Route dependencies defined here (not imported from vera_api.evidence): evidence imports the
+# gateway, which loads this feature, so importing from evidence here is circular.
+def _session(request: Request) -> Iterator[Session]:
+    with request.app.state.session_factory() as session:
+        yield session
+
+
+def _actor(request: Request, session: Annotated[Session, Depends(_session)]) -> Actor:
+    settings: Settings = request.app.state.settings
+    return auth.load_actor(
+        session, settings.secret(), request.cookies.get(auth.COOKIE), settings.synthetic
+    )
+
+
+DbSession = Annotated[Session, Depends(_session)]
+ReaderDep = Annotated[Actor, Depends(_actor)]
 
 ADAPTER = "verification"
 
