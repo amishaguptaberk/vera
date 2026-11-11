@@ -1,0 +1,17 @@
+{
+  "content": {
+    "findings": [
+      {
+        "field": "amount",
+        "record_id": "CHG-1042",
+        "statement": "Charge amount matches the record",
+        "value": "2,480.00",
+        "version": 3
+      }
+    ],
+    "summary": "amount verified"
+  },
+  "model_id": "recorded-stub-model",
+  "tool_calls": [],
+  "usage": {"total_tokens": 42}
+}
