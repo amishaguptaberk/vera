@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from vera_domain.enums import CaseState, CaseStep, Role, StateKind
+from vera_domain.exposure import Basis
 from vera_domain.facts import Hold
 
 
@@ -47,8 +48,11 @@ class CardholderView(BaseModel):
 
 class ChargeImpact(BaseModel):
     posted_cents: int
-    credit_cents: int
-    exposure_cents: int
+    exposure_cents: int  # gross: the posted amount (D-H)
+    temporary_credit_cents: int
+    confirmed_recovery_cents: int
+    net_exposure_cents: int
+    bases: dict[str, Basis]
     note: str
 
 
@@ -113,14 +117,19 @@ class QueueRow(BaseModel):
 
 class SummaryMetric(BaseModel):
     amount_cents: int
-    cases: int
+    currency: str
+    count: int
+    basis: Basis
+    definition: str
 
 
 class Summary(BaseModel):
-    open_exposure: SummaryMetric
+    gross_exposure: SummaryMetric
+    net_exposure: SummaryMetric
+    confirmed_recoveries: SummaryMetric
+    temporary_credit: SummaryMetric
     due_today: SummaryMetric
     overdue: SummaryMetric
-    temporary_credit: SummaryMetric
 
 
 class PolicyView(BaseModel):

@@ -66,3 +66,24 @@ including the case's original report.
 
 Demo-only behavior: in the synthetic environment a missing or tampered session cookie falls back
 to Sam Rivera as analyst. Any other environment returns 401 `unauthenticated` instead.
+
+## Specialist runner, model clients and worker (VER-003A)
+
+One runner (`vera_api.runner.SpecialistRunner`) serves two interchangeable model clients:
+`LiveModelClient` (OpenAI-compatible chat completions, key from `NVIDIA_API_KEY`) and
+`RecordedModelClient` (files under `evals/recordings/{specialist}/{prompt_version}/{case_id}[.{n}].json`,
+`.n` being the n-th model call of a step). Modes never switch silently: if the mode is `live`
+and the key is missing the step fails with `provider_error`; a live failure is only replaced by a
+recording through an explicit retry with mode `replay`, and that step is stored as `replay`.
+A missing recording is a `missing_recording` failure.
+
+`VERA_EXECUTION_MODE` is `replay` in tests/CI (no key needed). `live` is the product default when
+a key is present: set `VERA_EXECUTION_MODE=live` together with `NVIDIA_API_KEY`.
+
+On a machine that can reach NVIDIA: `python -m vera_api.model_client probe` checks JSON-mode and
+tool-call support of `VERA_MODEL_ID`; `python -m vera_api.model_client record --specialist S
+--prompt-version V --case-id C --request req.json` runs one live call and writes a recording.
+
+Schema: migration 0004 creates `workflow_runs`, `workflow_steps`, `jobs` and, through
+`PostgresSaver.setup()`, the LangGraph checkpointer tables (dropped on downgrade). Run the worker
+with `python -m vera_api.worker`.

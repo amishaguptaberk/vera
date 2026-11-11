@@ -7,7 +7,7 @@ Revises: 0002
 from alembic import op
 
 revision = "0005"
-down_revision = "0002"
+down_revision = "0003"
 
 DDL = """
 create table policy_versions (
