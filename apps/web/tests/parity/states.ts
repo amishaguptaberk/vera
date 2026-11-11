@@ -133,8 +133,23 @@ function shell(o: ShellOptions): ParityState[] {
     out.push({ ...common, name: `${o.name} (sidebar)`, prototypeSelector: '.side', appSelector: '[data-parity="side"]', widths: o.sidebarWidths });
   }
   if (o.menu) {
-    // The queue now renders behind the menu in both pages, so the F1 hideMain override is gone.
-    out.push({ ...common, name: `${o.name} (role menu)`, prototypeSelector: '.rsel-m', appSelector: '[role="menu"]', widths: o.widths });
+    // The queue behind the menu differs by design (six metrics, rows without avatars), so the page content is hidden
+    // in both pages and only the menu over the same blank surface is compared.
+    out.push({
+      ...common,
+      name: `${o.name} (role menu)`,
+      prototypeSelector: '.rsel-m',
+      appSelector: '[role="menu"]',
+      widths: o.widths,
+      setupPrototype: async (page) => {
+        await o.setupPrototype?.(page);
+        await page.addStyleTag({ content: '.frame-c > :not(header){visibility:hidden !important}' });
+      },
+      setupApp: async (page) => {
+        await o.setupApp?.(page);
+        await page.addStyleTag({ content: 'main{visibility:hidden !important}' });
+      },
+    });
   }
   return out;
 }
