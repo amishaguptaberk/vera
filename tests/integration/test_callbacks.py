@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from vera_api import callbacks, gateway, investigation
 from vera_api.models import Case
 from vera_api.worker import run_once
+from vera_domain.enums import CaseState, CaseStep
 from vera_domain.errors import CommandError
+from vera_domain.labels import BLOCKER_BY_STEP, describe
 
 CASE = "CHG-1042"
 QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
@@ -159,7 +161,10 @@ def test_no_answer_goes_to_callfail_preserves_attempt_and_retry_gets_new_id(
 ) -> None:
     first = call(verified, db, "no_answer", monkeypatch, NO_ANSWER)
     assert step(verified) == "callfail"
-    assert "start_callback" in actions(verified)
+    offered = actions(verified)
+    assert {"start_callback", "hold_case"} <= offered  # follow-up: comms ticket (VER-005)
+    assert describe(CaseState.CALLBACK_PENDING, CaseStep.CALLFAIL)[0] == "Evidence conflict"
+    assert BLOCKER_BY_STEP[CaseStep.CALLFAIL] == "Callback unanswered"
     second = call(verified, db, "confirmed", monkeypatch, CONFIRMED)
     assert first["id"] != second["id"]
     rows = verified.get(f"/api/cases/{CASE}/callbacks").json()

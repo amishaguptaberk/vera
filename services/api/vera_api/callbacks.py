@@ -44,10 +44,10 @@ from vera_domain.callbacks import (
     reduce_start,
 )
 from vera_domain.commands import CommandSpec
-from vera_domain.enums import EventType, Role, register_event_types
+from vera_domain.enums import CaseState, CaseStep, EventType, Role, StateKind, register_event_types
 from vera_domain.errors import CommandError
 from vera_domain.evidence import RecordClaimPayload, content_hash
-from vera_domain.labels import register_event_summaries
+from vera_domain.labels import register_event_summaries, register_labels
 from vera_domain.specialists import ExecutionMode, StepStatus
 
 from vera_api import adapters, auth, evidence, gateway, investigation, plugins
@@ -90,6 +90,28 @@ register_event_summaries(
         "callback.note_added": "Note added to the call",
         "callback.agent_failed": "Live Verification Agent failed",
         "callback.agent_retried": "Live Verification Agent retried",
+    }
+)
+
+# Prototype PHASE table (Main.dc.html): verify/callfail "Evidence conflict"; working "In progress".
+# Blockers for verify/callfail already exist in labels.BLOCKER_BY_STEP with the BLK texts.
+register_labels(
+    {
+        (CaseState.CALLBACK_PENDING, CaseStep.VERIFY): (
+            "Evidence conflict",
+            StateKind.BLOCKED,
+            "Approve the questions and start the verification call",
+        ),
+        (CaseState.CALLBACK_PENDING, CaseStep.WORKING): (
+            "In progress",
+            StateKind.WORKING,
+            "The Live Verification Agent is running the approved call",
+        ),
+        (CaseState.CALLBACK_PENDING, CaseStep.CALLFAIL): (
+            "Evidence conflict",
+            StateKind.BLOCKED,
+            "Retry the call once, send a targeted follow-up, or hold",
+        ),
     }
 )
 
