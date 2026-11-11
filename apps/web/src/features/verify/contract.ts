@@ -39,17 +39,39 @@ export const RESEND_COOLDOWN_SECONDS = 60;
 /** vera_domain.callbacks.Outcome */
 export type CallOutcome =
   "confirmed" | "contradicted" | "voicemail" | "no_answer" | "incomplete";
-export type CallStatus = "in_progress" | CallOutcome;
+/** Voice call lifecycle (vera_api.voice). Active = queued | ringing | in_progress. */
+export type VoiceStatus =
+  | "queued"
+  | "ringing"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "no_answer"
+  | "busy"
+  | "timed_out";
+export type CallStatus = VoiceStatus | CallOutcome;
+export const ACTIVE_CALL_STATUSES: readonly string[] = [
+  "queued",
+  "ringing",
+  "in_progress",
+];
+export const isActiveCall = (s: string) => ACTIVE_CALL_STATUSES.includes(s);
+export type CallProvider = "elevenlabs" | "simulated";
 
 export type CallAnswer = {
   question_id: string;
   answer: string;
-  line_seq: number;
+  /** Legacy single citation (VER-007). */
+  line_seq?: number;
+  /** Transcript line seqs the answer is grounded in. */
+  cited_lines?: number[];
 };
 export type StructuredResult = {
-  result: "confirmed" | "failed";
-  outcome: CallOutcome;
-  authorization_answer: "authorized" | "unauthorized" | null;
+  result: "confirmed" | "failed" | string;
+  outcome?: CallOutcome;
+  authorization_answer?: "authorized" | "unauthorized" | null;
+  /** Displayed exactly as the server sends it. */
+  confidence?: number | string | null;
   answers: CallAnswer[];
 };
 export type CallQuestion = { id: string; text: string };
@@ -66,6 +88,13 @@ export type CallbackView = {
   result: StructuredResult | null;
   approved_by: string;
   created_at: string;
+  /** Server-masked destination; the full number is never sent to or shown by this screen. */
+  masked_number?: string | null;
+  purpose?: string | null;
+  approval_state?: string | null;
+  provider?: CallProvider | string | null;
+  started_at?: string | null;
+  confidence?: number | string | null;
 };
 
 export type CallLine = {
@@ -73,13 +102,40 @@ export type CallLine = {
   speaker: "agent" | "contact" | string;
   text: string;
 };
+/** `CallbackDetail.voice` (vera_api.voice.voice_view): provider call state, masked number only. */
+export type VoiceAnswer = {
+  question_id: string;
+  answer: string;
+  /** Cited transcript line. */
+  line_index: number;
+};
+export type VoiceView = {
+  provider: CallProvider | string;
+  simulated: boolean;
+  provider_call_id?: string;
+  masked_number: string;
+  purpose: string;
+  call_status: VoiceStatus | string;
+  started_at: string;
+  ended_at: string | null;
+  transcript_version: number;
+  structured_answers: VoiceAnswer[];
+  rejected?: string[];
+  confidence: number | null;
+};
 export type CallNote = { author: string; text: string; created_at: string };
 
 /** `GET /api/cases/{id}/callbacks/{callback_id}` */
 export type CallbackDetail = CallbackView & {
   transcript: CallLine[];
   notes: CallNote[];
+  transcript_version?: number;
+  voice?: VoiceView | null;
 };
+
+/** Effective call status: the provider call state when a voice call exists, else the callback status. */
+export const callStatusOf = (k: CallbackView & { voice?: VoiceView | null }) =>
+  k.voice?.call_status ?? k.status;
 
 /** Command names (vera_domain CommandSpec). Used only to place server-offered actions in these panels. */
 export const IDENTITY_COMMANDS = [
@@ -93,5 +149,7 @@ export const CARDHOLDER_COMMANDS = {
 } as const;
 export const CALLBACK_COMMANDS = [
   "start_callback",
+  "end_callback",
+  "escalate_callback",
   "add_callback_note",
 ] as const;

@@ -3,6 +3,7 @@ export {
   type CallDetailProps,
   type CallNotes,
   type CallResultBlock,
+  type CallAnswerRow,
   type TranscriptLine,
 } from "./CallDetail";
 export {

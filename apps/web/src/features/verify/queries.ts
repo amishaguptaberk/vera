@@ -6,6 +6,7 @@ import type {
   OutboxView,
   VerificationView,
 } from "./contract";
+import { callStatusOf, isActiveCall } from "./contract";
 
 const noRetry4xx = (n: number, e: unknown) =>
   !(e instanceof ApiError && e.status >= 400 && e.status < 500) && n < 2;
@@ -13,6 +14,8 @@ const enc = encodeURIComponent;
 
 /** Polling while a request or call is live (no SSE yet). */
 export const LIVE_POLL_MS = 1000;
+/** Voice call poll while queued / ringing / in progress. */
+export const CALL_POLL_MS = 2000;
 
 /** Staff list. Keys sit under caseKey(id) so runCommand's invalidation refreshes them. */
 export const verificationsQuery = (caseId: string) =>
@@ -34,8 +37,8 @@ export const callbacksQuery = (caseId: string) =>
       apiGet<CallbackView[]>(`/cases/${enc(caseId)}/callbacks`, signal),
     retry: noRetry4xx,
     refetchInterval: (q) =>
-      q.state.data?.some((c) => c.status === "in_progress")
-        ? LIVE_POLL_MS
+      q.state.data?.some((c) => isActiveCall(c.status))
+        ? CALL_POLL_MS
         : false,
   });
 
@@ -49,7 +52,11 @@ export const callbackDetailQuery = (caseId: string, callbackId: string) =>
       ),
     retry: noRetry4xx,
     refetchInterval: (q) =>
-      q.state.data?.status === "in_progress" ? LIVE_POLL_MS : false,
+      q.state.data &&
+      (isActiveCall(q.state.data.status) ||
+        isActiveCall(callStatusOf(q.state.data)))
+        ? CALL_POLL_MS
+        : false,
   });
 
 /** Cardholder role only: the simulated message for the synthetic demo control. Never used by staff views. */

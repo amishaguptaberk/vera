@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Button, RefChip } from "@/design-system/primitives";
 import { KVRow, type KV } from "./IdentityDetail";
 import styles from "./Verify.module.css";
@@ -17,6 +17,14 @@ export type CallResultBlock = {
   rows: readonly KV[];
   /** Fact status / policy effect. */
   effect: readonly KV[];
+  /** Structured answers per question, each citing transcript line seqs. */
+  answers?: readonly CallAnswerRow[];
+};
+
+export type CallAnswerRow = {
+  question: string;
+  answer: string;
+  lines: readonly number[];
 };
 
 export type CallNotes = {
@@ -46,12 +54,26 @@ export type CallDetailProps = {
   onOpenSource?: (id: string) => void;
   actions?: ReactNode;
   onBack?: () => void;
+  /** Plain provider label, e.g. "Simulated call" / "Voice call via ElevenLabs". */
+  provider?: string | null;
+  /** Elapsed time while the call is pending or live. */
+  elapsed?: string | null;
+  /** Required consent checkbox (preparation / retry). */
+  consent?: { checked: boolean; onChange: (v: boolean) => void } | null;
 };
 
 /** Communications → verification call (prototype `cm.isCall`: proposed / in progress / complete / call failed). */
 export function CallDetail(p: CallDetailProps) {
   const open = (id: string) =>
     p.onOpenSource ? () => p.onOpenSource!(id) : undefined;
+  const [hl, setHl] = useState<string | null>(null);
+  const cite = (n: number) => () => {
+    const key = String(n);
+    setHl(key);
+    const el = document.getElementById(`call-line-${key}`);
+    if (el && typeof el.scrollIntoView === "function")
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
   return (
     <div data-testid="call-detail">
       {p.onBack ? (
@@ -73,6 +95,13 @@ export function CallDetail(p: CallDetailProps) {
           </span>
         ) : null}
       </div>
+      {p.provider || p.elapsed ? (
+        <p className={styles.meta} data-testid="call-provider">
+          {p.provider ?? ""}
+          {p.provider && p.elapsed ? " · " : ""}
+          {p.elapsed ? `Elapsed ${p.elapsed}` : ""}
+        </p>
+      ) : null}
       <dl className={styles.kvl}>
         {p.target ? (
           <>
@@ -105,7 +134,15 @@ export function CallDetail(p: CallDetailProps) {
           {p.transcript.map((l) => (
             <div
               key={l.key}
-              className={[styles.tl, styles.tlNew, l.system ? styles.sys : ""]
+              id={`call-line-${l.key}`}
+              data-line={l.key}
+              aria-current={hl === String(l.key) ? "true" : undefined}
+              className={[
+                styles.tl,
+                styles.tlNew,
+                l.system ? styles.sys : "",
+                hl === String(l.key) ? styles.tlHl : "",
+              ]
                 .filter(Boolean)
                 .join(" ")}
             >
@@ -127,6 +164,27 @@ export function CallDetail(p: CallDetailProps) {
                 <KVRow key={r.k} {...r} />
               ))}
             </dl>
+          ) : null}
+          {p.result.answers?.length ? (
+            <ol className={styles.ql} data-testid="call-answers">
+              {p.result.answers.map((a, i) => (
+                <li key={i}>
+                  <div>{a.question}</div>
+                  <div>
+                    <strong>{a.answer}</strong>{" "}
+                    {a.lines.map((n) => (
+                      <RefChip
+                        key={n}
+                        onClick={cite(n)}
+                        aria-label={`Transcript line ${n}`}
+                      >
+                        line {n}
+                      </RefChip>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ol>
           ) : null}
           <dl className={styles.kvl}>
             {p.result.effect.map((r) => (
@@ -158,6 +216,16 @@ export function CallDetail(p: CallDetailProps) {
             </>
           ) : null}
         </div>
+      ) : null}
+      {p.consent ? (
+        <label className={styles.row}>
+          <input
+            type="checkbox"
+            checked={p.consent.checked}
+            onChange={(e) => p.consent!.onChange(e.target.checked)}
+          />{" "}
+          Cardholder consented to this verification call
+        </label>
       ) : null}
       {p.sources.length ? (
         <div className={styles.src}>

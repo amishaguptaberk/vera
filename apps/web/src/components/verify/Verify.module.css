@@ -343,3 +343,9 @@
   flex-wrap: wrap;
   margin-top: 12px;
 }
+
+/* Cited transcript line (prototype .frow.hl highlight). */
+.tlHl .tt {
+  background: #f1f8a6;
+  border-radius: 2px;
+}
