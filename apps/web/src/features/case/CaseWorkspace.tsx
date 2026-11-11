@@ -304,6 +304,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const slot: CaseSlotProps = { caseId, c, role, sel, onSelectRecord: selectRecord };
   const block = taskBlockFor(caseRegistry, c, role);
   const mounted = panelsFor(caseRegistry, tab);
+  const hidden = block?.hides?.(c) ?? [];
   const rail = caseRegistry.rail;
   return (
     <div className={styles.page} data-step={c.step} data-state={c.state}>
@@ -376,7 +377,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               {formFor ? (
                 <CommandForm key={formFor.command} action={formFor} error={formError} busy={run.isPending} onSubmit={(p) => execute(formFor, p)} onCancel={() => setFormFor(null)} />
               ) : block?.ownsActions ? null : (
-                <ActionBar actions={c.available_actions} blocked={c.blocked_actions} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
+                <ActionBar actions={c.available_actions.filter((x) => !hidden.includes(x.command))} blocked={c.blocked_actions.filter((x) => !hidden.includes(x.command))} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
               )}
               {synthetic ? (
                 <details className={styles.demoD}>

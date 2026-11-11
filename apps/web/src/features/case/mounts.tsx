@@ -69,7 +69,14 @@ export const caseRegistry: CaseRegistry = {
     // Money steps (credit, tracks, dispute, card controls, closure): MoneyTask renders the server's actions itself.
     { key: 'money', match: (c) => MONEY_STEPS.has(c.step), Block: MoneyBlock, ownsActions: true },
     // Follow-up steps (draft → waiting → no response → response): actions stay in the generic ActionBar.
-    { key: 'followup', match: (c) => isFollowupStep(c.step), Block: FollowupBlock, ownsActions: false },
+    {
+      key: 'followup',
+      match: (c) => isFollowupStep(c.step),
+      Block: FollowupBlock,
+      ownsActions: false,
+      // In the draft step the draft editor saves and sends (with channel, subject and attachments) itself.
+      hides: (c) => (c.step === 'draft' ? ['update_communication_draft', 'send_communication'] : []),
+    },
   ],
   commandForms: { ...COMMAND_FORMS, ...commsForms, ...verifyForms, ...decisionForms, ...moneyForms },
   rail: { Rail, Toggle: RailToggle },

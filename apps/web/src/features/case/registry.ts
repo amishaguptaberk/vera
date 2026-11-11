@@ -32,7 +32,14 @@ export type TabPanelMount = { tab: CaseTabId; key: string; Panel: ComponentType<
  * A task-card body for some workflow steps. `ownsActions` blocks render the server's available_actions
  * themselves (their payloads come from the block's own inputs), so the generic ActionBar is not shown.
  */
-export type TaskBlockMount = { key: string; match: (c: CaseView, role: CaseRole | null) => boolean; Block: ComponentType<CaseSlotProps>; ownsActions: boolean };
+export type TaskBlockMount = {
+  key: string;
+  match: (c: CaseView, role: CaseRole | null) => boolean;
+  Block: ComponentType<CaseSlotProps>;
+  ownsActions: boolean;
+  /** Commands the block runs itself (its own button), left out of the generic ActionBar so nothing shows twice. */
+  hides?: (c: CaseView) => readonly string[];
+};
 
 export type RailProps = CaseSlotProps & { open: boolean; onClose: () => void; onNavigate: (target: string) => void };
 export type RailMount = { Rail: ComponentType<RailProps>; Toggle: ComponentType<{ role: CaseRole | null; open: boolean; onToggle: () => void }> };
