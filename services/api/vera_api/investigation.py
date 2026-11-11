@@ -354,7 +354,7 @@ def make_node_fn(
 
             def apply(output: BaseModel) -> None:
                 actor = specialist_actor(key)
-                for body in finding_payloads(run_id, key, list(getattr(output, "findings"))):
+                for body in finding_payloads(run_id, key, list(getattr(output, "findings", []))):
                     _execute_retrying(
                         factory,
                         case_id,

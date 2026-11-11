@@ -109,7 +109,9 @@ def test_replay_investigation_posts_grounded_findings_and_advances_step(
         assert f["links"], f
         for link in f["links"]:
             assert link["record_id"] and link["version"] >= 1 and link["field"]
-    links = {(f["finding_id"], (lk["record_id"], lk["field"])) for f in findings for lk in f["links"]}
+    links = {
+        (f["finding_id"], (lk["record_id"], lk["field"])) for f in findings for lk in f["links"]
+    }
     cited = {pair for _, pair in links}
     # amount: the charge amount against the PO's approved amount
     assert {("CHG-1042", "amount_cents"), ("PO-219", "approved_amount_cents")} <= cited
@@ -169,8 +171,7 @@ def test_replay_investigation_posts_grounded_findings_and_advances_step(
 
 def test_no_specialist_code_prompt_or_recording_joins_on_card_digits() -> None:
     """US-C03: related charges are never linked by last four digits."""
-    from vera_domain.investigation import build_messages, specialist_input
-    from vera_domain.investigation import TransactionIdentity
+    from vera_domain.investigation import TransactionIdentity, build_messages, specialist_input
 
     assert "last4" not in TransactionIdentity.model_fields
     inputs = specialist_input(
@@ -265,7 +266,9 @@ def test_ungrounded_output_fails_step_then_retry_resumes(
     # retry with the good recordings
     monkeypatch.setattr(investigation, "RECORDINGS_ROOT", REC)
     calls.clear()
-    resp = command(client, "retry_specialist_step", retry["idempotency_key"], retry["payload_defaults"])
+    resp = command(
+        client, "retry_specialist_step", retry["idempotency_key"], retry["payload_defaults"]
+    )
     assert resp.status_code == 200, resp.text
     drain(factory)
     assert "related_transaction_investigator" not in calls  # sibling not re-run
@@ -389,8 +392,7 @@ def _stub(turns: dict[str, list[dict[str, Any]]], model: str) -> httpx.MockTrans
 def _turns() -> dict[str, list[dict[str, Any]]]:
     return {
         n: [
-            json.loads((REC / n / "v1" / f).read_text())
-            for f in (f"{CASE}.json", f"{CASE}.1.json")
+            json.loads((REC / n / "v1" / f).read_text()) for f in (f"{CASE}.json", f"{CASE}.1.json")
         ]
         for n in SPECS
     }
@@ -463,8 +465,11 @@ def test_other_roles_cannot_start_or_retry(
         pytest.skip(f"demo user does not hold {role}")
     for name, key, payload in (
         ("start_investigation", f"inv:{CASE}", {}),
-        ("retry_specialist_step", "retry:x:charge_investigator:1",
-         {"step_key": "charge_investigator", "mode": "replay"}),
+        (
+            "retry_specialist_step",
+            "retry:x:charge_investigator:1",
+            {"step_key": "charge_investigator", "mode": "replay"},
+        ),
     ):
         r = command(client, name, key, payload)
         assert r.status_code == 403, r.text
@@ -474,7 +479,11 @@ def test_other_roles_cannot_start_or_retry(
 def test_humans_cannot_run_the_worker_only_command(client: TestClient) -> None:
     r = client.post(
         f"/api/cases/{CASE}/commands/complete_investigation",
-        json={"idempotency_key": "invdone:x", "expected_case_version": 1, "payload": {"run_id": "x"}},
+        json={
+            "idempotency_key": "invdone:x",
+            "expected_case_version": 1,
+            "payload": {"run_id": "x"},
+        },
     )
     assert r.status_code == 403
 
