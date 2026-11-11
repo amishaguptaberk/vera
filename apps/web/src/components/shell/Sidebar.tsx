@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { useRef, type ReactElement, type RefObject } from 'react';
-import { Drawer, Tooltip } from '@/design-system/primitives';
-import { Splitter } from '@/design-system/primitives/Splitter';
+import { SIDEBAR_MAX, SIDEBAR_MIN } from '@/design-system/layout';
+import { Drawer, Splitter, Tooltip, useMediaQuery } from '@/design-system/primitives';
 import styles from './Sidebar.module.css';
 
-export const SIDEBAR_MIN = 220;
-export const SIDEBAR_MAX = 320;
+export { SIDEBAR_MAX, SIDEBAR_MIN };
 
 export type SidebarProps = {
   /** Current pathname: the active item derives from it. */
@@ -40,9 +39,12 @@ export function Sidebar({ pathname, width, collapsed, drawerOpen, returnFocusRef
   // The app root is the queue's landing route (the prototype's default screen is Cases), so it activates Cases too.
   const onCases = pathname === '/' || under(pathname, '/cases');
   const inAutomations = under(pathname, '/automations');
+  // At <=760px the sidebar is the modal drawer: "Collapse" closes it and never touches the stored desktop collapse.
+  const narrow = useMediaQuery('(max-width: 760px)');
+  const shownCollapsed = collapsed && !narrow;
   const canResize = !collapsed;
   const tip = (label: string, el: ReactElement<{ 'aria-describedby'?: string }>) => (
-    <Tooltip label={label} disabled={!collapsed}>
+    <Tooltip label={label} disabled={!shownCollapsed}>
       {el}
     </Tooltip>
   );
@@ -87,7 +89,7 @@ export function Sidebar({ pathname, width, collapsed, drawerOpen, returnFocusRef
             <span>Automations</span>
           </Link>,
         )}
-        {inAutomations && !collapsed ? (
+        {inAutomations && !shownCollapsed ? (
           <div className={styles.sub}>
             {SUB_ITEMS.map((t) => {
               const on = under(pathname, t.href);
@@ -101,12 +103,12 @@ export function Sidebar({ pathname, width, collapsed, drawerOpen, returnFocusRef
         ) : null}
       </nav>
       {tip(
-        collapsed ? 'Expand navigation' : 'Collapse navigation',
-        <button type="button" className={styles.collapse} onClick={onToggleCollapsed} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} title={collapsed ? undefined : 'Collapse navigation'}>
+        shownCollapsed ? 'Expand navigation' : 'Collapse navigation',
+        <button type="button" className={styles.collapse} onClick={narrow ? onCloseDrawer : onToggleCollapsed} aria-label={shownCollapsed ? 'Expand navigation' : 'Collapse navigation'} title={shownCollapsed ? undefined : 'Collapse navigation'}>
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-            <path d={collapsed ? 'M6 3.5l4.5 4.5L6 12.5' : 'M10 3.5L5.5 8l4.5 4.5'} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={shownCollapsed ? 'M6 3.5l4.5 4.5L6 12.5' : 'M10 3.5L5.5 8l4.5 4.5'} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span>{collapsed ? '' : 'Collapse'}</span>
+          <span>{shownCollapsed ? '' : 'Collapse'}</span>
         </button>,
       )}
       {canResize ? (

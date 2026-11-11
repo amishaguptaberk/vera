@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from '@/features/shell/AppShell';
+import { getUiState } from '@/state';
 import { mockFetch, mockMatchMedia, mockSessionApi, renderWithProviders, session } from './helpers';
 
 const pathname = '/cases';
@@ -142,6 +143,21 @@ describe('mobile navigation drawer', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(menuButton);
+  });
+
+  it('Collapse inside the open drawer closes it and leaves the stored desktop collapse unchanged', async () => {
+    mockMatchMedia((q) => q === '(max-width: 760px)');
+    mockSessionApi(session('analyst'));
+    renderWithProviders(<AppShell>{null}</AppShell>);
+    await roleButton();
+    const before = getUiState().sidebarCollapsed;
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
+    const drawer = screen.getByRole('dialog', { name: 'Product navigation' });
+    await user.click(within(drawer).getByRole('button', { name: 'Collapse navigation' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(getUiState().navDrawerOpen).toBe(false);
+    expect(getUiState().sidebarCollapsed).toBe(before);
   });
 
   it('traps Tab inside the open drawer', async () => {

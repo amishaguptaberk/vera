@@ -4,8 +4,9 @@ import { useSyncExternalStore } from 'react';
 // and are never sent to the server. The mobile drawer is in-memory only.
 // (The prototype keeps collapse in localStorage; the architecture document wins.)
 
-export const SIDEBAR_MIN = 220;
-export const SIDEBAR_MAX = 320;
+import { SIDEBAR_MAX, SIDEBAR_MIN } from '@/design-system/layout';
+
+export { SIDEBAR_MAX, SIDEBAR_MIN };
 export const SIDEBAR_DEFAULT = 220;
 export const STORAGE_KEY = 'vera-ui';
 
