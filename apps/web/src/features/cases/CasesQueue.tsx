@@ -136,7 +136,7 @@ export function CasesQueue() {
             {FILTERS.map((f) => (
               <button key={f.id} type="button" className={cx(styles.fb, filter === f.id && styles.on)} aria-pressed={filter === f.id} onClick={() => setParam('filter', f.id, 'all')}>
                 {f.label}
-                {f.id !== 'all' && cases.data ? <span className={styles.fc}>{filterCount(counts.data, rows, f.id, me)}</span> : null}
+                {f.id !== 'all' && filterCount(counts.data, f.id) !== null ? <span className={styles.fc}>{filterCount(counts.data, f.id)}</span> : null}
               </button>
             ))}
           </div>

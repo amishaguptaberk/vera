@@ -3,15 +3,8 @@ import type { QueueRow } from '@/api';
 export type FilterId = 'all' | 'today' | 'over' | 'me' | 'ch' | 'rv';
 export type SortId = 'priority' | 'amount';
 
-/** Queue row fields being added by VER-016; read tolerantly until the generated types carry them. */
-export type QueueRowExt = QueueRow & {
-  blocker?: string | null;
-  next_action?: string | null;
-  waiting_on?: string | null;
-  wait_kind?: 'cardholder' | 'reviewer' | null;
-  due_today?: boolean;
-};
-const waitKind = (r: QueueRowExt) => (r.wait_kind !== undefined ? r.wait_kind : r.state === 'waiting_on_cardholder' ? 'cardholder' : r.state === 'reviewer_pending' ? 'reviewer' : null);
+export type QueueRowExt = QueueRow;
+const waitKind = (r: QueueRow) => r.wait_kind ?? null;
 
 // The prototype's six chips. `countKey` names the field in GET /api/cases/filter-counts.
 // Filters read only fields the API returns; they never change case state.
@@ -40,10 +33,9 @@ export function visibleRows(rows: readonly QueueRowExt[], filter: FilterId, sort
   return out;
 }
 
-/** The API's count when GET /api/cases/filter-counts exists; otherwise a count of the returned rows. */
-export function filterCount(counts: Record<string, unknown> | null | undefined, rows: readonly QueueRowExt[], id: FilterId, me: string | null): number {
+/** The API's count (GET /api/cases/filter-counts); null while it has not loaded. */
+export function filterCount(counts: Record<string, number> | null | undefined, id: FilterId): number | null {
   const f = FILTERS.find((x) => x.id === id) ?? FILTERS[0];
-  const fromApi = counts?.[f.countKey];
-  if (typeof fromApi === 'number') return fromApi;
-  return rows.filter((r) => f.match(r, me)).length;
+  const v = counts?.[f.countKey];
+  return typeof v === 'number' ? v : null;
 }

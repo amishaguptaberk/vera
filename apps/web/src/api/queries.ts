@@ -91,40 +91,29 @@ export const runsQuery = (id: string) =>
     placeholderData: keepPreviousData,
   });
 
-/**
- * Endpoints a backend ticket is adding (activity, users). Until they exist they 404: the query resolves to
- * `null` so the UI shows its honest empty state instead of an error.
- */
-async function optional<T>(path: string, signal: AbortSignal): Promise<T | null> {
-  try {
-    return await apiGet<T>(path, signal);
-  } catch (e) {
-    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) return null;
-    throw e;
-  }
-}
-export type ActivityEvent = { id: string; type: string; at: string; actor_name: string; actor_role: string; summary: string; record_ids: string[] };
-export type ActivityBody = { events: ActivityEvent[] };
-export type UsersBody = { users?: { id: string; name: string; roles: string[] }[] };
+export type ActivityEvent = S['ActivityEvent'];
+export type ActivityBody = S['ActivityFeed'];
+export type UsersBody = S['AssignableUsers'];
+export type FilterCounts = S['FilterCounts'];
 export const activityQuery = (id: string) =>
   queryOptions({
     queryKey: [...caseKey(id), 'activity'],
-    queryFn: ({ signal }) => optional<ActivityBody>(`/cases/${encodeURIComponent(id)}/activity`, signal),
+    queryFn: ({ signal }) => apiGet<ActivityBody>(`/cases/${encodeURIComponent(id)}/activity`, signal),
     refetchInterval: CASE_POLL_MS,
     placeholderData: keepPreviousData,
     retry: false,
   });
 export const usersQuery = queryOptions({
   queryKey: ['users'],
-  queryFn: ({ signal }) => optional<UsersBody>('/users?assignable=true', signal),
+  queryFn: ({ signal }) => apiGet<UsersBody>('/users?assignable=true', signal),
   retry: false,
   staleTime: 60_000,
 });
 
-/** GET /api/cases/filter-counts → {all, due_today, overdue, mine, cardholder, reviewer}; null until the route exists. */
+/** GET /api/cases/filter-counts → {all, due_today, overdue, mine, cardholder, reviewer} (staff only). */
 export const filterCountsQuery = queryOptions({
   queryKey: [...casesKey, 'filter-counts'],
-  queryFn: ({ signal }) => optional<Record<string, number>>('/cases/filter-counts', signal),
+  queryFn: ({ signal }) => apiGet<FilterCounts>('/cases/filter-counts', signal),
   placeholderData: keepPreviousData,
-  retry: false,
+  retry: retryTransient,
 });

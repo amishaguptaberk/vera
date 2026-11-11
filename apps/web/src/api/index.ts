@@ -13,6 +13,7 @@ export {
   type ActivityBody,
   type ActivityEvent,
   type EvidenceRegister,
+  type FilterCounts,
   type FindingView,
   type RecordDetail,
   type RunOut,
