@@ -23,8 +23,10 @@ export type AskResponse = {
 /** VER-009 AskIn is `{text}` only; the server classifies intent. */
 export type AskRequest = { text: string };
 
-/** Packet statement: a claim with the record it cites (backend PacketStatement). */
-export type PacketStatement = { text: string; record_id: string; version: number; field: string };
+/** A record version (and field) a packet statement cites (backend Citation). */
+export type PacketCitation = { record_id: string; version: number; field?: string | null };
+/** Packet statement: a claim with the records it cites (backend PacketStatement). */
+export type PacketStatement = { text: string; citations: PacketCitation[] };
 
 /** Server PolicyView as stored in the packet summary. */
 export type PacketPolicy = { label: string; status?: string; policy_version?: number; rules_failed?: string[]; evidence_used?: string[] };

@@ -2,13 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { activityQuery, ApiError, evidenceQuery, useCaseView, useMaterialChange, useRunCommand, useSession, usersQuery, type ActionView, type CaseView } from '@/api';
 import { ActionBar } from '@/components/case';
 import { Banner, Button, Field, Skeleton, StatusSlot } from '@/design-system/primitives';
-import { formatMoney } from '@/lib';
+import { actorLabel, dayLabel, formatMoney, roleLabel, sentence } from '@/lib';
 import { caseSteps, recoveryActions, slotFor, taskLabel } from './adapters';
 import { viewForRole } from '@/features/shell/role-view';
+import { pageContextActions, usePageContext } from '@/state';
 import { caseRegistry } from './mounts';
 import { CASE_TABS, panelsFor, taskBlockFor, type CaseSlotProps, type CaseTabId } from './registry';
 import { EvidencePanel } from './EvidencePanel';
@@ -48,7 +49,7 @@ function DecisionPanel({ c }: { c: CaseView }) {
             <dt>Status</dt>
             <dd data-testid="policy-status">{p.status}</dd>
             <dt>Rules failed</dt>
-            <dd>{p.rules_failed.length ? p.rules_failed.join(', ') : 'None'}</dd>
+            <dd>{p.rules_failed.length ? p.rules_failed.map(sentence).join(' · ') : 'None'}</dd>
             <dt>Evidence used</dt>
             <dd>{p.evidence_used.length ? p.evidence_used.join(', ') : 'None'}</dd>
           </dl>
@@ -72,11 +73,11 @@ function ChargeImpact({ c }: { c: CaseView }) {
   const i = c.charge_impact;
   // Every amount is the server's; the client never subtracts.
   const rows = [
-    { k: 'Posted charge', v: formatMoney(i.posted_cents, cur), cls: '' },
-    { k: 'Gross exposure', v: formatMoney(i.exposure_cents, cur), cls: '' },
-    { k: 'Temporary credit · pending', v: i.temporary_credit_cents ? formatMoney(i.temporary_credit_cents, cur) : '—', cls: '' },
-    { k: 'Confirmed recoveries', v: i.confirmed_recovery_cents ? formatMoney(i.confirmed_recovery_cents, cur) : '—', cls: '' },
-    { k: 'Net exposure', v: formatMoney(i.net_exposure_cents, cur), cls: styles.tot },
+    { k: 'Posted charge', v: formatMoney(i.posted_cents, cur, 'cents'), cls: '' },
+    { k: 'Gross exposure', v: formatMoney(i.exposure_cents, cur, 'cents'), cls: '' },
+    { k: 'Temporary credit · pending', v: i.temporary_credit_cents ? formatMoney(i.temporary_credit_cents, cur, 'cents') : '—', cls: '' },
+    { k: 'Confirmed recoveries', v: i.confirmed_recovery_cents ? formatMoney(i.confirmed_recovery_cents, cur, 'cents') : '—', cls: '' },
+    { k: 'Net exposure', v: formatMoney(i.net_exposure_cents, cur, 'cents'), cls: styles.tot },
   ];
   return (
     <section className={styles.plainSec} aria-labelledby="ci-h" data-parity="charge-impact">
@@ -105,11 +106,34 @@ function ChargeImpact({ c }: { c: CaseView }) {
   );
 }
 
+/** Rows shown before "Show all" (the audit history stays complete on the server). */
+const ACTIVITY_SHOWN = 8;
+
+/** Newest first (events in the same instant keep the server's order, latest first), grouped by day (prototype .actv-day). */
+function dayGroups<T extends { at: string }>(events: readonly T[]): [string, T[]][] {
+  const out: [string, T[]][] = [];
+  for (const e of [...events].reverse().sort((a, b) => b.at.localeCompare(a.at))) {
+    const d = dayLabel(e.at);
+    if (out.length && out[out.length - 1][0] === d) out[out.length - 1][1].push(e);
+    else out.push([d, [e]]);
+  }
+  return out;
+}
+
 function Activity({ caseId }: { caseId: string }) {
   const q = useQuery(activityQuery(caseId));
+  const [all, setAll] = useState(false);
   // The server scopes activity to staff: a typed 403 hides the section (no client role logic).
   if (q.error instanceof ApiError && q.error.status === 403) return null;
   const events = q.data?.events ?? [];
+  const groups = dayGroups(events);
+  const limit = all ? Infinity : ACTIVITY_SHOWN;
+  let left = limit;
+  const shown = groups.map(([day, rows]) => {
+    const take = rows.slice(0, Math.max(0, left));
+    left -= take.length;
+    return [day, take] as const;
+  }).filter(([, rows]) => rows.length);
   return (
     <section className={cx(styles.card, styles.actv)} id="activity" aria-labelledby="actv-h">
       <div className={styles.actvH}>
@@ -118,23 +142,41 @@ function Activity({ caseId }: { caseId: string }) {
         </h2>
         <span className={styles.actvN}>Audit history · newest first</span>
       </div>
-      {events.length === 0 ? (
+      {q.isPending ? (
+        <div className={styles.actvMore} aria-busy="true">
+          <Skeleton height={14} width={240} />
+        </div>
+      ) : q.isError ? (
+        <div className={styles.actvDay}>Activity could not be loaded: {q.error.message}</div>
+      ) : events.length === 0 ? (
         <div className={styles.actvDay}>No activity yet</div>
       ) : (
-        [...events]
-          .sort((a, b) => b.at.localeCompare(a.at))
-          .map((e) => (
-            <div key={e.id} className={styles.actvR} data-testid="activity-row">
-              <span className={styles.actvT}>{timeLabel(e.at)}</span>
-              <span className={styles.actvW}>
-                {e.actor_name} · {e.actor_role.replace(/_/g, ' ')}
-              </span>
-              <div className={styles.actvA}>
-                <span>{e.summary}</span>
-              </div>
-            </div>
-          ))
+        shown.map(([day, rows]) => (
+          <div key={day}>
+            <div className={styles.actvDay}>{day}</div>
+            {rows.map((e) => {
+              const who = actorLabel(e.actor_name);
+              const role = roleLabel(e.actor_role, e.actor_name);
+              return (
+                <div key={e.id} className={styles.actvR} data-testid="activity-row">
+                  <span className={styles.actvT}>{timeLabel(e.at)}</span>
+                  <span className={styles.actvW}>{role ? `${who} · ${role}` : who}</span>
+                  <div className={styles.actvA}>
+                    <span>{e.summary}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))
       )}
+      {events.length > ACTIVITY_SHOWN ? (
+        <div className={styles.actvMore}>
+          <button type="button" className={styles.linkb} aria-expanded={all} onClick={() => setAll((x) => !x)}>
+            {all ? 'Show recent only' : `Show all ${events.length} events`}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -195,7 +237,7 @@ function Progress({ c }: { c: CaseView }) {
   const curIdx = steps.findIndex((s) => s.status === 'current' || s.status === 'blocked');
   const cur = curIdx >= 0 ? steps[curIdx] : null;
   return (
-    <section className={styles.progWrap} aria-label="Workflow progress">
+    <section className={styles.progWrap} aria-label="Workflow progress" data-parity="progress">
       <div className={styles.prog}>
         <span>
           Step {curIdx + 1} of {steps.length} · <b style={{ color: '#0c0a08', fontWeight: 550 }}>{cur?.label ?? ''}</b>
@@ -206,7 +248,7 @@ function Progress({ c }: { c: CaseView }) {
           ))}
         </div>
         <button type="button" className={styles.linkb} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? 'Hide steps' : 'Show all steps'}
+          {open ? 'Hide steps' : 'Show steps'}
         </button>
       </div>
       {open ? (
@@ -220,6 +262,20 @@ function Progress({ c }: { c: CaseView }) {
         </ol>
       ) : null}
     </section>
+  );
+}
+
+/** Prototype `.shell > main.main` with the Vera rail as the right-hand column (a drawer below 1280px). */
+function Frame({ children, rail = null, busy, step, state }: { children: ReactNode; rail?: ReactNode; busy?: boolean; step?: string; state?: string }) {
+  return (
+    <div className={styles.shell}>
+      <main className={styles.main} aria-busy={busy || undefined}>
+        <div className={styles.page} data-step={step} data-state={state}>
+          {children}
+        </div>
+      </main>
+      {rail}
+    </div>
   );
 }
 
@@ -239,7 +295,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const internalDenied = evidence.error instanceof ApiError && evidence.error.status === 403;
   const tabs = internalDenied ? CASE_TABS.filter((t) => t.id === 'comms') : CASE_TABS;
   const tab: TabId = tabs.some((t) => t.id === requestedTab) ? requestedTab : tabs[0].id;
-  const [railOpen, setRailOpen] = useState(false);
+  const { railOpen } = usePageContext();
   const [formFor, setFormFor] = useState<ActionView | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'warn' | 'bad'; text: string } | null>(null);
@@ -255,22 +311,31 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   };
 
   const c = view.data;
+  const role = session.data ? viewForRole(session.data.active_role) : null;
+  const railHere = !!caseRegistry.rail?.available(role);
+  const title = c ? `${c.case_id} · ${c.transaction.merchant}` : null;
+  // The top bar shows this case's title and, for staff, the Vera rail toggle (prototype ctxTitle / .vera-b).
+  useEffect(() => pageContextActions.claim(title, railHere), [title, railHere]);
   if (!c) {
     if (view.isError) {
       const e = view.error;
       return (
-        <div className={styles.page}>
+        <Frame>
           <Banner tone="bad" title={e instanceof ApiError && e.status === 403 ? 'Not available for this role' : 'Could not load the case'}>
             {e.message}
           </Banner>
-        </div>
+        </Frame>
       );
     }
     return (
-      <div className={styles.page} aria-busy="true">
-        <Skeleton height={28} width={320} />
-        <Skeleton height={160} radius={12} />
-      </div>
+      <Frame busy>
+        <div className={styles.loading}>
+          <Skeleton height={28} width={320} />
+          <Skeleton height={16} width={420} />
+          <Skeleton height={64} radius={12} />
+          <Skeleton height={240} radius={12} />
+        </div>
+      </Frame>
     );
   }
 
@@ -302,7 +367,6 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const cur = c.transaction.currency;
   const recovery = recoveryActions(c);
   const synthetic = session.data?.environment === 'synthetic';
-  const role = session.data ? viewForRole(session.data.active_role) : null;
   // Mounted blocks and the Decision tab see the same pruned blocked list as the ActionBar.
   const cv: CaseView = { ...c, blocked_actions: c.blocked_actions.filter((x) => !wrongStep(x, c)) };
   const slot: CaseSlotProps = { caseId, c: cv, role, sel, onSelectRecord: selectRecord };
@@ -311,11 +375,11 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const hidden = block?.hides?.(c) ?? [];
   const rail = caseRegistry.rail;
   return (
-    <div className={styles.page} data-step={c.step} data-state={c.state}>
+    <Frame step={c.step} state={c.state} rail={rail ? <rail.Rail {...slot} open={railOpen} onClose={() => pageContextActions.setRailOpen(false)} onNavigate={(t) => setParams({ tab: parseTab(t), sel: null })} /> : null}>
       {view.isError ? <Banner tone="warn">Could not refresh: {view.error.message} Showing the last loaded version.</Banner> : null}
       <div className={styles.chd} data-parity="case-header">
         <div>
-          <div className={styles.chdT}>{formatMoney(c.transaction.amount_cents, cur, 'cents')}</div>
+          <div className={styles.chdT} data-parity="case-amount">{formatMoney(c.transaction.amount_cents, cur, 'cents')}</div>
           <div className={styles.chdM}>
             Card ending {c.transaction.card_last4} · Posted {dateLabel(c.transaction.posted_at)} · {c.cardholder.name}
           </div>
@@ -325,7 +389,6 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                 Workflow v{c.pins.workflow_version} · Run details
               </button>
             )}
-            {rail ? <rail.Toggle role={role} open={railOpen} onToggle={() => setRailOpen((o) => !o)} /> : null}
           </div>
         </div>
         <dl className={styles.cstate} aria-label="Case status" style={{ margin: 0 }}>
@@ -364,9 +427,11 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               <div className={styles.fState}>
                 <span>{taskLabel(c.state_kind)}</span>
               </div>
-              <h2 className={styles.fTitle} data-testid="next-action">
-                {c.next_action}
-              </h2>
+{block?.ownsTitle ? null : (
+                <h2 className={styles.fTitle} data-testid="next-action">
+                  {c.next_action}
+                </h2>
+              )}
               {c.hold ? (
                 <p className={styles.fP} data-testid="hold-info">
                   On hold: {c.hold.reason}
@@ -409,7 +474,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           {/* Every tab reads internal data (evidence, messages, verification, runs); a server 403 drops the card. */}
           {internalDenied || evidence.isPending ? null : (
           <section className={styles.card} aria-label="Case workspace">
-            <div className={styles.tabs} role="tablist" aria-label="Case sections">
+            <div className={styles.tabs} role="tablist" aria-label="Case sections" data-parity="case-tabs">
               {tabs.map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={cx(styles.tab, tab === t.id && styles.on)} onClick={() => setParams({ tab: t.id, sel: null })}>
                   {t.label}
@@ -427,17 +492,26 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               {/* The policy block always shows; a mounted decision packet stacks below it. */}
               {tab === 'decision' ? <DecisionPanel c={cv} /> : null}
               {tab === 'trace' ? <RunDetails c={c} ev={evidence.data} recovery={recovery} onRecovery={onAction} /> : null}
-              {mounted.map((m) => (
-                <div key={m.key} data-testid={`tab-panel-${m.key}`}>
-                  <m.Panel {...slot} />
+              {tab === 'comms' && mounted.length ? (
+                <div className={styles.inspBody}>
+                  {mounted.map((m) => (
+                    <div key={m.key} data-testid={`tab-panel-${m.key}`}>
+                      <m.Panel {...slot} />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                mounted.map((m) => (
+                  <div key={m.key} data-testid={`tab-panel-${m.key}`}>
+                    <m.Panel {...slot} />
+                  </div>
+                ))
+              )}
             </div>
           </section>
           )}
         </div>
       </div>
-      {rail ? <rail.Rail {...slot} open={railOpen} onClose={() => setRailOpen(false)} onNavigate={(t) => setParams({ tab: parseTab(t), sel: null })} /> : null}
-    </div>
+    </Frame>
   );
 }

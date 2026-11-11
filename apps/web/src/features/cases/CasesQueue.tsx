@@ -24,7 +24,7 @@ export function SummaryStrip() {
   }
   if (!tiles.length) return null; // includes a typed 403 for roles the queue is not for
   return (
-    <dl className={styles.sumstrip} aria-label="Open charge exposure" data-parity="sumstrip">
+    <dl className={cx(styles.sumstrip, tiles.length > 4 && styles.many)} aria-label="Open charge exposure" data-parity="sumstrip">
       {tiles.map((t) => (
         <div key={t.key} className={cx(styles.ss, t.primary && styles.lead)} title={t.definition ?? undefined}>
           <dt>
@@ -35,7 +35,7 @@ export function SummaryStrip() {
           <dd className={cx(styles.cnt, t.key === 'overdue' && (t.count ?? 0) > 0 && styles.over)}>
             {t.count === null ? '' : t.key === 'overdue' && t.count === 0 ? 'None' : t.key === 'temporary_credit' ? `${t.count} issued` : `${t.count} ${t.count === 1 ? 'case' : 'cases'}`}
           </dd>
-          {t.definition ? <dd className={styles.def}>{t.definition}</dd> : null}
+          {t.definition ? <dd className={styles.srOnly}>{t.definition}</dd> : null}
         </div>
       ))}
     </dl>
@@ -109,8 +109,9 @@ export function CasesQueue() {
   }
   return (
     <div className={styles.ov}>
-      <div className={styles.pgH}>
+      <div className={styles.pgH} data-parity="page-head">
         <h1 className={styles.pgT}>Cases</h1>
+        {cases.dataUpdatedAt ? <span className={styles.pgNow}>Updated {new Date(cases.dataUpdatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span> : null}
       </div>
       <SummaryStrip />
       {cases.isError ? (
@@ -120,14 +121,15 @@ export function CasesQueue() {
         </Banner>
       ) : null}
       <section className={styles.tcard} aria-labelledby="wtr" data-parity="queue">
-        <div className={styles.tcardH}>
+        <div className={styles.tcardH} data-parity="queue-bar">
           <div className={styles.tcardL}>
             <h2 id="wtr">Case queue</h2>
             <div className={styles.sortc} role="group" aria-label="Sort cases">
               <span>Sort:</span>
               {SORTS.map((o) => (
                 <button key={o.id} type="button" className={cx(styles.fb, sort === o.id && styles.on)} aria-pressed={sort === o.id} onClick={() => setParam('sort', o.id, 'priority')}>
-                  {o.label}
+                  {/* The label sits in a span like the prototype's, so `.sortc span` gives the underline its 4px tail. */}
+                  <span>{o.label}</span>
                 </button>
               ))}
             </div>
@@ -166,6 +168,7 @@ export function CasesQueue() {
           </table>
         </div>
         {cases.data && shown.length === 0 ? <p className={styles.tnote}>No cases match this filter.</p> : null}
+        {shown.some((r) => !r.live) ? <p className={styles.tnote}>Cases without a link are examples and can’t be opened.</p> : null}
       </section>
     </div>
   );

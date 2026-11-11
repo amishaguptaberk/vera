@@ -21,8 +21,6 @@ export function taskLabel(kind: CaseView['state_kind']): string {
   return kind === 'complete' ? 'Outcome' : kind === 'working' ? 'In progress' : kind === 'waiting' ? 'While you wait' : 'Your next step';
 }
 
-export const AUTHORED_REFERENCE = 'authored-reference';
-
 /** How a run step is labelled in Run details. Values are the server's; only the wording is chosen here. */
 export function stepLabels(s: StepOut): { mode: string | null; replayed: boolean; slot: SlotState } {
   const mode = s.execution_mode ? s.execution_mode.toUpperCase() : null;

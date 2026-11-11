@@ -37,12 +37,15 @@ export type TaskBlockMount = {
   match: (c: CaseView, role: CaseRole | null) => boolean;
   Block: ComponentType<CaseSlotProps>;
   ownsActions: boolean;
+  /** The block renders the task title itself (a more specific one than the server's next action), so the card shows one. */
+  ownsTitle?: boolean;
   /** Commands the block runs itself (its own button), left out of the generic ActionBar so nothing shows twice. */
   hides?: (c: CaseView) => readonly string[];
 };
 
 export type RailProps = CaseSlotProps & { open: boolean; onClose: () => void; onNavigate: (target: string) => void };
-export type RailMount = { Rail: ComponentType<RailProps>; Toggle: ComponentType<{ role: CaseRole | null; open: boolean; onToggle: () => void }> };
+/** The rail and whether this role has one (the shell shows its top-bar toggle only then). */
+export type RailMount = { Rail: ComponentType<RailProps>; available: (role: CaseRole | null) => boolean };
 
 export type CaseRegistry = {
   tabPanels: readonly TabPanelMount[];

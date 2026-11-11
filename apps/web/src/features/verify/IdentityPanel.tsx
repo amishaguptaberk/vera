@@ -21,6 +21,8 @@ export type IdentityPanelProps = {
   onOpenSource?: (id: string) => void;
   onBack?: () => void;
   showActions?: boolean;
+  /** Inside the Communications tab: render nothing (not a second empty line) when there is nothing yet. */
+  hideEmpty?: boolean;
 };
 
 /** Rows shown to staff. Built from named fields only: nothing else in a payload (e.g. a stray `code`) can render. */
@@ -70,6 +72,7 @@ export function IdentityPanel({
   onOpenSource,
   onBack,
   showActions = true,
+  hideEmpty = false,
 }: IdentityPanelProps) {
   const cv = useCaseView(caseId);
   const q = useQuery(verificationsQuery(caseId));
@@ -102,6 +105,7 @@ export function IdentityPanel({
           : {};
     run.mutate({ action: a, caseVersion: c.case_version, payload });
   };
+  if (hideEmpty && !v && !(showActions && c?.available_actions.some((a) => a.command === "send_verification_request" && a.enabled))) return null;
   return (
     <IdentityBody
       v={v}

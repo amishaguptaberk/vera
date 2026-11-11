@@ -133,12 +133,13 @@ describe("Voice verification call", () => {
 
   it.each([
     ["simulated", "Simulated call"],
-    ["elevenlabs", "Voice call via ElevenLabs"],
+    ["elevenlabs", "Live voice call"],
   ] as const)("provider %s is labelled %s", async (provider, label) => {
     mockVoice(() => call({ status: "in_progress", provider }));
     renderWithProviders(<CallPanel caseId="CHG-1042" />);
     const p = await screen.findByTestId("call-provider");
     expect(p.textContent).toContain(label);
+    expect(document.body.textContent).not.toMatch(/elevenlabs/i);
   });
 
   it("renders only the masked number, never a full phone number", async () => {
@@ -223,7 +224,7 @@ describe("Voice call read model (CallbackDetail.voice)", () => {
       document.getElementById("call-line-1")!.getAttribute("aria-current"),
     ).toBe("true");
     expect(screen.getByTestId("call-provider").textContent).toContain(
-      "Voice call via ElevenLabs",
+      "Live voice call",
     );
   });
 });

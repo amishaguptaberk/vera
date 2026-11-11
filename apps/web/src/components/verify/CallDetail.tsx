@@ -54,7 +54,7 @@ export type CallDetailProps = {
   onOpenSource?: (id: string) => void;
   actions?: ReactNode;
   onBack?: () => void;
-  /** Plain provider label, e.g. "Simulated call" / "Voice call via ElevenLabs". */
+  /** Plain provider label, e.g. "Simulated call" / "Live voice call". */
   provider?: string | null;
   /** Elapsed time while the call is pending or live. */
   elapsed?: string | null;

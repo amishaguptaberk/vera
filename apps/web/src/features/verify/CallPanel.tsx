@@ -53,6 +53,8 @@ export type CallPanelProps = {
   onOpenSource?: (id: string) => void;
   onBack?: () => void;
   showActions?: boolean;
+  /** Inside the Communications tab: render nothing (not a second empty line) when there is nothing yet. */
+  hideEmpty?: boolean;
 };
 
 const DEMO_OUTCOMES: readonly [CallOutcome, string][] = [
@@ -232,6 +234,7 @@ export function CallPanel({
   onOpenSource,
   onBack,
   showActions = true,
+  hideEmpty = false,
 }: CallPanelProps) {
   const cv = useCaseView(caseId);
   const list = useQuery(callbacksQuery(caseId));
@@ -381,7 +384,7 @@ export function CallPanel({
       </>
     );
   }
-  if (!id) return <p className={styles.rd}>No messages or calls yet.</p>;
+  if (!id) return hideEmpty ? null : <p className={styles.rd}>No messages or calls yet.</p>;
   if (detail.isError)
     return (
       <p className={styles.rd}>

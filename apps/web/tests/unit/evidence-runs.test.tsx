@@ -83,4 +83,20 @@ describe('Run details', () => {
     expect(within(failed).getByRole('button', { name: 'Retry step' })).toBeTruthy();
     expect(within(screen.getByTestId('step-live')).queryByRole('button')).toBeNull();
   });
+
+  it('shows the model id exactly as sent and marks every replay step as a reference recording', () => {
+    render(
+      <RunList
+        runs={[runOf([step({ step_key: 'rr', execution_mode: 'replay', model_id: 'reference-recording' }), step({ step_key: 'lv', model_id: 'meta/llama-3.3-70b-instruct' })])]}
+        recovery={[]}
+        onRecovery={() => {}}
+      />,
+    );
+    const rr = screen.getByTestId('step-rr');
+    expect(within(rr).getByText('reference-recording')).toBeTruthy();
+    expect(rr.textContent).toContain('Reference recording (not a live model)');
+    const lv = screen.getByTestId('step-lv');
+    expect(within(lv).getByText('meta/llama-3.3-70b-instruct')).toBeTruthy();
+    expect(lv.textContent).not.toContain('not a live model');
+  });
 });

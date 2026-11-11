@@ -1,5 +1,6 @@
 'use client';
 
+import { sentence } from '@/lib';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useRunCommand, type ActionView, type CaseView } from '@/api';
@@ -16,19 +17,19 @@ export type DecisionPanelProps = { c: CaseView; selected?: string | null; onSele
 /** Server packet → presentational props. Every label/value is the server's text; nothing is computed. */
 export function packetProps(p: DecisionPacket) {
   const sections = [
-    ...p.statements.map((st, i) => ({ key: `st-${i}`, label: `${st.record_id} v${st.version} · ${st.field}`, value: st.text })),
+    ...p.statements.map((st, i) => ({ key: `st-${i}`, label: i === 0 ? 'Established' : '', value: st.text, record_ids: [...new Set(st.citations.map((x) => x.record_id))] })),
     ...(p.missing.length ? [{ key: 'missing', label: 'Missing', value: p.missing.join(' · ') }] : []),
     ...(p.open_conflicts.length
-      ? [{ key: 'conflicts', label: 'Open conflicts', value: p.open_conflicts.map((c) => String(c.summary ?? c.text ?? c.record_id ?? '')).filter(Boolean).join(' · ') }]
+      ? [{ key: 'conflicts', label: 'Open conflicts', value: p.open_conflicts.map((c) => String(c.summary ?? c.text ?? c.record_id ?? '')).filter(Boolean).join(' · ') }].filter((x) => x.value)
       : []),
-    { key: 'rec', label: 'Recommendation', value: p.recommendation },
+    ...(p.recommendation ? [{ key: 'rec', label: 'Recommendation', value: sentence(p.recommendation) }] : []),
     ...(p.decision ? [{ key: 'decision', label: 'Decision', value: p.decision }] : []),
   ];
   const policy = p.policy
-    ? { label: p.policy.label, rules: (p.policy.rules_failed ?? []).map((label) => ({ label, passed: false, record_ids: p.policy!.evidence_used ?? [] })) }
+    ? { label: p.policy.label, rules: (p.policy.rules_failed ?? []).map((id) => ({ label: sentence(id), passed: false })), evidence: p.policy.evidence_used ?? [] }
     : null;
   const versions = `Packet v${p.version} of v${p.latest_version} · policy v${p.policy_version} · workflow v${p.workflow_version}`;
-  const refs = [...new Set(p.statements.map((s) => s.record_id))];
+  const refs: string[] = [];
   const approvals = p.approval
     ? [{ id: p.approval.approval_id, status: p.approval.status, reviewer: p.approval.reviewer_id, reason: p.approval.return_reason ?? null }]
     : [];

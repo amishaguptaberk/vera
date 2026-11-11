@@ -83,7 +83,7 @@ export const providerLabel = (p: string | null | undefined): string | null =>
   p === "simulated"
     ? "Simulated call"
     : p === "elevenlabs"
-      ? "Voice call via ElevenLabs"
+      ? "Live voice call"
       : null;
 
 /** Defensive: keep only the last 4 digits of anything that looks like a phone number. */

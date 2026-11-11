@@ -25,7 +25,7 @@ export function Landing({ cardholder }: { cardholder: ReactNode }) {
   if (view === 'cardholder') return <>{cardholder}</>;
   if (session.data && view === null) return <Banner tone="warn">No view is available for this role.</Banner>;
   return (
-    <div style={{ padding: 24 }} aria-busy="true">
+    <div aria-busy="true">
       <Skeleton height={28} width={320} />
     </div>
   );

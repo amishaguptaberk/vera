@@ -1,0 +1,4 @@
+/* Prototype `.shell > main.main` page padding (Main.dc.html:69, 211, 1360; `main.main` 16px wins over the 560px rule) for pages without a rail. */
+.main { display: block; min-width: 0; max-width: 100%; margin: 0; padding: 20px 24px 48px; }
+@media (max-width: 1279px) { .main { padding-left: 16px; padding-right: 16px; } }
+@media (max-width: 700px) { .main { padding: 16px; } }

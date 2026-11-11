@@ -140,3 +140,23 @@ describe('Vera drawer toggle', () => {
     expect(onToggle).toHaveBeenCalled();
   });
 });
+
+describe('packet read view', () => {
+  it('renders each statement with chips for the records it cites and readable policy rules (server citation shape)', async () => {
+    const { PacketView } = await import('@/components/decision');
+    const { packetProps } = await import('@/features/decision/DecisionPanel');
+    const p = packet({
+      statements: [{ text: 'PO-219 approves $2,400.00 for 1 unit.', citations: [{ record_id: 'PO-219', version: 1, field: 'approved_amount_cents' }, { record_id: 'PO-219', version: 1, field: 'approved_quantity' }] }],
+      policy: { label: 'Blocked · evidence conflict', rules_failed: ['receipt_required_above_threshold'], evidence_used: ['CHG-1042', 'PO-219'] },
+      recommendation: 'credit',
+    });
+    render(<PacketView {...packetProps(p)} />);
+    const view = screen.getByTestId('packet');
+    expect(view.textContent).not.toContain('undefined');
+    expect(view.textContent).toContain('PO-219 approves $2,400.00 for 1 unit.');
+    expect(screen.getAllByRole('button', { name: 'PO-219' })).toHaveLength(2);
+    expect(view.textContent).toContain('Receipt required above threshold');
+    expect(view.textContent).toContain('Recommendation');
+    expect(view.textContent).toContain('Credit');
+  });
+});

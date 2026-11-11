@@ -3,7 +3,7 @@ import { CommsPanel, commandForms as commsForms, FollowupTask, isFollowupStep } 
 import { CallPanel, CardholderVerifyPanel, commandForms as verifyForms, IdentityPanel } from '@/features/verify';
 import { useQuery } from '@tanstack/react-query';
 import { ApprovalHistory, PacketView } from '@/components/decision';
-import { decisionPacketQuery, commandForms as decisionForms, packetProps, ReviewerPanel, VeraButton, VeraRailPanel } from '@/features/decision';
+import { decisionPacketQuery, commandForms as decisionForms, packetProps, ReviewerPanel, VeraRailPanel } from '@/features/decision';
 import { commandForms as moneyForms, MONEY_STEPS, MoneyTask } from '@/features/money';
 import { COMMAND_FORMS } from './command-forms';
 import type { CaseRegistry, CaseRole, CaseSlotProps, RailProps } from './registry';
@@ -20,10 +20,10 @@ function FollowupBlock({ caseId }: CaseSlotProps) {
 }
 // The workspace ActionBar is visible above the tabs, so the verify panels do not repeat the actions.
 function IdentityTab({ caseId, onSelectRecord }: CaseSlotProps) {
-  return <IdentityPanel caseId={caseId} onOpenSource={onSelectRecord} showActions={false} />;
+  return <IdentityPanel caseId={caseId} onOpenSource={onSelectRecord} showActions={false} hideEmpty />;
 }
 function CallTab({ caseId, onSelectRecord }: CaseSlotProps) {
-  return <CallPanel caseId={caseId} onOpenSource={onSelectRecord} showActions={false} />;
+  return <CallPanel caseId={caseId} onOpenSource={onSelectRecord} showActions={false} hideEmpty />;
 }
 function CardholderVerifyBlock({ caseId }: CaseSlotProps) {
   return <CardholderVerifyPanel caseId={caseId} />;
@@ -52,9 +52,6 @@ function Rail({ c, role, open, onClose, sel, onSelectRecord, onNavigate }: RailP
   const r = railRole(role);
   return r ? <VeraRailPanel c={c} role={r} open={open} onClose={onClose} selected={sel} onSelectRecord={onSelectRecord} onNavigate={onNavigate} /> : null;
 }
-function RailToggle({ role, open, onToggle }: { role: CaseRole | null; open: boolean; onToggle: () => void }) {
-  return railRole(role) ? <VeraButton open={open} onToggle={onToggle} /> : null;
-}
 
 export const caseRegistry: CaseRegistry = {
   // Communications (prototype): messages, then the identity verification and verification call items.
@@ -82,10 +79,11 @@ export const caseRegistry: CaseRegistry = {
       match: (c) => isFollowupStep(c.step),
       Block: FollowupBlock,
       ownsActions: false,
-      // In the draft step the draft editor saves and sends (with channel, subject and attachments) itself.
-      hides: (c) => (c.step === 'draft' ? ['update_communication_draft', 'send_communication'] : []),
+      ownsTitle: true,
+      // In the draft step the block drafts (Draft follow-up) and the draft editor saves and sends itself.
+      hides: (c) => (c.step === 'draft' ? ['update_communication_draft', 'send_communication', 'draft_follow_up'] : []),
     },
   ],
   commandForms: { ...COMMAND_FORMS, ...commsForms, ...verifyForms, ...decisionForms, ...moneyForms },
-  rail: { Rail, Toggle: RailToggle },
+  rail: { Rail, available: (role) => railRole(role) !== null },
 };

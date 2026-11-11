@@ -6,6 +6,7 @@ import { ApiError, useCases, useSession } from '@/api';
 import { Banner, Skeleton } from '@/design-system/primitives';
 import { CaseWorkspace } from '@/features/case';
 import { Landing } from '@/features/shell/Landing';
+import { PageMain } from '@/features/shell/PageMain';
 import { viewForRole } from '@/features/shell/role-view';
 import { pageMounts } from './mounts';
 import { NotAvailableYet } from './NotAvailableYet';
@@ -52,7 +53,26 @@ export function ApprovalsPage() {
     );
   }
   const waiting = cases.data.filter((r) => r.wait_kind === 'reviewer' && r.live);
-  if (!waiting.length) return <NotAvailableYet title="Nothing is waiting for your approval.">Decisions sent for review will appear here.</NotAvailableYet>;
+  if (!waiting.length) {
+    const live = cases.data.filter((r) => r.live);
+    return (
+      <PageMain>
+        <section className={styles.rvEmpty} data-testid="slot-empty" aria-label="Approvals">
+          <div className={styles.rvEye}>
+            <span className={styles.rvDot} aria-hidden="true" />
+            <span>Reviewer</span>
+          </div>
+          <h2 className={styles.rvT}>Nothing is waiting for you right now.</h2>
+          <p className={styles.rvP}>Decisions sent for review will appear here.</p>
+          {live.map((r) => (
+            <p key={r.case_id} className={styles.rvP}>
+              {r.case_id} · {r.merchant}: {r.state_label}.
+            </p>
+          ))}
+        </section>
+      </PageMain>
+    );
+  }
   const picked = waiting.find((r) => r.case_id === params.get('case')) ?? waiting[0];
   return (
     <div data-testid="approvals">

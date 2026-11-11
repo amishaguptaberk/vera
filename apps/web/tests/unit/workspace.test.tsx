@@ -37,6 +37,25 @@ describe('ActionBar', () => {
   });
 });
 
+describe('ActionBar emphasis', () => {
+  it('no yellow button when the first offered action is not server-styled primary (a block owns the main action)', () => {
+    const hold = { ...actions[1], style: 'secondary' } as ActionView;
+    const reassign = { ...actions[2], style: 'ghost' } as ActionView;
+    render(<ActionBar actions={[hold, reassign]} blocked={[]} onAction={() => {}} />);
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('data-primary'))).toEqual([null, null]);
+  });
+
+  it('the step’s server-primary action (the last one offered) leads the row', () => {
+    const hold = { ...actions[1], style: 'secondary' } as ActionView;
+    const prepare = { ...actions[0], command: 'create_decision_packet', label: 'Prepare decision packet', style: 'primary' } as ActionView;
+    const record = { ...actions[0], command: 'record_decision', label: 'Record decision', style: 'primary' } as ActionView;
+    render(<ActionBar actions={[hold, prepare, record]} blocked={[]} onAction={() => {}} />);
+    const btns = screen.getAllByRole('button');
+    expect(btns.map((b) => b.textContent)).toEqual(['Record decision', 'Hold for more information', 'Prepare decision packet']);
+    expect(btns.map((b) => b.getAttribute('data-primary'))).toEqual(['true', null, null]);
+  });
+});
+
 describe('CaseWorkspace', () => {
   it('tab comes from the URL and changing it writes the URL', async () => {
     nav.params = new URLSearchParams('tab=decision');

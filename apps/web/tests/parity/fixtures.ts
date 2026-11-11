@@ -32,15 +32,18 @@ export async function installSessionRoutes(page: Page, { role = 'analyst', envir
 const FIX = path.join(__dirname, 'fixtures');
 const json = (f: string) => JSON.parse(readFileSync(path.join(FIX, f), 'utf8')) as unknown;
 
-export async function installCaseRoutes(page: Page) {
+/** Which captured CHG-1042 state the case reads return: `intake` (as reported) or `opened` (after open_case). */
+export type CaseFixtureSet = 'intake' | 'opened';
+
+export async function installCaseRoutes(page: Page, set: CaseFixtureSet = 'intake') {
   const table: [RegExp, string][] = [
     [/\/api\/cases$/, 'cases.json'],
     [/\/api\/cases\/summary$/, 'summary.json'],
     [/\/api\/cases\/filter-counts$/, 'filter-counts.json'],
-    [/\/api\/cases\/CHG-1042$/, 'case-CHG-1042-intake.json'],
-    [/\/api\/cases\/CHG-1042\/evidence$/, 'evidence-CHG-1042-intake.json'],
-    [/\/api\/cases\/CHG-1042\/runs$/, 'runs-CHG-1042-intake.json'],
-    [/\/api\/cases\/CHG-1042\/activity$/, 'activity-CHG-1042-intake.json'],
+    [/\/api\/cases\/CHG-1042$/, `case-CHG-1042-${set}.json`],
+    [/\/api\/cases\/CHG-1042\/evidence$/, `evidence-CHG-1042-${set}.json`],
+    [/\/api\/cases\/CHG-1042\/runs$/, `runs-CHG-1042-${set}.json`],
+    [/\/api\/cases\/CHG-1042\/activity$/, `activity-CHG-1042-${set}.json`],
     [/\/api\/users\?assignable=true$/, 'users.json'],
   ];
   for (const [re, file] of table) await page.route(re, (route) => route.fulfill({ json: json(file) }));

@@ -12,10 +12,10 @@ const VIEW_BY_ROLE: Record<string, RoleView> = {
 
 export const viewForRole = (role: string): RoleView | null => VIEW_BY_ROLE[role] ?? null;
 
-/** Prototype `ctxTitle` (Main.dc.html:2875), minus the case title that arrives with the case screens. */
-export function contextTitle(view: RoleView | null, pathname: string): string {
+/** Prototype `ctxTitle` (Main.dc.html:2875); `pageTitle` is the case title the open case screen lends the shell. */
+export function contextTitle(view: RoleView | null, pathname: string, pageTitle: string | null = null): string {
   if (view === 'cardholder') return 'Charge review';
   if (view === 'reviewer') return 'Approvals';
   if (pathname === '/automations' || pathname.startsWith('/automations/')) return 'Automations';
-  return '';
+  return pageTitle ?? '';
 }

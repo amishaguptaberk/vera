@@ -55,3 +55,14 @@ body.vera-drag-row,
 body.vera-drag-row * {
   cursor: row-resize !important;
 }
+
+/* Prototype Main.dc.html:271: with reduced motion nothing animates or transitions anywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

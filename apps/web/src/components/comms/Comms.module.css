@@ -13,7 +13,7 @@
 }
 .item {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(56px, max-content) minmax(0, 1fr) auto;
   gap: 10px;
   align-items: baseline;
   width: 100%;
@@ -35,6 +35,7 @@
 .k {
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
   gap: 2px;
   font-size: 11.5px;
   color: var(--mute);
@@ -277,16 +278,22 @@
 }
 /* Task card title / paragraph (prototype .f-title / .f-p). */
 .taskTitle {
-  font-size: 19px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 550;
   letter-spacing: -0.015em;
   line-height: 1.3;
   margin: 0 0 6px;
-  max-width: 46ch;
+  max-width: 720px;
+  overflow-wrap: break-word;
+}
+@media (max-width: 700px) {
+  .taskTitle {
+    font-size: 18px;
+  }
 }
 .taskP {
   margin: 0 0 8px;
   color: #3b3a39;
-  max-width: 68ch;
+  max-width: 680px;
   font-size: 13.5px;
 }

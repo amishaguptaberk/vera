@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { activityQuery, runsQuery, useRunCommand, type ActivityEvent, type CaseView, type RunOut } from '@/api';
 import { VeraRail, type RailMessage } from '@/components/decision';
+import { actorLabel } from '@/lib';
 import { useAsk } from './queries';
 import { addPair, type RailPair } from './rail-state';
 
@@ -39,7 +40,7 @@ export function workMessages(runs: readonly RunOut[], events: readonly ActivityE
         at: time(r.created_at),
         head: `Run ${r.id} · ${r.status}`,
         running: RUNNING.has(r.status),
-        lines: r.steps.map((s) => ({ text: `${s.specialist} · ${s.status}${s.failure_reason ? ` · ${s.failure_reason}` : ''}` })),
+        lines: r.steps.map((s) => ({ text: `${actorLabel(s.specialist)} · ${s.status}${s.failure_reason ? ` · ${s.failure_reason}` : ''}` })),
       },
     })),
     ...events.map((e) => ({
@@ -47,7 +48,7 @@ export function workMessages(runs: readonly RunOut[], events: readonly ActivityE
       m: {
         kind: 'vera' as const,
         id: `ev-${e.id}`,
-        who: `${e.actor_name} · activity`,
+        who: actorLabel(e.actor_name),
         at: time(e.at),
         title: e.summary,
         paras: [],
@@ -118,7 +119,7 @@ export function VeraRailPanel({ c, role, open, onClose, selected, onSelectRecord
   return (
     <VeraRail
       open={open}
-      sub={c.state_label}
+      sub={role === 'reviewer' ? 'Approval context' : null}
       messages={messages}
       emptyText="Vera’s work on this case appears here."
       chips={SUGGESTED[role]}

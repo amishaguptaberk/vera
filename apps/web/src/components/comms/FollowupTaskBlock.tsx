@@ -8,6 +8,8 @@ export type FollowupTaskBlockProps = {
   /** Display name of the cardholder from the case view; falls back to "the cardholder". */
   cardholderName?: string | null;
   followUp?: boolean;
+  /** Draft step only: false until the server holds a drafted message (the copy must not claim one exists). */
+  drafted?: boolean;
   reminders?: number;
   responseText?: string | null;
   responseAttached?: boolean;
@@ -22,7 +24,11 @@ export function followupCopy(p: FollowupTaskBlockProps): { title: string; paras:
     case 'draft':
       return {
         title: p.followUp ? 'Send one targeted follow-up.' : `Ask ${who} for the missing receipt and the amount difference.`,
-        paras: [`Drafted by Cardholder Follow-up. It doesn’t re-ask what ${who} already reported. Nothing is sent until you approve.`],
+        paras: [
+          p.drafted === false
+            ? `Cardholder Follow-up drafts it from the findings. It doesn’t re-ask what ${who} already reported. Nothing is sent until you approve.`
+            : `Drafted by Cardholder Follow-up. It doesn’t re-ask what ${who} already reported. Nothing is sent until you approve.`,
+        ],
       };
     case 'waiting':
       return {

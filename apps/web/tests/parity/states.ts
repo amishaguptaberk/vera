@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { CaseFixtureSet } from './fixtures';
 
 export const VIEWPORTS = [
   { width: 1440, height: 1000 },
@@ -36,6 +37,13 @@ export type ParityState = {
   hiddenWidths?: readonly number[];
   /** Puts the prototype into this state through window.__vera (optional). */
   setupPrototype?: (page: Page) => Promise<void>;
+  /** Captured CHG-1042 state the app's case reads return (default `intake`). */
+  fixtures?: CaseFixtureSet;
+  /**
+   * Fixed browser clock for the app page (local time), for regions that print a time the prototype prints from its
+   * own simulated clock (e.g. the queue's "Updated 9:08 AM").
+   */
+  appClock?: () => Date;
   /** Puts the app into the same state through the UI (runs after the shell has loaded its session). */
   setupApp?: (page: Page) => Promise<void>;
 };
@@ -153,11 +161,15 @@ export const STATES: ParityState[] = [
     }, setupApp: app.role(/Reviewer · card admin/, /viewing as reviewer/i) }),
   ...shell({ name: 'shell/mobile-drawer-open', widths: MOBILE, sidebarWidths: MOBILE, setupPrototype: proto.upd('navOpen'), setupApp: app.openDrawer }),
   ...shell({ name: 'shell/mobile-closed', widths: MOBILE }),
-  // F2 queue (data: real captured API bodies, tests/parity/fixtures).
-  { name: 'cases/queue (summary strip)', prototypeSelector: '.sumstrip', appSelector: '[data-parity="sumstrip"]', appPath: '/cases', widths: ALL, position: FROM_PAGE_ROOT },
-  { name: 'cases/queue (table card)', prototypeSelector: '.tcard', appSelector: '[data-parity="queue"]', appPath: '/cases', widths: ALL, position: FROM_PAGE_ROOT },
-  // F3 workspace at intake.
-  { name: 'case/intake (header)', prototypeSelector: '.chd', appSelector: '[data-parity="case-header"]', appPath: '/cases/CHG-1042', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
-  { name: 'case/intake (task card)', prototypeSelector: '#task', appSelector: '[data-parity="task"]', appPath: '/cases/CHG-1042', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
-  { name: 'case/intake (charge impact)', prototypeSelector: '.plain-sec', appSelector: '[data-parity="charge-impact"]', appPath: '/cases/CHG-1042', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
+  // F2 queue (data: real captured API bodies, tests/parity/fixtures). The server reports six exposure metrics where
+  // the prototype shows four, and its rows carry no avatars, so the strip and the rows are not pixel-comparable;
+  // the page head and the queue bar above the rows are, and their position proves the strip has the prototype's height.
+  { name: 'cases/queue (page head)', prototypeSelector: '.pg-h', appSelector: '[data-parity="page-head"]', appPath: '/cases', widths: [1440, 1200], position: FROM_PAGE_ROOT, appClock: () => new Date(2026, 10, 10, 9, 8) },
+  { name: 'cases/queue (queue bar)', prototypeSelector: '.tcard-h', appSelector: '[data-parity="queue-bar"]', appPath: '/cases', widths: [1440, 1200], position: FROM_PAGE_ROOT },
+  // F3 workspace once the case is opened (fixtures captured right after open_case; prototype: openCase()). At 390 the
+  // prototype's cardholder line wraps (it adds a department the API does not have), so regions below it compare at 1440.
+  { name: 'case/opened (amount)', prototypeSelector: '.chd-t', appSelector: '[data-parity="case-amount"]', appPath: '/cases/CHG-1042', fixtures: 'opened', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
+  { name: 'case/opened (progress)', prototypeSelector: '.prog-wrap', appSelector: '[data-parity="progress"]', appPath: '/cases/CHG-1042', fixtures: 'opened', widths: [1440], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
+  { name: 'case/opened (tabs)', prototypeSelector: '.colR .tabs', appSelector: '[data-parity="case-tabs"]', appPath: '/cases/CHG-1042', fixtures: 'opened', widths: [1440], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
+  { name: 'case/opened (Vera rail head)', prototypeSelector: '.rail-h', appSelector: '[data-parity="rail-head"]', appPath: '/cases/CHG-1042', fixtures: 'opened', widths: [1440], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
 ];

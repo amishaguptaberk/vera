@@ -5,7 +5,7 @@ import { useRef, type ReactNode } from 'react';
 import { useResetDemo, useSession, useSwitchRole, type Role } from '@/api';
 import { Sidebar, TopBar, type RoleViewId } from '@/components/shell';
 import { Banner } from '@/design-system/primitives';
-import { uiActions, useUiState } from '@/state';
+import { pageContextActions, uiActions, usePageContext, useUiState } from '@/state';
 import { contextTitle, viewForRole } from './role-view';
 import styles from './AppShell.module.css';
 
@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const switchRole = useSwitchRole();
   const reset = useResetDemo();
   const ui = useUiState();
+  const page = usePageContext();
   const menuButton = useRef<HTMLButtonElement | null>(null);
 
   const data = session.data;
@@ -49,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
         <div className={styles.content}>
           <TopBar
-            title={contextTitle(view, pathname)}
+            title={contextTitle(view, pathname, page.title)}
             hasSidebar={hasSidebar}
             navOpen={ui.navDrawerOpen}
             menuButtonRef={menuButton}
@@ -64,6 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             }}
             onReset={synthetic ? () => reset.mutate() : undefined}
             resetPending={reset.isPending}
+            rail={page.rail ? { open: page.railOpen, onToggle: pageContextActions.toggleRail } : null}
           />
           {session.isError ? (
             <Banner tone="bad" title="Session unavailable." action={{ label: 'Retry', onClick: () => void session.refetch() }}>

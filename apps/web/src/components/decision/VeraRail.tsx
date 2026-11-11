@@ -51,8 +51,9 @@ export function VeraRail(p: VeraRailProps) {
     <>
       {p.open ? <button type="button" className={styles.scrim} aria-label="Close Vera" onClick={p.onClose} /> : null}
       <aside className={p.open ? `${styles.rail} ${styles.open}` : styles.rail} id="vera-rail" aria-label="Conversation with Vera">
-        <div className={styles.railH}>
-          <span className={styles.logo} aria-hidden="true" />
+        <div className={styles.railH} data-parity="rail-head">
+          {/* eslint-disable-next-line @next/next/no-img-element -- fixed 22px mark, as in the prototype */}
+          <img className={styles.logo} src="/vera-mark.png" alt="" />
           <div>
             <div className={styles.railT}>Vera</div>
             {p.sub ? <div className={styles.railS}>{p.sub}</div> : null}

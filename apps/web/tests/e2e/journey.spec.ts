@@ -15,8 +15,12 @@ test('journey: follow-up → cardholder reply with attachment → analyst review
   await acts.getByRole('button', { name: 'Start investigation' }).click();
   await expect(page.getByTestId('case-state')).toHaveText('Investigation complete', { timeout: 30_000 });
 
-  // Draft step: the editor owns save/send; the ActionBar does not repeat them.
-  await acts.getByRole('button', { name: 'Draft follow-up' }).click();
+  // Draft step: the follow-up block owns "Draft follow-up" and then the editor's save/send; the ActionBar repeats none.
+  const followup = page.getByTestId('task-block-followup');
+  await expect(acts.getByRole('button', { name: 'Draft follow-up' })).toHaveCount(0);
+  await followup.getByRole('button', { name: 'Draft follow-up' }).click();
+  // One title on the task card (the block's), not the server next action as well.
+  await expect(page.locator('#task h2')).toHaveCount(1);
   const send = page.getByRole('button', { name: 'Approve and send' });
   await expect(send).toBeVisible();
   await expect(acts.getByRole('button', { name: 'Approve and send' })).toHaveCount(0);

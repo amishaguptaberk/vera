@@ -88,3 +88,42 @@ describe('internal panels the server denies', () => {
     expect(screen.queryByText(/Run details/)).toBeNull();
   });
 });
+
+describe('task card title', () => {
+  it('shows one title in the follow-up draft step (the block’s, not the server next action as well)', async () => {
+    const { CaseWorkspace } = await import('@/features/case');
+    const { caseDraft, sendAction } = await import('../fixtures/comms');
+    const draft = { ...caseDraft([sendAction]), next_action: 'Review the findings and draft the cardholder request' };
+    mockFetch((c) => {
+      if (c.url === '/api/session') return session('analyst');
+      if (/\/api\/cases\/[^/]+$/.test(c.url)) return draft;
+      return new Response('{"code":"not_found","message":"Not Found"}', { status: 404 });
+    });
+    renderWithProviders(<CaseWorkspace caseId="CHG-1042" />);
+    const task = await screen.findByRole('region', { name: 'Current task' });
+    await waitFor(() => expect(task.querySelectorAll('h2')).toHaveLength(1));
+    expect(task.querySelector('h2')!.textContent).toBe('Ask Priya for the missing receipt and the amount difference.');
+    expect(screen.queryByTestId('next-action')).toBeNull();
+  });
+});
+
+describe('case activity', () => {
+  it('lists newest first (same instant: the server’s latest first) and shows the rest on request', async () => {
+    const { CaseWorkspace } = await import('@/features/case');
+    const ev = (i: number, at: string) => ({ id: `EVT-${i}`, at, actor_name: 'specialist:charge_investigator', actor_role: 'specialist', summary: `Event ${i}`, record_ids: [] });
+    const events = [ev(1, '2026-11-10T16:52:00Z'), ...Array.from({ length: 9 }, (_, k) => ev(k + 2, '2026-11-10T17:08:00Z'))];
+    mockFetch((c) => {
+      if (c.url === '/api/session') return session('analyst');
+      if (/\/api\/cases\/[^/]+$/.test(c.url)) return intake;
+      if (c.url.endsWith('/activity')) return { case_id: 'CHG-1042', events };
+      return new Response('{"code":"not_found","message":"Not Found"}', { status: 404 });
+    });
+    renderWithProviders(<CaseWorkspace caseId="CHG-1042" />);
+    await waitFor(() => expect(screen.getAllByTestId('activity-row').length).toBe(8));
+    expect(screen.getAllByTestId('activity-row')[0].textContent).toContain('Event 10');
+    expect(screen.getAllByTestId('activity-row')[0].textContent).toContain('Charge Investigator');
+    screen.getByRole('button', { name: 'Show all 10 events' }).click();
+    await waitFor(() => expect(screen.getAllByTestId('activity-row').length).toBe(10));
+    expect(screen.getAllByTestId('activity-row')[9].textContent).toContain('Event 1');
+  });
+});

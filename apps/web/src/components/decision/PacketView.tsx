@@ -7,7 +7,7 @@ export type PacketRule = { label: string; passed: boolean; record_ids?: readonly
 export type PacketViewProps = {
   sections: readonly PacketSectionProps[];
   refs?: readonly string[];
-  policy?: { label: string; rules?: readonly PacketRule[] | null } | null;
+  policy?: { label: string; rules?: readonly PacketRule[] | null; evidence?: readonly string[] | null } | null;
   versions?: string | null;
   selected?: string | null;
   onSelectRecord?: (recordId: string) => void;
@@ -24,8 +24,9 @@ export function PacketView({ sections, refs = [], policy, versions, selected, on
     <div data-testid="packet">
       {sections.map((s) => (
         <div key={s.key} className={styles.pk}>
-          <div className={styles.pkK}>{s.label}</div>
+          {s.label ? <div className={styles.pkK}>{s.label}</div> : null}
           <div>{s.value}</div>
+          {s.record_ids?.length ? <div className={styles.cites}>{s.record_ids.map(chip)}</div> : null}
         </div>
       ))}
       {policy ? (
@@ -42,6 +43,7 @@ export function PacketView({ sections, refs = [], policy, versions, selected, on
               ))}
             </ul>
           ) : null}
+          {policy.evidence?.length ? <div className={styles.cites}>{policy.evidence.map(chip)}</div> : null}
         </div>
       ) : null}
       {versions ? (

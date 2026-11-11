@@ -83,8 +83,12 @@ async function openApp(width: number, height: number, state: ParityState): Promi
   const ctx = await browser.newContext({ viewport: { width, height } });
   contexts.push(ctx);
   const page = await ctx.newPage();
+  // Any API read without a captured fixture is a typed 404 (registered first: later routes take precedence), so no
+  // panel ever reaches a live backend and every run sees the same data.
+  await page.route(/\/api\//, (route) => route.fulfill({ status: 404, json: { code: 'not_found', message: 'No parity fixture for this read.' } }));
+  if (state.appClock) await page.clock.setFixedTime(state.appClock());
   await installSessionRoutes(page);
-  await installCaseRoutes(page);
+  await installCaseRoutes(page, state.fixtures);
   await page.goto(`http://127.0.0.1:${APP_PORT}${state.appPath}`, { waitUntil: 'load' });
   // The role selector renders once the session has loaded (a skeleton stands in until then).
   await page.getByRole('button', { name: /viewing as/i }).waitFor();

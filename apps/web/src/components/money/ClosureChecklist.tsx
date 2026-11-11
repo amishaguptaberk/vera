@@ -33,7 +33,7 @@ export function ClosureChecklist({ items, unavailable, onOpenRecord }: ClosureCh
             <span className={styles.bx} data-mark aria-label={ok ? 'Met' : c.status === 'unknown' ? 'Not verifiable' : 'Open'}>
               {ok ? '✓' : ''}
             </span>
-            <div>
+            <div className={styles.clB}>
               <div>
                 {c.label}
                 {c.record_ids.length && onOpenRecord ? (

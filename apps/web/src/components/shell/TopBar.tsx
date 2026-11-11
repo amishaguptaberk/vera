@@ -2,6 +2,7 @@
 
 import type { RefObject } from 'react';
 import { Button, EnvironmentPill } from '@/design-system/primitives';
+import { VeraButton } from '@/components/decision/VeraRail';
 import { RoleSelector, type RoleSelectorProps } from './RoleSelector';
 import styles from './TopBar.module.css';
 
@@ -19,9 +20,11 @@ export type TopBarProps = {
   /** Demo reset; the control is not rendered when absent. */
   onReset?: () => void;
   resetPending?: boolean;
+  /** The Vera rail toggle (prototype `.vera-b`, visible below 1280px) when the page has a rail. */
+  rail?: { open: boolean; onToggle: () => void } | null;
 };
 
-export function TopBar({ title, hasSidebar, navOpen, menuButtonRef, onToggleNav, synthetic, role, onReset, resetPending = false }: TopBarProps) {
+export function TopBar({ title, hasSidebar, navOpen, menuButtonRef, onToggleNav, synthetic, role, onReset, resetPending = false, rail = null }: TopBarProps) {
   return (
     <header className={styles.top} data-parity="top">
       <div className={styles.bar}>
@@ -39,6 +42,7 @@ export function TopBar({ title, hasSidebar, navOpen, menuButtonRef, onToggleNav,
         )}
         <h1 className={styles.title}>{title}</h1>
         <div className={styles.controls}>
+          {rail ? <VeraButton open={rail.open} onToggle={rail.onToggle} /> : null}
           {synthetic ? <EnvironmentPill /> : null}
           <RoleSelector {...role} />
           {onReset ? (

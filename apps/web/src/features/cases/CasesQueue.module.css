@@ -1,7 +1,11 @@
 /* Cases queue: prototype Main.dc.html .ov/.pg-h/.sumstrip.money4/.tcard/.wt (CSS ~259, 886-950, 1213-1218). */
-.ov { width: 100%; max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
-.pgH { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 24px 0 4px; }
-.pgT { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
+.ov { width: 100%; max-width: 1200px; box-sizing: border-box; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.ov > * { min-width: 0; }
+@media (max-width: 1279px) { .ov { padding-left: 16px; padding-right: 16px; } }
+@media (max-width: 560px) { .ov { padding-left: 0; padding-right: 0; } }
+.pgH { display: flex; justify-content: flex-start; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 24px 0 2px; }
+.pgT { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
+.pgNow { font-size: 12.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
 
 .sumstrip { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); grid-auto-flow: row; margin: 12px 0 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
 .ss { padding: 16px 18px; border-left: 1px solid var(--rule2); min-width: 0; }
@@ -9,7 +13,7 @@
 .ss dt { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .basis { color: var(--mute); }
 .mv4 { margin: 4px 0 0; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
-.lead .mv4 { font-size: 30px; font-weight: 550; }
+.lead .mv4 { font-size: 26px; font-weight: 550; }
 .cnt { margin: 2px 0 0; font-size: 12.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
 .cnt.over { color: var(--bad); font-weight: 550; }
 .def { margin: 4px 0 0; font-size: 12px; color: var(--mute); }
@@ -21,6 +25,24 @@
   .lead .mv4 { font-size: 26px; }
 }
 
+/* More than four server metrics: one row on wide screens (the prototype's strip height), 3 x 2 on tablets,
+   2 x 3 on phones, so no row is left half empty. Definitions are in each tile's tooltip and accessible name. */
+.sumstrip.many { grid-template-columns: minmax(0, 1.3fr) repeat(5, minmax(0, 1fr)); }
+.sumstrip.many > .ss { padding-left: 16px; padding-right: 14px; }
+@media (max-width: 1100px) {
+  .sumstrip.many { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sumstrip.many > .ss:nth-child(n) { border-left: 1px solid var(--rule2); border-top: 1px solid var(--rule2); }
+  .sumstrip.many > .ss:nth-child(3n + 1) { border-left: 0; }
+  .sumstrip.many > .ss:nth-child(-n + 3) { border-top: 0; }
+}
+@media (max-width: 560px) {
+  .sumstrip.many { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sumstrip.many > .ss:nth-child(n) { border-left: 1px solid var(--rule2); border-top: 1px solid var(--rule2); }
+  .sumstrip.many > .ss:nth-child(odd) { border-left: 0; }
+  .sumstrip.many > .ss:nth-child(-n + 2) { border-top: 0; }
+}
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 .tcard { background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; container-type: inline-size; container-name: queue; }
 .tcardH { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px 10px; }
 .tcardH h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
@@ -28,11 +50,11 @@
 .sortc { display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; color: var(--mute); }
 .sortc span { margin-right: 4px; }
 .filt { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
-.fb { border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 4px 10px; font-size: 13px; color: #6d6c6b; cursor: pointer; font-family: inherit; }
+.fb { border: 0; background: transparent; border-radius: 0; padding: 4px 2px; margin-right: 12px; font-size: 13px; color: #6d6c6b; cursor: pointer; font-family: inherit; }
 .fb:hover { color: #0c0a08; }
-.fb.on { border-color: rgba(36, 70, 199, 0.35); color: var(--cobalt); background: var(--cobalt-wash); font-weight: 500; }
+.fb.on, .fb.on:hover { background: transparent; border: 0; color: var(--ink); font-weight: 580; box-shadow: inset 0 -2px 0 var(--ink); }
 .fb:focus-visible { outline: 2px solid #0c0a08; outline-offset: 2px; }
-.fc { margin-left: 5px; color: var(--mute); font-variant-numeric: tabular-nums; }
+.fc { margin-left: 4px; color: var(--mute); font-variant-numeric: tabular-nums; }
 
 .twrap { overflow-x: auto; position: relative; }
 .wt { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 900px; }
@@ -42,6 +64,7 @@
 .wt tr.sel td { background: var(--cobalt-wash); }
 .wt tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--cobalt); }
 .wt tr.ex td { cursor: default; }
+.wt tr.ex:hover td { background: #fcfbfa; }
 .wt tr.live:hover td { background: #e7edfb; }
 .cqT { min-width: 0; }
 .cn { font-weight: 550; }
