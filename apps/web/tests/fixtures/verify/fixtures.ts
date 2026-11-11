@@ -67,7 +67,7 @@ export const call = (o: Partial<CallbackDetail> = {}): CallbackDetail => ({
   target_field: "phone",
   target_version: 1,
   questions: [
-    { id: "q1", text: "Did you place or approve the Northstar order?" },
+    { id: "q1", text: "Did you place or approve the Bayline order?" },
   ],
   result: null,
   approved_by: "Sam Rivera",

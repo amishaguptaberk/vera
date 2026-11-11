@@ -67,7 +67,7 @@ export const ACTIONS = {
 export const QUESTIONS = [
   {
     id: "q1",
-    text: "Did you place or approve the $2,840 order from Northstar Equipment on Nov 8?",
+    text: "Did you place or approve the $2,840 order from Bayline Industrial Supply on Nov 8?",
   },
   {
     id: "q2",

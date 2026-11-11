@@ -17,7 +17,7 @@ const notFound = () =>
 const startAct = act("start_callback", {
   label: "Start call",
   payload_defaults: {
-    questions: [{ id: "q1", text: "Did you place the Northstar order?" }],
+    questions: [{ id: "q1", text: "Did you place the Bayline order?" }],
     target_record_id: "PRF-4418",
     masked_number: "•••• 0142",
     purpose: "Confirm whether the cardholder made the disputed purchase",
@@ -43,7 +43,7 @@ describe("Voice verification call", () => {
     const calls = mockVoice(() => null, caseWith([startAct]));
     renderWithProviders(<CallPanel caseId="CHG-1042" />);
     expect(
-      await screen.findByText("Did you place the Northstar order?"),
+      await screen.findByText("Did you place the Bayline order?"),
     ).toBeTruthy();
     expect(
       screen.getByText(
@@ -63,7 +63,7 @@ describe("Voice verification call", () => {
     const body = JSON.parse(calls.find((x) => x.method === "POST")!.body!);
     expect(body.payload.consent_recorded).toBe(true);
     expect(body.payload.questions).toEqual([
-      { id: "q1", text: "Did you place the Northstar order?" },
+      { id: "q1", text: "Did you place the Bayline order?" },
     ]);
   });
 

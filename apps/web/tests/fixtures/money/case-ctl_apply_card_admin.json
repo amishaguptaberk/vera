@@ -23,7 +23,7 @@
  },
  "transaction": {
   "id": "TXN-1042",
-  "merchant": "Northstar Equipment",
+  "merchant": "Bayline Industrial Supply",
   "amount_cents": 284000,
   "currency": "USD",
   "card_last4": "4418",
@@ -160,9 +160,9 @@
    },
    {
     "key": "monitor",
-    "label": "Monitor Northstar Equipment for 30 days",
+    "label": "Monitor Bayline Industrial Supply for 30 days",
     "why": "Catches repeat activity on other cards.",
-    "affects": "Northstar Equipment, all cards",
+    "affects": "Bayline Industrial Supply, all cards",
     "effect": "Flags new charges for review",
     "reversible": "Yes",
     "permission": "Card admin",

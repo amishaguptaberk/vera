@@ -170,7 +170,7 @@ def s1_report(v: Vera, st: Stage) -> None:
     rec = [e for e in ev if e["type"] == "report.received"]
     check(bool(rec), "no report.received event")
     t = view["transaction"]
-    check(t["merchant"] == "Northstar Equipment" and t["amount_cents"] == 284000, f"txn {t}")
+    check(t["merchant"] == "Bayline Industrial Supply" and t["amount_cents"] == 284000, f"txn {t}")
     st.note(f"{view['state']}/{view['step']} v{view['case_version']}")
     st.note(f"{t['merchant']} {t['amount_cents'] / 100:,.2f} {t['currency']}")
     st.note(f"report.received by {rec[0]['actor_name']} {rec[0]['record_ids']}")
@@ -259,7 +259,7 @@ def s5_follow_up(v: Vera, st: Stage) -> None:
 
 
 RECEIPT = {
-    "file_name": "northstar-receipt.pdf",
+    "file_name": "bayline-receipt.pdf",
     "content_type": "application/pdf",
     "size_bytes": 48213,
     "sha256": "4f" * 32,
@@ -274,7 +274,7 @@ def s6_reply(v: Vera, st: Stage) -> None:
     check(len(reqs) == 1 and not reqs[0]["responded"], f"cardholder requests {reqs}")
     rid = reqs[0]["request_id"]
     # The canonical reply (the response reviewer's reference recording reads this text).
-    text = "Attached is the Northstar receipt. I placed this order for the warehouse myself."
+    text = "Attached is the Bayline receipt. I placed this order for the warehouse myself."
     out = v.post_route(f"/api/requests/{rid}/responses", {"text": text, "attachment": RECEIPT})
     check(out["received"] is True, f"response {out}")
     v.as_role("analyst")
@@ -336,7 +336,7 @@ def s8_identity(v: Vera, st: Stage) -> None:
     check(c["step"] == "verify", f"after OTP: {c['step']}")
 
 
-QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
+QUESTIONS = [{"id": "q1", "text": "Did you place the Bayline Industrial Supply order?"}]
 
 
 def s9_callback(v: Vera, st: Stage) -> None:
@@ -367,7 +367,7 @@ def s10_related(v: Vera, st: Stage) -> None:
     ]
     check(sorted(pending) == ["CHG-1048", "CHG-1051"], f"pending related charges {pending}")
     reasons = {
-        "CHG-1051": "Separate Northstar order on its own PO; not part of this charge.",
+        "CHG-1051": "Separate Bayline order on its own PO; not part of this charge.",
         "CHG-1048": "Cleared last month; unrelated amount.",
     }
     for rid in sorted(pending, reverse=True):

@@ -26,7 +26,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('CasesQueue', () => {
   it('renders five D1 columns with the broad state in the case subtitle', async () => {
     renderWithProviders(<CasesQueue />);
-    await screen.findByText('CHG-1042 · Northstar Equipment');
+    await screen.findByText('CHG-1042 · Bayline Industrial Supply');
     const heads = screen.getAllByRole('columnheader').map((h) => h.textContent);
     expect(heads).toEqual(['Case', 'What’s blocking it', 'Next action', 'Owner', 'Due']);
     expect(screen.getByText('New report', { exact: false }).textContent).toContain('$2,840');
@@ -34,7 +34,7 @@ describe('CasesQueue', () => {
 
   it('only openable (live) rows link to the workspace; display rows are plain text', async () => {
     renderWithProviders(<CasesQueue />);
-    const link = await screen.findByRole('link', { name: 'CHG-1042 · Northstar Equipment' });
+    const link = await screen.findByRole('link', { name: 'CHG-1042 · Bayline Industrial Supply' });
     expect(link.getAttribute('href')).toBe('/cases/CHG-1042');
     const display = screen.getByText('CHG-1029 · Brightline Logistics');
     expect(display.tagName).toBe('SPAN');
@@ -49,7 +49,7 @@ describe('CasesQueue', () => {
     nav.params = new URLSearchParams('filter=ch');
     renderWithProviders(<CasesQueue />);
     await screen.findByText('CHG-1029 · Brightline Logistics');
-    expect(screen.queryByText('CHG-1042 · Northstar Equipment')).toBeNull();
+    expect(screen.queryByText('CHG-1042 · Bayline Industrial Supply')).toBeNull();
     await userEvent.setup().click(screen.getByRole('button', { name: /Overdue/ }));
     expect(nav.replace).toHaveBeenCalledWith('/cases?filter=over', { scroll: false });
     const calls = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls;
@@ -74,7 +74,7 @@ describe('CasesQueue', () => {
   it('sort Amount orders by amount from the URL', async () => {
     nav.params = new URLSearchParams('sort=amount');
     renderWithProviders(<CasesQueue />);
-    await screen.findByText('CHG-1042 · Northstar Equipment');
+    await screen.findByText('CHG-1042 · Bayline Industrial Supply');
     const first = screen.getAllByRole('row')[1];
     expect(first.textContent).toContain('CHG-1036');
   });

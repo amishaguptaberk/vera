@@ -8,7 +8,7 @@
             "current_version": 1,
             "fields": {
                 "currency": "USD",
-                "merchant": "Northstar Equipment",
+                "merchant": "Bayline Industrial Supply",
                 "posted_at": "2026-11-08T22:30:00+00:00",
                 "card_last4": "4418",
                 "amount_cents": 284000,
@@ -30,7 +30,7 @@
             "status": "pending_review",
             "current_version": 1,
             "fields": {
-                "merchant": "Northstar Equipment",
+                "merchant": "Bayline Industrial Supply",
                 "amount_cents": 120000
             }
         },
@@ -49,7 +49,7 @@
             "status": "supporting",
             "current_version": 1,
             "fields": {
-                "merchant": "Northstar Equipment",
+                "merchant": "Bayline Industrial Supply",
                 "approved_quantity": 1,
                 "approved_amount_cents": 240000
             }

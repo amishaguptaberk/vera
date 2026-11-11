@@ -2,7 +2,7 @@
 
 from command_payloads import register_reducer_extras, register_test_payloads
 
-QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
+QUESTIONS = [{"id": "q1", "text": "Did you place the Bayline Industrial Supply order?"}]
 
 register_test_payloads(
     {

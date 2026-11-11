@@ -12,7 +12,7 @@ register_test_payloads(
         },
         "send_communication": {
             "channel": "email",
-            "subject": "Question about your Northstar charge",
+            "subject": "Question about your Bayline charge",
             "attachments": [],
         },
         "send_reminder": {},

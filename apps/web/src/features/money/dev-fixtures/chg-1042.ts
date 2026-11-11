@@ -24,8 +24,8 @@ export const controls: ControlItem[] = [
   { key: 'lock', label: 'Lock card ••4418', why: 'Priya confirmed she didn’t make the charge, and CHG-1051 on the same card is unreviewed.', affects: 'Card ••4418', effect: 'Declines all new charges on the card', reversible: 'Yes — an admin can unlock', permission: 'Card admin', record_id: 'CALL-1042' },
   { key: 'replace', label: 'Replace card', why: 'A locked card can’t be used again.', affects: 'Card ••4418', effect: 'New physical card in 5–7 days', reversible: 'No — the old number is retired', permission: 'Card admin', record_id: 'CALL-1042' },
   { key: 'virtual', label: 'Create replacement virtual card', why: 'Lets Priya keep making approved purchases today.', affects: 'Priya Shah', effect: 'New virtual card, same limits', reversible: 'Yes — can be closed', permission: 'Card admin', record_id: 'REP-1042' },
-  { key: 'block', label: 'Block Northstar Equipment on this card', why: 'Three Northstar charges on ••4418 in three weeks; one disputed.', affects: 'Northstar Equipment on ••4418', effect: 'Declines charges from this merchant on this card', reversible: 'Yes — admin can unblock', permission: 'Card admin', record_id: 'CHG-1051' },
-  { key: 'monitor', label: 'Monitor Northstar Equipment for 30 days', why: 'Catches repeat activity on other cards.', affects: 'Northstar Equipment, all cards', effect: 'Flags new charges for review', reversible: 'Yes — ends automatically', permission: 'Finance analyst or admin', record_id: 'CHG-1048' },
+  { key: 'block', label: 'Block Bayline Industrial Supply on this card', why: 'Three Bayline charges on ••4418 in three weeks; one disputed.', affects: 'Bayline Industrial Supply on ••4418', effect: 'Declines charges from this merchant on this card', reversible: 'Yes — admin can unblock', permission: 'Card admin', record_id: 'CHG-1051' },
+  { key: 'monitor', label: 'Monitor Bayline Industrial Supply for 30 days', why: 'Catches repeat activity on other cards.', affects: 'Bayline Industrial Supply, all cards', effect: 'Flags new charges for review', reversible: 'Yes — ends automatically', permission: 'Finance analyst or admin', record_id: 'CHG-1048' },
 ];
 
 const SIM = 'Simulated · no funds moved · safe to retry';
@@ -51,7 +51,7 @@ export const tracks = (dispute: string, controlsLabel: string, focus: 'dispute' 
 ];
 
 export const finalBody =
-  'Hi Priya, we’ve issued a temporary credit of $2,840.00 for the Northstar Equipment charge (CHG-1042) while the dispute is reviewed. Your card ••4418 is locked and a replacement virtual card is ready. We’ll watch for Northstar charges for 30 days.';
+  'Hi Priya, we’ve issued a temporary credit of $2,840.00 for the Bayline Industrial Supply charge (CHG-1042) while the dispute is reviewed. Your card ••4418 is locked and a replacement virtual card is ready. We’ll watch for Bayline charges for 30 days.';
 
 export const checklist = (finalSent: boolean): ClosureItemView[] => [
   { key: 'decision', label: 'Decision recorded', status: 'met', detail: 'Temporary credit · Nov 10, 10:42', owner_name: null, next_action: null, record_ids: [] },

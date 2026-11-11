@@ -20,11 +20,11 @@ import {
 
 const noop = () => {};
 const meta = [
-  "Northstar Equipment · $2,840.00",
+  "Bayline Industrial Supply · $2,840.00",
   "Card ending 4418 · Posted Nov 8",
 ];
 const chText =
-  "Finance is reviewing the $2,840.00 Northstar Equipment charge and needs to confirm it’s you before calling. This doesn’t decide anything about the charge.";
+  "Finance is reviewing the $2,840.00 Bayline Industrial Supply charge and needs to confirm it’s you before calling. This doesn’t decide anything about the charge.";
 
 const identity = (
   status: IdentityStatus | null,

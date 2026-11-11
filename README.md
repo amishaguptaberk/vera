@@ -2,7 +2,7 @@
 
 Vera is a post-report investigation workspace for corporate-card charges. When a cardholder reports a charge they do not recognise, Vera opens a case, gathers the source records, runs specialist agents that compare the evidence, asks the cardholder targeted questions, verifies identity, places an analyst-approved verification call, prepares a decision packet for a reviewer, and carries the approved outcome through provisional credit, dispute, card controls, the final message and closure.
 
-The demo case is **CHG-1042 · Northstar Equipment · $2,840.00**.
+The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**.
 
 ## How it works
 

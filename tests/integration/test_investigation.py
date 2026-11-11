@@ -138,7 +138,7 @@ def test_replay_investigation_posts_grounded_findings_and_advances_step(
     related = [f for f in findings if f["kind"] == "related_charge"]
     assert len(related) == 1
     rel = related[0]
-    assert "CHG-1051" in rel["statement"] and "Northstar Equipment" in rel["statement"]
+    assert "CHG-1051" in rel["statement"] and "Bayline Industrial Supply" in rel["statement"]
     assert "$1,200.00" in rel["statement"]
     rel_fields = {(lk["record_id"], lk["field"]) for lk in rel["links"]}
     assert {("CHG-1051", "merchant"), ("CHG-1051", "amount_cents")} <= rel_fields
@@ -179,7 +179,7 @@ def test_no_specialist_code_prompt_or_recording_joins_on_card_digits() -> None:
         CASE,
         TransactionIdentity(
             transaction_id=CASE,
-            merchant="Northstar Equipment",
+            merchant="Bayline Industrial Supply",
             amount_cents=284000,
             currency="USD",
             cardholder_id="chd-priya-shah",

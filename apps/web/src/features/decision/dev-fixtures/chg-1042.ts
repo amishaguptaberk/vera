@@ -8,7 +8,7 @@ const act = (command: string, label: string, style: ActionView['style'] = 'prima
 });
 
 export const sections = [
-  { key: 'charge', label: 'Original charge', value: 'CHG-1042 · $2,840.00 · Northstar Equipment LLC · card ••4418 · posted Nov 8' },
+  { key: 'charge', label: 'Original charge', value: 'CHG-1042 · $2,840.00 · Bayline Industrial Supply LLC · card ••4418 · posted Nov 8' },
   { key: 'claim', label: 'Cardholder claim', value: 'REP-1042: “I do not recognize this charge.” (claim)' },
   { key: 'docs', label: 'Receipts and documents', value: 'No receipt. PO-219 approved 1 unit for $2,400.00. DLV-882 v1: 2 units received' },
   { key: 'related', label: 'Related charges', value: 'CHG-1048 $620.00 cleared · CHG-1051 $1,200.00 needs review' },

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CardholderRequestCard } from '@/components/comms';
 
 const request = {
-  questions: ['Please upload the receipt or invoice for the Northstar Equipment charge.', 'Did you receive the items on this order?'],
+  questions: ['Please upload the receipt or invoice for the Bayline Industrial Supply charge.', 'Did you receive the items on this order?'],
   dueLabel: 'Please respond by Nov 13',
   responded: false,
 };

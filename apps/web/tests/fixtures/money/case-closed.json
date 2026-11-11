@@ -23,7 +23,7 @@
  },
  "transaction": {
   "id": "TXN-1042",
-  "merchant": "Northstar Equipment",
+  "merchant": "Bayline Industrial Supply",
   "amount_cents": 284000,
   "currency": "USD",
   "card_last4": "4418",

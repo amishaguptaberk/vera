@@ -123,7 +123,7 @@ _SCRIPTS: dict[str, list[tuple[str, str]]] = {
         ("contact", "Hello, this is Priya."),
         (
             "contact",
-            "No. I did not place the Northstar Equipment order; a colleague used my card"
+            "No. I did not place the Bayline Industrial Supply order; a colleague used my card"
             " without my approval, so I did not authorize this charge.",
         ),
     ],

@@ -11,14 +11,14 @@ from vera_domain.voice import (
 )
 
 QS = (
-    Question("q1", "Did you place the Northstar Equipment order?"),
+    Question("q1", "Did you place the Bayline Industrial Supply order?"),
     Question("q2", "Do you authorize the charge?"),
 )
 
 
 def _transcript(results: dict, lines=None) -> bytes:
     lines = lines or [
-        {"role": "agent", "message": "Did you place the Northstar Equipment order?"},
+        {"role": "agent", "message": "Did you place the Bayline Industrial Supply order?"},
         {"role": "user", "message": "Yes, I placed it."},
         {"role": "agent", "message": "Do you authorize the charge?"},
         {"role": "user", "message": "I authorize it."},

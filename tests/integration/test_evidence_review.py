@@ -18,13 +18,13 @@ from vera_api.worker import run_once
 CASE = "CHG-1042"
 REC = Path("evals/recordings")
 RECEIPT = {
-    "file_name": "northstar-receipt.pdf",
+    "file_name": "bayline-receipt.pdf",
     "content_type": "application/pdf",
     "size_bytes": 48213,
     "sha256": "b" * 64,
 }
-SEND = {"channel": "email", "subject": "Question about your Northstar charge", "attachments": []}
-QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
+SEND = {"channel": "email", "subject": "Question about your Bayline charge", "attachments": []}
+QUESTIONS = [{"id": "q1", "text": "Did you place the Bayline Industrial Supply order?"}]
 
 
 @pytest.fixture
@@ -336,7 +336,7 @@ def test_real_path_reaches_an_eligible_policy_result(
 def test_an_authorized_answer_on_a_verified_case_is_ineligible(
     client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    said = "Yes, this is Priya, and I placed and authorize the Northstar Equipment order."
+    said = "Yes, this is Priya, and I placed and authorize the Bayline Industrial Supply order."
     monkeypatch.setitem(
         callbacks._SCRIPTS, "confirmed", [("contact", "Hello, this is Priya."), ("contact", said)]
     )

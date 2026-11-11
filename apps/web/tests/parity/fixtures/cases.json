@@ -26,7 +26,7 @@
     },
     {
         "case_id": "CHG-1042",
-        "merchant": "Northstar Equipment",
+        "merchant": "Bayline Industrial Supply",
         "amount_cents": 284000,
         "currency": "USD",
         "state": "reported",
@@ -76,7 +76,7 @@
     },
     {
         "case_id": "CHG-1051",
-        "merchant": "Northstar Equipment",
+        "merchant": "Bayline Industrial Supply",
         "amount_cents": 120000,
         "currency": "USD",
         "state": "investigating",

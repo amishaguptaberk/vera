@@ -5,7 +5,7 @@
       "role": "system"
     },
     {
-      "content": "{\"case_id\": \"CHG-1042\", \"permitted_records\": [{\"fields\": [\"amount_cents\", \"card_last4\", \"cardholder_id\", \"currency\", \"merchant\", \"posted_at\"], \"kind\": \"charge\", \"record_id\": \"CHG-1042\"}, {\"fields\": [\"statement\"], \"kind\": \"initial_report\", \"record_id\": \"REP-1042\"}], \"receipt_threshold_cents\": 7500, \"transaction\": {\"amount_cents\": 284000, \"cardholder_id\": \"chd-priya-shah\", \"currency\": \"USD\", \"merchant\": \"Northstar Equipment\", \"posted_at\": \"2026-11-08T22:30:00+00:00\", \"transaction_id\": \"CHG-1042\"}}",
+      "content": "{\"case_id\": \"CHG-1042\", \"permitted_records\": [{\"fields\": [\"amount_cents\", \"card_last4\", \"cardholder_id\", \"currency\", \"merchant\", \"posted_at\"], \"kind\": \"charge\", \"record_id\": \"CHG-1042\"}, {\"fields\": [\"statement\"], \"kind\": \"initial_report\", \"record_id\": \"REP-1042\"}], \"receipt_threshold_cents\": 7500, \"transaction\": {\"amount_cents\": 284000, \"cardholder_id\": \"chd-priya-shah\", \"currency\": \"USD\", \"merchant\": \"Bayline Industrial Supply\", \"posted_at\": \"2026-11-08T22:30:00+00:00\", \"transaction_id\": \"CHG-1042\"}}",
       "role": "user"
     }
   ],

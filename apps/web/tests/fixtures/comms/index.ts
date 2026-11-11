@@ -28,8 +28,8 @@ export const draftItem: CommunicationItem = {
 export const draftDetail: CommunicationDetail = {
   ...draftItem,
   subject: 'Question about your charge on case CHG-1042',
-  body: 'Hello,\n\n- Please upload the receipt or invoice for the Northstar Equipment charge.\n\nThank you.',
-  questions: ['Please upload the receipt or invoice for the Northstar Equipment charge.'],
+  body: 'Hello,\n\n- Please upload the receipt or invoice for the Bayline Industrial Supply charge.\n\nThank you.',
+  questions: ['Please upload the receipt or invoice for the Bayline Industrial Supply charge.'],
   attachments: [],
   delivery: null,
   draft_versions: 1,
@@ -48,7 +48,7 @@ export const cardholderRequest: CardholderRequest = {
   request_id: 'MSG-2201',
   status: 'awaiting_reply',
   subject: 'Question about your charge on case CHG-1042',
-  questions: ['Please upload the receipt or invoice for the Northstar Equipment charge.', 'Did you receive the items on this order?'],
+  questions: ['Please upload the receipt or invoice for the Bayline Industrial Supply charge.', 'Did you receive the items on this order?'],
   due_at: '2026-11-13T15:02:00Z',
   responded: false,
 };
