@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from vera_domain.commands import REGISTRY, available_actions
 from vera_domain.enums import CaseState, CaseStep, Role
-from vera_domain.exposure import CreditStatus, ExposureRow, compute_exposure
+from vera_domain.exposure import CreditStatus, ExposureRow, case_impact, compute_exposure
 from vera_domain.facts import Hold
 from vera_domain.labels import describe
 from vera_domain.models import (
@@ -82,21 +82,22 @@ def list_cases(session: Session, now: datetime, tz: str) -> list[QueueRow]:
     return rows
 
 
+def _exposure_row(case: Case, txn: CardTransaction) -> ExposureRow:
+    return ExposureRow(
+        amount_cents=txn.amount_cents,
+        currency=txn.currency,
+        closed=case.state == CaseState.CLOSED.value,
+        due_at=case.due_at,
+        credit_cents=case.credit_cents,
+        credit_status=CreditStatus(case.credit_status) if case.credit_status else None,
+    )
+
+
 def summarize(session: Session, now: datetime, tz: str) -> Summary:
     stmt = select(Case, CardTransaction).join(
         CardTransaction, CardTransaction.id == Case.transaction_id
     )
-    rows = [
-        ExposureRow(
-            amount_cents=txn.amount_cents,
-            currency=txn.currency,
-            closed=case.state == CaseState.CLOSED.value,
-            due_at=case.due_at,
-            credit_cents=case.credit_cents,
-            credit_status=CreditStatus(case.credit_status) if case.credit_status else None,
-        )
-        for case, txn in session.execute(stmt)
-    ]
+    rows = [_exposure_row(case, txn) for case, txn in session.execute(stmt)]
     metrics = compute_exposure(rows, now, tz)
     return Summary(**{k: SummaryMetric(**vars(m)) for k, m in metrics.items()})
 
@@ -134,7 +135,6 @@ def get_case_view(
     assert merchant is not None and holder is not None
     state, step = CaseState(case.state), CaseStep(case.step)
     label, kind, next_action = describe(state, step)
-    exposure = txn.amount_cents - case.credit_cents
     gated = any(s.requires_policy is not None for s in REGISTRY.values())
     enabled, blocked = (
         available_actions(
@@ -184,14 +184,7 @@ def get_case_view(
                 verified_at=holder.contact_verified_at,
             ),
         ),
-        charge_impact=ChargeImpact(
-            posted_cents=txn.amount_cents,
-            credit_cents=case.credit_cents,
-            exposure_cents=exposure,
-            note="No temporary credit issued."
-            if case.credit_cents == 0
-            else "Temporary credit issued.",
-        ),
+        charge_impact=ChargeImpact(**vars(case_impact(_exposure_row(case, txn)))),
         available_actions=enabled,
         blocked_actions=blocked,
         recovery_actions=[],

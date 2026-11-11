@@ -52,10 +52,53 @@ DEFINITIONS = {
 }
 
 
+class MixedCurrencyError(ValueError):
+    """Amounts in different currencies would have to be summed into one figure."""
+
+
+@dataclass(frozen=True)
+class CaseImpact:
+    """One case's money: gross posted amount, credit split by status, net of confirmed only."""
+
+    posted_cents: int
+    exposure_cents: int
+    temporary_credit_cents: int
+    confirmed_recovery_cents: int
+    net_exposure_cents: int
+    bases: dict[str, Basis]
+    note: str
+
+
+def case_impact(row: ExposureRow) -> CaseImpact:
+    temporary = row.credit_cents if row.credit_status == CreditStatus.ISSUED else 0
+    confirmed = row.credit_cents if row.credit_status == CreditStatus.FINALIZED else 0
+    if row.credit_cents == 0 or row.credit_status is None:
+        note = "No credit issued."
+    elif row.credit_status == CreditStatus.ISSUED:
+        note = "Temporary credit issued — pending, not deducted."
+    else:
+        note = "Credit finalized."
+    return CaseImpact(
+        posted_cents=row.amount_cents,
+        exposure_cents=row.amount_cents,
+        temporary_credit_cents=temporary,
+        confirmed_recovery_cents=confirmed,
+        net_exposure_cents=row.amount_cents - confirmed,
+        bases={
+            "posted_cents": Basis.VERIFIED,
+            "exposure_cents": Basis.VERIFIED,
+            "temporary_credit_cents": Basis.PENDING,
+            "confirmed_recovery_cents": Basis.VERIFIED,
+            "net_exposure_cents": Basis.VERIFIED,
+        },
+        note=note,
+    )
+
+
 def _currency(rows: list[ExposureRow]) -> str:
     currencies = {r.currency for r in rows}
     if len(currencies) > 1:
-        raise ValueError(f"exposure cannot sum mixed currencies: {sorted(currencies)}")
+        raise MixedCurrencyError(f"exposure cannot sum mixed currencies: {sorted(currencies)}")
     return currencies.pop() if currencies else "USD"
 
 

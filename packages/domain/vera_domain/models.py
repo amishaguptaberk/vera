@@ -48,8 +48,11 @@ class CardholderView(BaseModel):
 
 class ChargeImpact(BaseModel):
     posted_cents: int
-    credit_cents: int
-    exposure_cents: int
+    exposure_cents: int  # gross: the posted amount (D-H)
+    temporary_credit_cents: int
+    confirmed_recovery_cents: int
+    net_exposure_cents: int
+    bases: dict[str, Basis]
     note: str
 
 

@@ -84,3 +84,55 @@ def test_closed_case_leaves_gross(client: TestClient, db_url: str) -> None:
     assert summary["gross_exposure"]["amount_cents"] == 1080000
     assert summary["gross_exposure"]["count"] == 5
     assert summary["net_exposure"]["amount_cents"] == 1080000
+
+
+def _sql(db_url: str, sql: str) -> None:
+    engine = create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(text(sql))
+    engine.dispose()
+
+
+def test_case_charge_impact_never_deducts_pending_credit(client: TestClient, db_url: str) -> None:
+    seed = client.get("/api/cases/CHG-1042").json()["charge_impact"]
+    assert seed["exposure_cents"] == 284000
+    assert seed["temporary_credit_cents"] == 0
+    assert seed["confirmed_recovery_cents"] == 0
+    assert seed["net_exposure_cents"] == 284000
+    assert seed["note"] == "No credit issued."
+
+    _sql(db_url, "update cases set credit_cents=10000, credit_status='issued' where id='CHG-1042'")
+    issued = client.get("/api/cases/CHG-1042").json()["charge_impact"]
+    assert issued["posted_cents"] == 284000
+    assert issued["exposure_cents"] == 284000
+    assert issued["temporary_credit_cents"] == 10000
+    assert issued["confirmed_recovery_cents"] == 0
+    assert issued["net_exposure_cents"] == 284000
+    assert issued["bases"] == {
+        "posted_cents": "verified",
+        "exposure_cents": "verified",
+        "temporary_credit_cents": "pending",
+        "confirmed_recovery_cents": "verified",
+        "net_exposure_cents": "verified",
+    }
+    assert issued["note"] == "Temporary credit issued — pending, not deducted."
+
+    _sql(
+        db_url,
+        "update cases set credit_status='finalized', credit_finalized_at=now() where id='CHG-1042'",
+    )
+    final = client.get("/api/cases/CHG-1042").json()["charge_impact"]
+    assert final["exposure_cents"] == 284000
+    assert final["temporary_credit_cents"] == 0
+    assert final["confirmed_recovery_cents"] == 10000
+    assert final["net_exposure_cents"] == 274000
+    assert final["note"] == "Credit finalized."
+
+
+def test_mixed_currency_summary_is_a_typed_409(client: TestClient, db_url: str) -> None:
+    _sql(db_url, "update card_transactions set currency='EUR' where id='TXN-1033'")
+    resp = client.get("/api/cases/summary")
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["code"] == "mixed_currency"
+    assert body["message"]
