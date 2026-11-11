@@ -1,18 +1,23 @@
 """VER-009: decision packet, decision, reviewer approval binding, staleness and Ask Vera."""
 
+import json
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
 from command_payloads import register_test_payloads
+from conftest import TEST_DB_URL
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
-from vera_api import decisions, gateway
+from vera_api import decisions, gateway, investigation
 from vera_api import policy as policy_service
 from vera_api.auth import Actor
 from vera_api.models import Case
+from vera_api.worker import run_once
 from vera_domain.clock import default_demo_clock
 from vera_domain.commands import REGISTRY, CommandSpec, NoPayload, StepSet, reduce_open
 from vera_domain.enums import EventType, Role
@@ -22,6 +27,7 @@ from vera_domain.policy import RecordFact
 register_test_payloads(
     {
         "create_decision_packet": {},
+        "retry_decision_packet": {"mode": "replay"},
         "record_decision": {"decision": "credit", "rationale": "Duplicate charge confirmed."},
         "request_reviewer_approval": {},
         "approve_decision": {},
@@ -36,6 +42,7 @@ register_test_payloads(
 )
 
 CASE = "CHG-1042"
+REC = Path("evals/recordings")
 NOW = default_demo_clock().now()
 ANALYST = Actor("usr-sam-rivera", "Sam Rivera", Role.ANALYST, frozenset({Role.ANALYST}))
 UPSTREAM: dict[str, Any] = {
@@ -66,6 +73,9 @@ def upstream(monkeypatch: pytest.MonkeyPatch) -> None:
         return {"callback_status": "confirmed"}
 
     monkeypatch.setattr(gateway, "FACT_PROVIDERS", [*gateway.FACT_PROVIDERS, confirmed])
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", REC)
+    monkeypatch.setattr(investigation, "LIVE_SLEEP", lambda _s: None)
+    monkeypatch.delenv("VERA_EXECUTION_MODE", raising=False)
     real = policy_service.load_policy_input
 
     def verified(session: Session, case_id: str) -> Any:
@@ -129,8 +139,27 @@ def to_packet(client: TestClient) -> dict[str, Any]:
         if a["command"] == "evaluate_policy"
     )
     ok(command(client, "evaluate_policy", key))
+    return new_packet(client)
+
+
+def new_packet(client: TestClient, run: bool = True) -> dict[str, Any]:
     v = view(client)["case_version"]
-    return ok(command(client, "create_decision_packet", f"packet:{CASE}:{v}"))
+    out = ok(command(client, "create_decision_packet", f"packet:{CASE}:{v}"))
+    assert view(client)["step"] == "packet"  # draft until the preparer's output is stored
+    if run:
+        assert drain(client) >= 1
+    return out
+
+
+def drain(client: TestClient) -> int:
+    engine = create_engine(TEST_DB_URL)
+    n = 0
+    t = datetime(2031, 1, 1, tzinfo=UTC)
+    with sessionmaker(engine, expire_on_commit=False)() as s:
+        while run_once(s, worker_id="w-test", now=t + timedelta(minutes=n)) is not None:
+            n += 1
+    engine.dispose()
+    return n
 
 
 def to_waitrv(client: TestClient) -> str:
@@ -175,6 +204,8 @@ def test_packet_records_pins_and_approves_nothing(client: TestClient, db: Sessio
     case = view(client)
     assert case["step"] == "decide"
     shown = packet(client)
+    assert shown["packet_status"] == "ready" and shown["preparer"]["execution_mode"] == "replay"
+    assert shown["recommendation"] == "credit" and shown["recommendation_reasons"]
     assert shown["version"] == 1 and out["result"]["packet_version"] == 1
     row = db.execute(
         text(
@@ -190,8 +221,13 @@ def test_packet_records_pins_and_approves_nothing(client: TestClient, db: Sessio
     assert shown["approval"] is None and shown["decision"] is None
     assert db.execute(text("select count(*) from approvals")).scalar_one() == 0
     assert shown["statements"] and all(
-        s["record_id"] and s["version"] >= 1 and s["field"] for s in shown["statements"]
+        c["record_id"] and c["version"] >= 1 and c["field"]
+        for s in shown["statements"]
+        for c in s["citations"]
     )
+    with pytest.raises(Exception, match="append-only"):
+        db.execute(text("update decision_packet_contents set recommendation = 'clear'"))
+    db.rollback()
     with pytest.raises(Exception, match="append-only"):
         db.execute(text("update decision_packets set version = 9"))
     db.rollback()
@@ -253,8 +289,7 @@ def test_return_needs_reason_keeps_packet_and_allows_new_version(
     assert after["approval"]["return_reason"] == "Receipt is missing"
     assert {**after, "approval": None} == {**before, "approval": None}
     switch(client, "analyst")
-    v = view(client)["case_version"]
-    out = ok(command(client, "create_decision_packet", f"packet:{CASE}:{v}"))
+    out = new_packet(client)
     assert out["result"]["packet_version"] == 2
     assert view(client)["step"] == "decide"
     assert packet(client)["version"] == 2 and packet(client)["approval"] is None
@@ -396,3 +431,123 @@ def ok_list(client: TestClient) -> list[dict[str, Any]]:
     assert resp.status_code == 200, resp.text
     out: list[dict[str, Any]] = resp.json()
     return out
+
+
+def test_consumed_approval_does_not_go_stale(client: TestClient, db: Session) -> None:
+    approval_id = to_waitrv(client)
+    with pytest.raises(CommandError):  # only an approved approval can be consumed
+        decisions.mark_approval_consumed(db, approval_id, "EXE-1", NOW)
+    db.rollback()
+    switch(client, "reviewer")
+    ok(command(client, "approve_decision", f"approve:{CASE}:{approval_id}"))
+    decisions.mark_approval_consumed(db, approval_id, "EXE-1", NOW)
+    decisions.mark_approval_consumed(db, approval_id, "EXE-1", NOW)  # idempotent
+    with pytest.raises(CommandError):
+        decisions.mark_approval_consumed(db, approval_id, "EXE-2", NOW)
+    db.commit()
+    ok(client.post("/api/demo/material-change", json={}))
+    assert packet(client)["approval"]["status"] == "approved"
+    n = db.execute(text("select count(*) from audit_events where type = 'approval.stale'"))
+    assert n.scalar_one() == 0
+
+
+def _live(turns: list[dict[str, Any]]) -> httpx.MockTransport:
+    seen: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert "Decision Packet Preparer" in body["messages"][0]["content"]
+        turn = turns[len(seen)]
+        seen.append(1)
+        message: dict[str, Any] = {"role": "assistant", "content": json.dumps(turn["content"])}
+        if turn["tool_calls"]:
+            message = {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": json.dumps(tc["arguments"])},
+                    }
+                    for tc in turn["tool_calls"]
+                ],
+            }
+        return httpx.Response(
+            200, json={"model": "test/live-model", "choices": [{"message": message}], "usage": {}}
+        )
+
+    return httpx.MockTransport(handle)
+
+
+def _turns() -> list[dict[str, Any]]:
+    root = REC / "decision_packet_preparer" / "v1"
+    return [json.loads((root / f).read_text()) for f in (f"{CASE}.json", f"{CASE}.1.json")]
+
+
+def test_recording_is_marked_authored_reference() -> None:
+    for turn in _turns():
+        assert turn["provenance"] == "authored-reference"
+        assert turn["model_id"] == "authored-reference"
+
+
+def test_live_preparer_writes_the_packet_and_decides_nothing(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", _live(_turns()))
+    to_packet(client)
+    shown = packet(client)
+    assert shown["packet_status"] == "ready"
+    assert (shown["preparer"]["execution_mode"], shown["preparer"]["model_id"]) == (
+        "live",
+        "test/live-model",
+    )
+    assert shown["recommendation"] == "credit"
+    assert shown["decision"] is None and shown["approval"] is None  # a recommendation only
+    assert view(client)["step"] == "decide"
+
+
+def test_live_failure_is_explicit_and_recovers_only_by_retry(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(
+        investigation, "LIVE_TRANSPORT", httpx.MockTransport(lambda r: httpx.Response(500))
+    )
+    to_packet(client)
+    assert view(client)["step"] == "packet"  # no silent replay
+    shown = packet(client)
+    assert (shown["packet_status"], shown["preparer"]["status"]) == ("draft", "failed")
+    assert shown["preparer"]["failure_reason"] == "provider_error"
+    assert shown["statements"] == [] and shown["recommendation"] is None
+    failed = db.execute(
+        text("select count(*) from audit_events where type = 'specialist.failed'")
+    ).scalar_one()
+    assert failed == 1
+    retry = ok(
+        command(client, "retry_decision_packet", f"packet-retry:{CASE}:1:1", {"mode": "replay"})
+    )
+    assert retry["result"]["mode"] == "replay"
+    assert drain(client) >= 1
+    shown = packet(client)
+    assert (shown["packet_status"], shown["preparer"]["execution_mode"]) == ("ready", "replay")
+    assert view(client)["step"] == "decide"
+    again = command(client, "retry_decision_packet", "packet-retry:x", {"mode": "replay"})
+    assert again.status_code == 409  # nothing failed: the step is decide
+
+
+def test_ungrounded_output_fails_the_step(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    turns = _turns()
+    turns[1]["content"]["statements"][0]["citations"][0]["value"] = 1
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", _live([*turns, *turns, *turns, *turns]))
+    to_packet(client)
+    shown = packet(client)
+    assert shown["packet_status"] == "draft" and shown["preparer"]["failure_reason"] == "ungrounded"
+    assert view(client)["step"] == "packet"

@@ -1,7 +1,8 @@
 """Decision packet, decision and reviewer approval: payloads, reducers, command specs (pure)."""
 
+import json
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +18,7 @@ from vera_domain.commands import (
 from vera_domain.enums import CaseState, CaseStep, Role, StateKind, register_event_types
 from vera_domain.facts import CaseFacts
 from vera_domain.labels import register_event_summaries, register_labels
+from vera_domain.specialists import Finding, SpecialistSpec
 
 DecisionKind = Literal["credit", "dispute", "clear", "violation", "unresolved"]
 
@@ -47,6 +49,107 @@ class ReassignReviewerPayload(Payload):
     to: str = Field(min_length=1)
 
 
+class RetryPacketPayload(Payload):
+    mode: Literal["live", "replay"]
+
+
+class CompletePacketPayload(Payload):
+    packet_version: int = Field(ge=1)
+    run_id: str = Field(min_length=1, max_length=64)
+
+
+# ---- Decision Packet Preparer (specialist contract; it recommends, it decides nothing) ----------
+
+PREPARER = "decision_packet_preparer"
+PROMPT_VERSION = "v1"
+
+
+class Cite(BaseModel):
+    record_id: str
+    version: int
+    field: str
+    value: Any
+
+
+class CitedStatement(BaseModel):
+    statement: str = Field(min_length=1)
+    citations: list[Cite] = Field(min_length=1)
+
+
+class PacketOutput(BaseModel):
+    statements: list[CitedStatement] = Field(min_length=1)
+    recommendation: DecisionKind
+    reasons: list[CitedStatement] = Field(min_length=1)
+
+
+class RecordInfo(BaseModel):
+    kind: str
+    fields: list[str]
+
+
+class PacketInput(BaseModel):
+    """Record ids, field names and status codes only: values are read with read_field."""
+
+    case_id: str
+    records: dict[str, RecordInfo]
+    open_conflict_fields: list[str] = []
+    open_finding_ids: list[str] = []
+    missing: list[str] = []
+    policy_status: str | None = None
+    policy_code: str | None = None
+    policy_rules_failed: list[str] = []
+
+
+def packet_findings(output: BaseModel) -> list[Finding]:
+    """Every citation of every statement and reason is one grounding claim."""
+    out: list[Finding] = []
+    for part in (*getattr(output, "statements", []), *getattr(output, "reasons", [])):
+        for c in part.citations:
+            out.append(
+                Finding(
+                    record_id=c.record_id,
+                    version=c.version,
+                    field=c.field,
+                    value=c.value,
+                    statement=part.statement,
+                )
+            )
+    return out
+
+
+PACKET_SYSTEM_PROMPT = (
+    "Decision Packet Preparer. You prepare the summary of a card-dispute decision packet for a "
+    "finance analyst. You make no eligibility, credit or policy decision, you approve nothing "
+    "and you change no case state: you summarize the evidence and RECOMMEND one of the decision "
+    "values (credit, dispute, clear, violation, unresolved); the analyst decides and a reviewer "
+    "approves. The stored policy status given to you is authoritative; never contradict it. "
+    "Read every value you use with the read_field tool; you may read only the records listed. "
+    "Every statement and every reason must cite each value it rests on as {record_id, version, "
+    "field, value}, with value and version exactly as read_field returned them. Reply with one "
+    "JSON object only: {statements: [{statement, citations}], recommendation, reasons: "
+    "[{statement, citations}]}."
+)
+
+
+def _packet_messages(inputs: BaseModel) -> list[dict[str, Any]]:
+    return [
+        {"role": "system", "content": PACKET_SYSTEM_PROMPT},
+        {"role": "user", "content": json.dumps(inputs.model_dump(), sort_keys=True)},
+    ]
+
+
+def build_packet_spec(record_ids: frozenset[str]) -> SpecialistSpec:
+    return SpecialistSpec(
+        name=PREPARER,
+        prompt_version=PROMPT_VERSION,
+        input_schema=PacketInput,
+        output_schema=PacketOutput,
+        allowed_record_ids=lambda case_id: record_ids,
+        build_messages=_packet_messages,
+        findings_of=packet_findings,
+    )
+
+
 class Citation(BaseModel):
     record_id: str
     version: int
@@ -55,6 +158,8 @@ class Citation(BaseModel):
 
 register_event_types(
     "decision_packet.created",
+    "decision_packet.ready",
+    "decision_packet.retried",
     "decision.recorded",
     "approval.requested",
     "approval.approved",
@@ -64,7 +169,9 @@ register_event_types(
 )
 register_event_summaries(
     {
-        "decision_packet.created": "Decision packet prepared",
+        "decision_packet.created": "Decision packet requested",
+        "decision_packet.ready": "Decision packet ready",
+        "decision_packet.retried": "Decision packet preparation retried",
         "decision.recorded": "Decision recorded",
         "approval.requested": "Reviewer approval requested",
         "approval.approved": "Decision approved by the reviewer",
@@ -108,15 +215,47 @@ def reduce_create_packet(f: CaseFacts, p: NoPayload, ctx: ReduceContext) -> Redu
     version = ctx.extra["packet_version"]
     return Reduction(
         facts=f.model_copy(
-            update={"packet_status": "ready", "decision": "none", "approval_status": "none"}
+            update={"packet_status": "draft", "decision": "none", "approval_status": "none"}
         ),
-        reason="Decision packet prepared",
+        reason="Decision packet requested",
         events=[
             EventDraft(
                 "decision_packet.created",
-                f"Decision packet v{version} prepared",
+                f"Decision packet v{version} is being prepared",
                 [ctx.case_id],
                 {k: ctx.extra[k] for k in ("packet_version", "snapshot_hash", "policy_version")},
+            )
+        ],
+        result=dict(ctx.extra),
+    )
+
+
+def reduce_complete_packet(f: CaseFacts, p: CompletePacketPayload, ctx: ReduceContext) -> Reduction:
+    return Reduction(
+        facts=f.model_copy(update={"packet_status": "ready"}),
+        reason="Decision packet ready",
+        events=[
+            EventDraft(
+                "decision_packet.ready",
+                f"Decision packet v{p.packet_version} is ready",
+                [ctx.case_id],
+                dict(ctx.extra),
+            )
+        ],
+        result=dict(ctx.extra),
+    )
+
+
+def reduce_retry_packet(f: CaseFacts, p: RetryPacketPayload, ctx: ReduceContext) -> Reduction:
+    return Reduction(
+        facts=f,
+        reason="Decision packet preparation retried",
+        events=[
+            EventDraft(
+                "decision_packet.retried",
+                f"Decision packet preparation retried ({p.mode})",
+                [ctx.case_id],
+                dict(ctx.extra),
             )
         ],
         result=dict(ctx.extra),
@@ -245,7 +384,40 @@ REASSIGN = CommandSpec(
     "Reassign reviewer",
     "ghost",
 )
-COMMANDS = (CREATE_PACKET, RECORD_DECISION, REQUEST_APPROVAL, APPROVE, RETURN, REMIND, REASSIGN)
+_PACKET = StepSet(include=frozenset({(_DP, CaseStep.PACKET)}))
+RETRY_PACKET = CommandSpec(
+    "retry_decision_packet",
+    frozenset({Role.ANALYST}),
+    RetryPacketPayload,
+    _PACKET,
+    "packet-retry:{case_id}:{packet_version}:{attempt_no}",
+    reduce_retry_packet,
+    ("decision_packet.retried",),
+    "Retry packet preparation",
+    "secondary",
+)
+# Worker-only: stores the validated specialist output on the packet. Never offered to a human.
+COMPLETE_PACKET = CommandSpec(
+    "complete_decision_packet",
+    frozenset({Role.SYSTEM}),
+    CompletePacketPayload,
+    _PACKET,
+    "packet-done:{case_id}:{packet_version}",
+    reduce_complete_packet,
+    ("decision_packet.ready",),
+    "Complete decision packet",
+    "ghost",
+)
+COMMANDS = (
+    RETRY_PACKET,
+    CREATE_PACKET,
+    RECORD_DECISION,
+    REQUEST_APPROVAL,
+    APPROVE,
+    RETURN,
+    REMIND,
+    REASSIGN,
+)
 
 # ---- Ask Vera: deterministic intents (Handoff 3.4), explicit before generic ---------------------
 

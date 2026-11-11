@@ -25,9 +25,23 @@ def upgrade() -> None:
             policy_version integer not null,
             policy_evaluation_id bigint,
             summary jsonb not null,
+            run_id text not null,
             created_by text not null,
             created_at timestamptz not null,
             unique (case_id, version)
+        );
+        create table decision_packet_contents (
+            id bigserial primary key,
+            case_id text not null references cases(id),
+            packet_version integer not null,
+            run_id text not null,
+            execution_mode text,
+            model_id text,
+            statements jsonb not null,
+            recommendation text not null,
+            reasons jsonb not null,
+            created_at timestamptz not null,
+            unique (case_id, packet_version)
         );
         create table decisions (
             id bigserial primary key,
@@ -57,6 +71,8 @@ def upgrade() -> None:
             return_reason text,
             return_next_step text,
             return_owner_id text,
+            consumed_at timestamptz,
+            consumed_execution_id text,
             unique (case_id, packet_version)
         );
         create table ask_pairs (
@@ -71,6 +87,8 @@ def upgrade() -> None:
         );
         create trigger decision_packets_append_only before update or delete on decision_packets
             for each row execute function vera_forbid_mutation();
+        create trigger decision_packet_contents_append_only before update or delete
+            on decision_packet_contents for each row execute function vera_forbid_mutation();
         create trigger decisions_append_only before update or delete on decisions
             for each row execute function vera_forbid_mutation();
         """
@@ -80,5 +98,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute(
         "drop table ask_pairs; drop table approvals; drop table decisions; "
+        "drop table decision_packet_contents; "
         "drop table decision_packets;"
     )

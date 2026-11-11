@@ -18,7 +18,24 @@ class DecisionPacket(Base):
     policy_version: Mapped[int] = mapped_column(Integer)
     policy_evaluation_id: Mapped[int | None] = mapped_column(BigInteger)
     summary: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    run_id: Mapped[str] = mapped_column(String)
     created_by: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DecisionPacketContent(Base):
+    """The preparer's validated output, written once per packet version (append-only)."""
+
+    __tablename__ = "decision_packet_contents"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey("cases.id"))
+    packet_version: Mapped[int] = mapped_column(Integer)
+    run_id: Mapped[str] = mapped_column(String)
+    execution_mode: Mapped[str | None] = mapped_column(String)
+    model_id: Mapped[str | None] = mapped_column(String)
+    statements: Mapped[list[Any]] = mapped_column(JSONB)
+    recommendation: Mapped[str] = mapped_column(String)
+    reasons: Mapped[list[Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -51,6 +68,9 @@ class Approval(Base):
     return_reason: Mapped[str | None] = mapped_column(String)
     return_next_step: Mapped[str | None] = mapped_column(String)
     return_owner_id: Mapped[str | None] = mapped_column(String)
+    # Set once a credit execution exists for this approval: it can no longer go stale.
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consumed_execution_id: Mapped[str | None] = mapped_column(String)
 
 
 class AskPair(Base):
