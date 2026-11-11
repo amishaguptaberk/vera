@@ -58,6 +58,8 @@ export type AutomationAction = {
   enabled: boolean;
   blocked_reason?: string | null;
   idempotency_key: string;
+  /** Echoed into CommandIn.expected_version (VER-014 envelope). */
+  expected_version?: number;
   payload_defaults?: Record<string, unknown>;
 };
 
@@ -146,3 +148,28 @@ export const paths = {
   policyVersion: (id: string, v: number) => `/policies/${encodeURIComponent(id)}/versions/${v}`,
   command: (name: string) => `/automations/commands/${encodeURIComponent(name)}`,
 };
+
+// ---- Wire shapes of services/api/vera_api/automations.py (VER-014, read at 00:26) ----------------------------
+
+export type WorkflowOut = {
+  workflow_id: string;
+  name: string;
+  active_version: number;
+  graph: Graph;
+  versions: { version: number; graph_hash: string; published_by: string; reason: string; created_at: string }[];
+  draft: {
+    version: number;
+    from_version: number;
+    revision: number;
+    graph: Graph;
+    graph_hash: string;
+    validation: Violation[];
+    latest_check: (Omit<CheckRun, 'run_id'> & { run_id: number | string; created_at: string }) | null;
+  } | null;
+  used_by: { case_id: string; workflow_version: number; policy_version: number }[];
+  /** Not in VER-014 yet (GAP): server-offered commands with echoed idempotency key + expected_version. */
+  available_actions?: AutomationAction[];
+  rules?: Record<string, string>;
+};
+
+export type SpecialistOut = { specialist_id: string; status: string; revision: number; fields: Record<string, unknown> };
