@@ -37,6 +37,13 @@ def switch(client: TestClient, role: Role) -> None:
     assert resp.status_code == 200, resp.text
 
 
+def set_session(client: TestClient, value: str) -> None:
+    """Make `value` the only session cookie sent. httpx2's jar keeps a server-set cookie
+    (domain testserver.local) beside a manually set one (no domain) and sends both."""
+    client.cookies.clear()
+    client.cookies.set("vera_session", value)
+
+
 def version(client: TestClient, case_id: str = CASE) -> int:
     return client.get(f"/api/cases/{case_id}").json()["case_version"]  # type: ignore[no-any-return]
 
@@ -434,11 +441,49 @@ def test_tampered_or_unsigned_cookie_is_no_session(client: TestClient) -> None:
     good = client.cookies.get("vera_session")
     assert good is not None
     body, _, mac = good.rpartition(".")
-    client.cookies.set("vera_session", f"{body}.{'0' * len(mac)}")
+    set_session(client, f"{body}.{'0' * len(mac)}")
     assert client.get("/api/session").json()["user"]["id"] == "usr-sam-rivera"
     assert client.get("/api/session").json()["active_role"] == "analyst"
-    client.cookies.set("vera_session", "garbage")
+    set_session(client, "garbage")
     assert client.get("/api/session").json()["active_role"] == "analyst"
+
+
+@pytest.mark.parametrize("tampered_first", [True, False])
+def test_valid_plus_tampered_session_cookie_is_no_session(
+    client: TestClient, tampered_first: bool
+) -> None:
+    switch(client, Role.REVIEWER)
+    good = client.cookies.get("vera_session")
+    assert good is not None
+    body, _, mac = good.rpartition(".")
+    tampered = f"{body}.{'0' * len(mac)}"
+    pair = [f"vera_session={tampered}", f"vera_session={good}"]
+    header = "; ".join(pair if tampered_first else pair[::-1])
+    client.cookies.clear()
+    session = client.get("/api/session", headers={"Cookie": header}).json()
+    assert session["user"]["id"] == "usr-sam-rivera"
+    assert session["active_role"] == "analyst"
+
+
+def test_two_session_cookies_are_401_outside_synthetic(client: TestClient, db_url: str) -> None:
+    from vera_api.app import create_app
+    from vera_api.auth import sign
+    from vera_api.config import Settings
+
+    good = sign("s3cret", "usr-dana-okafor", "reviewer")
+    body, _, mac = good.rpartition(".")
+    tampered = f"{body}.{'0' * len(mac)}"
+    app = create_app(Settings(database_url=db_url, env="staging", session_secret="s3cret"))
+    with TestClient(app) as c:
+        ok = c.get("/api/session", headers={"Cookie": f"vera_session={good}"})
+        assert ok.status_code == 200 and ok.json()["user"]["id"] == "usr-dana-okafor"
+        for header in (
+            f"vera_session={tampered}; vera_session={good}",
+            f"vera_session={good}; vera_session={tampered}",
+            f"vera_session={good}; vera_session={good}",
+        ):
+            resp = c.get("/api/session", headers={"Cookie": header})
+            assert resp.status_code == 401 and resp.json()["code"] == "unauthenticated"
 
 
 def test_validly_signed_cookie_for_role_not_in_user_roles_is_403(
@@ -449,11 +494,11 @@ def test_validly_signed_cookie_for_role_not_in_user_roles_is_403(
 
     before = snap()
     for user, role in (("usr-sam-rivera", "card_admin"), ("usr-sam-rivera", "reviewer")):
-        client.cookies.set("vera_session", sign(DEV_SESSION_SECRET, user, role))
+        set_session(client, sign(DEV_SESSION_SECRET, user, role))
         resp = send(client, "open_case", key=f"forged-{role}")
         assert resp.status_code == 403 and resp.json()["code"] == "role_forbidden"
     # Even a held, signed role that lacks the command is refused (ops_admin holds no command).
-    client.cookies.set("vera_session", sign(DEV_SESSION_SECRET, "usr-sam-rivera", "ops_admin"))
+    set_session(client, sign(DEV_SESSION_SECRET, "usr-sam-rivera", "ops_admin"))
     assert send(client, "open_case", key="ops").status_code == 403
     assert snap() == before
     # A role removed from user_roles after the cookie was issued stops working at once.
@@ -614,7 +659,7 @@ def test_another_user_reusing_a_key_is_a_conflict_and_writes_nothing(
             ).all()
 
     before, rows = counts(db_url), attempts()
-    client.cookies.set("vera_session", sign(DEV_SESSION_SECRET, "usr-alex-kim", "analyst"))
+    set_session(client, sign(DEV_SESSION_SECRET, "usr-alex-kim", "analyst"))
     for cmd, key in (
         ("open_case", "open:CHG-1042:usr-sam-rivera"),
         ("hold_case", "hold:CHG-1042:2"),
@@ -673,7 +718,7 @@ def test_session_view_falls_back_when_cookie_role_is_not_held(client: TestClient
     from vera_api.auth import sign
     from vera_api.config import DEV_SESSION_SECRET
 
-    client.cookies.set("vera_session", sign(DEV_SESSION_SECRET, "usr-sam-rivera", "card_admin"))
+    set_session(client, sign(DEV_SESSION_SECRET, "usr-sam-rivera", "card_admin"))
     body = client.get("/api/session").json()
     assert body["user"]["id"] == "usr-sam-rivera"
     assert body["active_role"] == "analyst"
