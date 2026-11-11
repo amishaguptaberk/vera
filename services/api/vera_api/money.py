@@ -222,6 +222,9 @@ def _credit_after(event: str, summary: str):  # type: ignore[no-untyped-def]
         outcome: Outcome,
     ) -> None:
         if ctx.extra.get("credit_status") == "issued":
+            from vera_api import prevention  # the planner recommends controls; humans decide
+
+            worker.enqueue(session, prevention.JOB_KIND, {"case_id": case.id}, now=now)
             ref = ctx.extra["credit_id"]
             _emit(
                 session,

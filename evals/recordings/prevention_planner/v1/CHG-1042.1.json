@@ -1,0 +1,28 @@
+{
+  "content": {
+    "controls": [
+      {
+        "citations": [{"field": "amount_cents", "record_id": "CHG-1042", "value": 284000, "version": 1}],
+        "control": "lock",
+        "effect": "New authorizations on the card are declined until it is unlocked.",
+        "reason": "The disputed charge of $2,840.00 was credited; locking stops further charges while the dispute is open.",
+        "required_permission": "card_admin",
+        "reversible": true,
+        "scope": "The cardholder's card used for CHG-1042"
+      },
+      {
+        "citations": [{"field": "merchant", "record_id": "CHG-1051", "value": "Northstar Equipment", "version": 1}],
+        "control": "block",
+        "effect": "Charges from this merchant on the card are declined.",
+        "reason": "A related charge CHG-1051 is from the same merchant, Northstar Equipment; blocking the merchant prevents a repeat.",
+        "required_permission": "card_admin",
+        "reversible": true,
+        "scope": "Merchant Northstar Equipment on the cardholder's card"
+      }
+    ]
+  },
+  "model_id": "reference-recording",
+  "provenance": "reference",
+  "tool_calls": [],
+  "usage": {}
+}

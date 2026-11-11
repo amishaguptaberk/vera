@@ -1,0 +1,10 @@
+{
+  "content": {},
+  "model_id": "reference-recording",
+  "provenance": "reference",
+  "tool_calls": [
+    {"arguments": {"field": "amount_cents", "record_id": "CHG-1042"}, "id": "call_0", "name": "read_field"},
+    {"arguments": {"field": "merchant", "record_id": "CHG-1051"}, "id": "call_1", "name": "read_field"}
+  ],
+  "usage": {}
+}
