@@ -217,6 +217,11 @@ def _start_effect(
     except (RuntimeError, ValueError) as exc:
         raise CommandError("execution_mode_unset", 503, str(exc)) from None
     run_id = create_run(session, case_id=case.id, mode=mode, now=now, commit=False)
+    from vera_api import voice  # feature module loaded after this one
+
+    if voice.start_provider_call(session, case, row, run_id, p.consent_recorded, now):
+        # A real voice provider places the call; its signed webhook enqueues the agent step.
+        return {"callback_id": row.id, "attempt": attempt, "run_id": run_id, "job_id": None}
     job_id = enqueue(
         session, JOB_KIND, {"case_id": case.id, "callback_id": row.id, "run_id": run_id}, now=now
     )
@@ -642,6 +647,7 @@ class CallbackView(BaseModel):
 class CallbackDetail(CallbackView):
     transcript: list[LineView]
     notes: list[NoteView]
+    voice: dict[str, Any] | None = None
 
 
 def _view(row: Callback) -> CallbackView:
@@ -689,7 +695,14 @@ def get_callback(
         **_view(row).model_dump(),
         transcript=[LineView(seq=x.seq, speaker=x.speaker, text=x.text) for x in lines],
         notes=[NoteView(author=n.author, text=n.text, created_at=n.created_at) for n in notes],
+        voice=_voice_view(session, row.id),
     )
+
+
+def _voice_view(session: Session, callback_id: str) -> dict[str, Any] | None:
+    from vera_api import voice
+
+    return voice.voice_view(session, callback_id)
 
 
 class OutcomeIn(BaseModel):

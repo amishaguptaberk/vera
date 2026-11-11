@@ -18,6 +18,7 @@ FEATURES: list[str] = [
     "vera_api.money",
     "vera_api.closure",
     "vera_api.automations",
+    "vera_api.voice",
 ]
 
 ROUTERS: list[tuple[APIRouter, bool]] = []  # (router, synthetic_only)

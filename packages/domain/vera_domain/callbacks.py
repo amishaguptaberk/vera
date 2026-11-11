@@ -25,6 +25,7 @@ class Question(Payload):
 
 class StartCallbackPayload(Payload):
     questions: list[Question] = Field(min_length=1, max_length=10)
+    consent_recorded: bool = False  # required (true) when a real voice provider places the call
 
 
 class Line(Payload):
