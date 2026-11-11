@@ -8,12 +8,8 @@ export type CaseView = S['CaseView'];
 export type ActionView = S['ActionView'];
 export type BlockedAction = S['BlockedAction'];
 export type PolicyView = S['PolicyView'];
-/**
- * The summary body. The generated type is the shape on this base; the endpoint is moving to named metrics
- * `{amount_cents, currency, count, basis, definition}`, so the body is read as an open record and
- * interpreted by the feature-layer adapter (features/cases/summary.ts).
- */
-export type SummaryBody = Record<string, unknown>;
+/** Summary: named metrics `{amount_cents, currency, count, basis, definition}`; read via features/cases/summary.ts. */
+export type SummaryBody = S['Summary'] | Record<string, unknown>;
 
 export const casesKey = ['cases'] as const;
 export const caseKey = (id: string) => ['case', id] as const;

@@ -51,10 +51,12 @@ function ChargeImpact({ c }: { c: CaseView }) {
       <dl className={styles.kv}>
         <dt>Posted</dt>
         <dd>{formatMoney(i.posted_cents, cur)}</dd>
-        <dt>Temporary credit</dt>
-        <dd>{formatMoney(i.credit_cents, cur)}</dd>
-        <dt>Exposure</dt>
+        <dt>Gross exposure</dt>
         <dd>{formatMoney(i.exposure_cents, cur)}</dd>
+        <dt>Temporary credit · pending</dt>
+        <dd>{formatMoney(i.temporary_credit_cents, cur)}</dd>
+        <dt>Net exposure</dt>
+        <dd>{formatMoney(i.net_exposure_cents, cur)}</dd>
       </dl>
       <p className={styles.mute}>{i.note}</p>
     </section>
