@@ -1,4 +1,4 @@
-"""Cardholder follow-up (VER-005): communications, drafts, responses.
+"""Cardholder follow-up: communications, drafts, responses.
 
 communications is mutable (status moves drafted -> sent -> reminded/overdue -> responded);
 communication_drafts and communication_responses are append-only records.

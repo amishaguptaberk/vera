@@ -1,10 +1,10 @@
-"""Credit, dispute and card controls (VER-010).
+"""Credit, dispute and card controls.
 
 Rows are mutable (status changes in place); the audit trail is the credit.*, dispute.* and
 controls.* events plus adapter_executions.
 
 Revision ID: 0014
-Revises: 0009
+Revises: 0013
 """
 
 from alembic import op

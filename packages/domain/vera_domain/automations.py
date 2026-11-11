@@ -1,5 +1,5 @@
-"""Automations (VER-014): workflow graph as data, validation rules 1-9, dry-run scenarios,
-command payloads. Pure: no I/O. Validation and execution read node `kind` (decision D4), never
+"""Automations: workflow graph as data, validation rules 1-9, dry-run scenarios,
+command payloads. Pure: no I/O. Validation and execution read node `kind`, never
 the visual `category`."""
 
 import hashlib
@@ -35,7 +35,7 @@ DEFAULT_CATEGORY: dict[str, Category] = {
     "close_case": "checkpoint",
     "remediation": "action",
 }
-# Controls a money-affecting node must be preceded by on every path (rule 9, ToSpec §9.2).
+# Controls a money-affecting node must be preceded by on every path (rule 9).
 REQUIRED_CONTROLS = (
     "policy_controller",
     "human_decision",
@@ -113,7 +113,7 @@ def _e(source: str, target: str, outcome: str, mx: int | None = None) -> Edge:
     return Edge(source=source, target=target, outcome=outcome, max=mx)
 
 
-# Workflow v3 (Handoff §10.3 nodes, §7.2 outcomes). The executed investigation sub-graph
+# Workflow v3. The executed investigation sub-graph
 # (vera_domain.investigation.INVESTIGATION_V3) is derived from this definition.
 WORKFLOW_V3 = Graph(
     nodes=[
@@ -378,7 +378,7 @@ def money_control_violations(graph: Graph) -> list[Violation]:
 
 
 def validate(graph: Graph) -> list[Violation]:
-    """Rules 1-9 (Handoff §7.3). Each violation names the node(s) and the rule."""
+    """Rules 1-9. Each violation names the node(s) and the rule."""
     found: list[Violation] = []
     keys = {n.key for n in graph.nodes}
     out = _out(graph)

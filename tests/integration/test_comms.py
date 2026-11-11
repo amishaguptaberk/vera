@@ -1,4 +1,4 @@
-"""VER-005: cardholder follow-up through HTTP commands, cardholder routes and the watcher."""
+"""Cardholder follow-up through HTTP commands, cardholder routes and the watcher."""
 
 import json
 import re

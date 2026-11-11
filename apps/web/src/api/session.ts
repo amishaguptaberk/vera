@@ -22,7 +22,7 @@ export function useSession() {
 
 /**
  * Switch the demo role view. The server picks the user and sets the cookie; the client never sends a user.
- * Only the session endpoint is called (US-K02): the session is refetched afterwards, nothing else is.
+ * Only the session endpoint is called: the session is refetched afterwards, nothing else is.
  */
 export function useSwitchRole() {
   const queryClient = useQueryClient();

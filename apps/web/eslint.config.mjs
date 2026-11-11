@@ -41,25 +41,25 @@ const config = [
   {
     files: ['src/design-system/**/*.{ts,tsx}'],
     rules: layer(
-      'design-system imports nothing internal (architecture §3).',
+      'design-system imports nothing internal.',
       noPrototype, ['@/*'], components, features, state, app, lib, api,
     ),
   },
   {
     files: ['src/components/**/*.{ts,tsx}'],
     rules: layer(
-      'components are presentational: they may import design-system, lib and types from api/schema only (architecture §3).',
+      'components are presentational: they may import design-system, lib and types from api/schema only.',
       noPrototype, apiBarrel, apiRuntime, state, features, app,
     ),
   },
   {
     files: ['src/features/**/*.{ts,tsx}'],
-    rules: layer('features may import components, api and state only (architecture §3).', noPrototype, app),
+    rules: layer('features may import components, api and state only.', noPrototype, app),
   },
   {
     files: ['src/app/**/*.{ts,tsx}'],
     rules: layer(
-      'app composes features (and design-system for the F0 placeholder); it must not reach into api or state.',
+      'app composes features (and design-system); it must not reach into api or state.',
       noPrototype, apiBarrel, apiRuntime, state, components, lib,
     ),
   },
@@ -77,15 +77,15 @@ const config = [
   },
   {
     files: ['src/components/**/*.{ts,tsx}'],
-    rules: noDynamicImport('components must not dynamic-import api, state, features or app (architecture §3).', 'api', 'state', 'features', 'app'),
+    rules: noDynamicImport('components must not dynamic-import api, state, features or app.', 'api', 'state', 'features', 'app'),
   },
   {
     files: ['src/app/**/*.{ts,tsx}'],
-    rules: noDynamicImport('app must not dynamic-import api, state, components or lib (architecture §3).', 'api', 'state', 'components', 'lib'),
+    rules: noDynamicImport('app must not dynamic-import api, state, components or lib.', 'api', 'state', 'components', 'lib'),
   },
   {
     files: ['src/lib/**/*.{ts,tsx}'],
-    rules: noDynamicImport('lib must not dynamic-import api, components, features, state or app (architecture §3).', 'api', 'components', 'features', 'state', 'app'),
+    rules: noDynamicImport('lib must not dynamic-import api, components, features, state or app.', 'api', 'components', 'features', 'state', 'app'),
   },
 ];
 

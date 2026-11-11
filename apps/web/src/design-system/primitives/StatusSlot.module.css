@@ -1,6 +1,6 @@
 /* Prototype .slot (Main.dc.html:1312-1323). The slot is a fixed 20x20 box; every state mark is an
    absolutely positioned layer inside it, so changing state only changes opacity (a crossfade) and can
-   never change layout (Handoff §8.3 rule 6). tests/parity/slot.spec.ts measures this in a real browser. */
+   never change layout. tests/parity/slot.spec.ts measures this in a real browser. */
 .slot {
   position: relative;
   display: inline-grid;

@@ -1,4 +1,4 @@
-"""Command gateway: role gate, version gate, replay, hold/resume, actions, session (VER-002)."""
+"""Command gateway: role gate, version gate, replay, hold/resume, actions, session."""
 
 from collections.abc import Iterator
 from typing import Any

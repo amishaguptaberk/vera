@@ -1,4 +1,4 @@
-"""Pure rules of the money commands (VER-010)."""
+"""Pure rules of the money commands."""
 
 from vera_domain import money
 from vera_domain.enums import CaseState, CaseStep, Role

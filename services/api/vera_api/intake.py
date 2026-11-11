@@ -1,4 +1,4 @@
-"""Idempotent report intake: one case and one report per card transaction (US-A04)."""
+"""Idempotent report intake: one case and one report per card transaction."""
 
 from dataclasses import dataclass
 from datetime import datetime

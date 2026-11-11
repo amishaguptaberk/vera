@@ -1,4 +1,4 @@
-"""Prevention Planner job (VER-010): runs the `prevention_planner` specialist after a credit is
+"""Prevention Planner job: runs the `prevention_planner` specialist after a credit is
 issued and stores its recommendation through the `recommend_card_controls` service command.
 
 The step runs on the case's latest workflow run (so the investigation run's status is not

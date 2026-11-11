@@ -41,7 +41,7 @@ SPECIALISTS = {
 
 
 class NotOffered(Exception):
-    """The server does not offer this stage's command or route (feature not merged yet)."""
+    """The server does not offer this stage's command or route."""
 
 
 class StageFailed(AssertionError):

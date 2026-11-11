@@ -1,4 +1,4 @@
-"""ModelClient seam (plan §18): LIVE (OpenAI-compatible HTTP) and REPLAY (recordings on disk).
+"""ModelClient seam: LIVE (OpenAI-compatible HTTP) and REPLAY (recordings on disk).
 
 The API key is read from the environment at call time and is never logged or put in errors.
 A missing recording is an error; nothing here ever falls back from one client to the other.
@@ -17,7 +17,7 @@ import httpx
 from vera_domain.specialists import ExecutionMode
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL_ID = "meta/llama-3.3-70b-instruct"  # provisional (D-G); pinned by the probe
+DEFAULT_MODEL_ID = "meta/llama-3.3-70b-instruct"  # override with VERA_MODEL_ID
 DEFAULT_RECORDINGS = Path("evals/recordings")
 KEY_ENV = "NVIDIA_API_KEY"
 
@@ -82,7 +82,7 @@ class LiveModelClient:
         self.base_url = (
             base_url
             or os.environ.get("VERA_BASE_URL")
-            or os.environ.get("VERA_MODEL_BASE_URL")  # plan D-G name, accepted as an alias
+            or os.environ.get("VERA_MODEL_BASE_URL")  # accepted as an alias of VERA_BASE_URL
             or DEFAULT_BASE_URL
         ).rstrip("/")
         self.model_id = model_id or os.environ.get("VERA_MODEL_ID") or DEFAULT_MODEL_ID

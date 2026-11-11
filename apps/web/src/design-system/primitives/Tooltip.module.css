@@ -1,4 +1,4 @@
-/* No prototype reference (it only uses `title`). Built from tokens; Handoff §8.1 requires tooltips on the collapsed 64px rail. */
+/* No prototype reference (it only uses `title`). Built from tokens; tooltips are required on the collapsed 64px rail. */
 .tip {
   position: fixed;
   transform: translateY(-50%);

@@ -1,4 +1,4 @@
-"""VER-011 domain: deterministic final message and the recorded-actions content policy."""
+"""Closure domain: deterministic final message and the recorded-actions content policy."""
 
 from vera_domain.closure import content_violations, render_final_message
 from vera_domain.facts import CaseFacts

@@ -22,7 +22,7 @@ function Harness({ initial = 220, onChange }: { initial?: number; onChange?: (w:
 
 const sep = () => screen.getByRole('separator', { name: 'Resize navigation' });
 
-describe('Splitter keyboard contract (Handoff §8.2)', () => {
+describe('Splitter keyboard contract', () => {
   it('exposes the separator role, label, orientation, range, value and tabindex', () => {
     render(<Harness initial={260} />);
     const el = sep();

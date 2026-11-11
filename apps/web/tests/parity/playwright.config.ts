@@ -19,7 +19,7 @@ export default defineConfig({
   use: { launchOptions },
   webServer: [
     {
-      // Requires `npm run build` first (documented in README).
+      // Requires `npm run build` first.
       command: `npx next start -p ${APP_PORT} -H 127.0.0.1`,
       cwd: webRoot,
       url: `http://127.0.0.1:${APP_PORT}/`,

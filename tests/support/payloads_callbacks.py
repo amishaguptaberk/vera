@@ -1,4 +1,4 @@
-"""Verification callback (VER-007) command test inputs and reducer extras."""
+"""Verification callback command test inputs and reducer extras."""
 
 from command_payloads import register_reducer_extras, register_test_payloads
 

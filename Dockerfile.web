@@ -6,7 +6,7 @@
 FROM node:22-slim AS build
 WORKDIR /app
 ARG VERA_API_ORIGIN=http://api:8000
-# Both names are set: the base reads VERA_API_URL, the frontend branch reads VERA_API_ORIGIN.
+# Both names are set because next.config.mjs accepts either.
 ENV VERA_API_ORIGIN=$VERA_API_ORIGIN \
     VERA_API_URL=$VERA_API_ORIGIN \
     NEXT_TELEMETRY_DISABLED=1

@@ -1,7 +1,7 @@
 """Feature plug-in seams: the module list, routers and reset tables.
 
-A feature ticket appends ONE line to FEATURES (its module name). Everything else it registers
-from its own module at import time.
+A feature is added by appending ONE line to FEATURES (its module name). Everything else it
+registers from its own module at import time.
 """
 
 from importlib import import_module

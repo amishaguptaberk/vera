@@ -1,4 +1,4 @@
-"""Cardholder follow-up (VER-005) command test inputs."""
+"""Cardholder follow-up command test inputs."""
 
 from command_payloads import register_test_payloads
 

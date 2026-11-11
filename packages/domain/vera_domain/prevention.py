@@ -1,4 +1,4 @@
-"""Prevention Planner specialist (VER-010): recommends card controls from the catalog.
+"""Prevention Planner specialist: recommends card controls from the catalog.
 
 The prompt carries record ids, kinds and field NAMES only; every value is read with `read_field`
 and every recommendation cites {record_id, version, field, value}. The code validates grounding

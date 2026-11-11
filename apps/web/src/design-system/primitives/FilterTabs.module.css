@@ -1,6 +1,4 @@
-/* Prototype .filt/.fb (334-338), copied exactly. Handoff §9.4 describes the active filter as ink text with a
-   2px underline; the prototype draws a white bordered chip. The prototype wins for pixel parity until F2
-   decides. */
+/* Prototype .filt/.fb (334-338), copied exactly: the active filter is a white bordered chip. */
 .filt {
   display: flex;
   flex-wrap: wrap;

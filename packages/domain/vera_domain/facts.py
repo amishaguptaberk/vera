@@ -31,18 +31,18 @@ class CaseFacts(BaseModel, frozen=True):
     due_at: datetime | None = None
     # Status of the case's latest investigation run, read from workflow_runs (never model text).
     investigation_run_status: Literal["none", "running", "failed", "succeeded"] = "none"
-    # Cardholder request (VER-005): drafted = draft stored; sent/reminded = waiting on reply;
+    # Cardholder request: drafted = draft stored; sent/reminded = waiting on reply;
     # overdue = reply deadline passed; responded = cardholder reply stored.
     followup_status: Literal["none", "drafted", "sent", "reminded", "overdue", "responded"] = "none"
     # Follow-up requests sent after the first request (0 -> noresp1 when overdue, >=1 -> noresp2).
     followups_sent: int = 0
     # Analyst review of the stored reply: complete = supported; incomplete/conflicting -> identity.
     response_review: Literal["none", "complete", "incomplete", "conflicting"] = "none"
-    # Identity verification request (VER-006). Only "verified" unlocks the callback.
+    # Identity verification request. Only "verified" unlocks the callback.
     identity_status: Literal[
         "none", "requested", "verified", "failed", "expired", "declined", "cancelled"
     ] = "none"
-    # Verification callback (VER-007): approved/in_progress = call running; confirmed = resolved;
+    # Verification callback: approved/in_progress = call running; confirmed = resolved;
     # contradicted/voicemail/no_answer/incomplete = failed attempt (callfail).
     callback_status: Literal[
         "none",
@@ -54,29 +54,29 @@ class CaseFacts(BaseModel, frozen=True):
         "no_answer",
         "incomplete",
     ] = "none"
-    # Callback attempts started (Handoff 7.2: at most 2; start_callback is offered while < 2).
+    # Callback attempts started (at most 2; start_callback is offered while < 2).
     callback_attempts: int = 0
-    # Decision packet (VER-009): draft = being prepared (packet); ready = current (decide).
+    # Decision packet: draft = being prepared (packet); ready = current (decide).
     packet_status: Literal["none", "draft", "ready"] = "none"
-    # Recorded decision (Handoff 4.2 rows 6, 16, 17). credit = credit path with reviewer approval;
+    # Recorded decision. credit = credit path with reviewer approval;
     # dispute = dispute without credit; clear/violation/unresolved go straight to the final update.
     decision: Literal["none", "credit", "dispute", "clear", "violation", "unresolved"] = "none"
-    # Reviewer approval of the current packet (VER-009).
+    # Reviewer approval of the current packet.
     approval_status: Literal["none", "requested", "approved", "returned", "stale"] = "none"
-    # Provisional credit execution (VER-010): uncertain = adapter result being checked.
+    # Provisional credit execution: uncertain = adapter result being checked.
     credit_status: Literal["none", "requested", "uncertain", "issued", "failed"] = "none"
-    # Dispute track (VER-010).
+    # Dispute track.
     dispute_status: Literal["none", "prepared", "opened", "reviewed", "submitted", "failed"] = (
         "none"
     )
-    # Card-control track (VER-010): recommended = plan prepared, not sent; proposed = sent to the
+    # Card-control track: recommended = plan prepared, not sent; proposed = sent to the
     # card admin (awaiting approval); skipped/declined/applied end the track.
     controls_status: Literal[
         "none", "recommended", "proposed", "skipped", "approved", "declined", "applied"
     ] = "none"
-    # Final cardholder update (VER-011).
+    # Final cardholder update.
     final_message_status: Literal["none", "drafted", "sent"] = "none"
-    # close_case ran while the dispute outcome is pending (VER-011).
+    # close_case ran while the dispute outcome is pending.
     monitoring: bool = False
 
 
@@ -149,7 +149,7 @@ def _pre_decision(f: CaseFacts) -> tuple[CaseState, CaseStep]:
 
 
 def derive_step(facts: CaseFacts) -> tuple[CaseState, CaseStep]:
-    """The ONLY source of state/step (Handoff 4.2). Total; the latest stage reached wins.
+    """The ONLY source of state/step. Total; the latest stage reached wins.
 
     Precedence: closed > monitoring > hold > not opened > final update (close, final) >
     no-credit decision (finalprep) > credit/dispute tracks > unconfirmed credit (credit_check) >

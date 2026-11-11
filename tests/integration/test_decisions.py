@@ -1,4 +1,4 @@
-"""VER-009: decision packet, decision, reviewer approval binding, staleness and Ask Vera."""
+"""Decision packet, decision, reviewer approval binding, staleness and Ask Vera."""
 
 import json
 import os
@@ -50,12 +50,12 @@ def db(client: TestClient, db_url: str) -> Iterator[Session]:
 
 @pytest.fixture(autouse=True)
 def upstream(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test-only provider for the upstream fact (callback confirmed) built by another ticket."""
+    """Test-only provider for the upstream fact (callback confirmed)."""
 
     def confirmed(session: Session, case: Case) -> dict[str, Any]:
         return {"callback_status": "confirmed"}
 
-    # Stands in for VER-007's provider, which owns callback_status in the combined tree.
+    # Replaces the callbacks provider, which owns callback_status in the running app.
     from vera_api.callbacks import _facts as callback_facts
 
     providers = [p for p in gateway.FACT_PROVIDERS if p is not callback_facts]
@@ -106,8 +106,8 @@ CAPTURES: dict[str, Any] = {}
 def ok(resp: httpx.Response) -> dict[str, Any]:
     assert resp.status_code == 200, resp.text
     out: dict[str, Any] = resp.json()
-    target = os.environ.get("VER009_CAPTURE")
-    if target:  # real responses for the hand-off report
+    target = os.environ.get("VERA_TEST_CAPTURE")
+    if target:  # optional: write each distinct real response to this file
         name = f"{resp.request.method} {resp.request.url.path}"
         if name not in CAPTURES:
             CAPTURES[name] = out
@@ -597,7 +597,7 @@ def test_ungrounded_output_fails_the_step(
 
 
 def test_request_dump_carries_ids_and_field_names_not_values(db: Session, tmp_path: Path) -> None:
-    root = Path(os.environ.get("VER009_REQUESTS") or tmp_path)
+    root = Path(os.environ.get("VERA_TEST_REQUESTS_DIR") or tmp_path)
     doc = json.loads(decisions.dump_request(db, CASE, root).read_text())
     user = doc["messages"][1]["content"]
     assert "PRF-4418" in user and "phone" in user

@@ -1,4 +1,4 @@
-"""Final communication and closure (VER-011) command test inputs and reducer extras."""
+"""Final communication and closure command test inputs and reducer extras."""
 
 from command_payloads import register_reducer_extras, register_test_payloads
 

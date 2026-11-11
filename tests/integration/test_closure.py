@@ -1,4 +1,4 @@
-"""VER-011: final communication and closure through the HTTP command seam and real Postgres."""
+"""Final communication and closure through the HTTP command seam and real Postgres."""
 
 from collections.abc import Iterator
 from typing import Any
@@ -31,7 +31,7 @@ CLOSE_BODY = {"reason": "All outcomes recorded and sent", "outcome": "resolved"}
 
 
 class Messaging:
-    """Test-only `messaging` adapter that records what was sent (replaces VER-005's)."""
+    """Test-only `messaging` adapter that records what was sent (replaces the real one)."""
 
     def __init__(self) -> None:
         self.sent: list[dict[str, Any]] = []
@@ -54,10 +54,11 @@ def _met(name: str, record: str) -> Any:
 
 
 def reach_finalprep(db: Session, monkeypatch: pytest.MonkeyPatch, **facts: Any) -> dict[str, Any]:
-    """Test-only fact provider for the decision/credit/dispute/controls facts VER-009/010 own,
-    then a test-only command so derive_step recomputes the stored step."""
+    """Test-only fact provider for the decision/credit/dispute/controls facts, which the
+    decision and money features own, then a test-only command so derive_step recomputes the
+    stored step."""
     recorded = {"decision": "clear", **facts}
-    # Stands in for VER-009's and VER-010's providers, which own these facts in the combined tree.
+    # Replaces the decision and money providers, which own these facts in the running app.
     from vera_api.decisions import _facts as decision_facts
     from vera_api.money import _facts as money_facts
 
@@ -93,7 +94,7 @@ def reach_finalprep(db: Session, monkeypatch: pytest.MonkeyPatch, **facts: Any) 
 
 
 def register_parallel_sources(monkeypatch: pytest.MonkeyPatch) -> None:
-    """What VER-009/010 register at integration, plus the two base items the seed lacks."""
+    """What the decision and money features register, plus the two base items the seed lacks."""
     for name, rec in [
         ("decision", "DEC-1"),
         ("approval", "APR-1"),
@@ -132,7 +133,7 @@ REQUIRED = ("decision", "approval", "credit", "dispute", "controls")
 
 
 def unregister_required_sources(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The combined backend registers these from VER-009/VER-010; remove them for this test."""
+    """The decision and money features register these; remove them for this test."""
     for name in REQUIRED:
         monkeypatch.delitem(closure.CHECKLIST_SOURCES, name, raising=False)
 
@@ -298,7 +299,7 @@ def test_draft_states_only_recorded_actions_when_credit_dispute_and_controls_rec
 def test_send_is_blocked_with_a_typed_reason_without_a_messaging_adapter(
     client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delitem(adapters.ADAPTERS, "messaging", raising=False)  # VER-005 registers one
+    monkeypatch.delitem(adapters.ADAPTERS, "messaging", raising=False)  # comms registers one
     reach_finalprep(db, monkeypatch)
     register_parallel_sources(monkeypatch)
     assert post(client, "draft_final_message", f"final:{CASE}").status_code == 200

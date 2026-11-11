@@ -27,7 +27,7 @@ export async function installSessionRoutes(page: Page, { role = 'analyst', envir
   await page.route(/\/api\/demo\/reset$/, (route) => route.fulfill({ json: { ok: true } }));
 }
 
-// Case API bodies captured from the REAL backend (tests/parity/fixtures/README.md); GETs only.
+// Case API bodies captured from the REAL backend (tests/parity/fixtures); GETs only.
 
 const FIX = path.join(__dirname, 'fixtures');
 const json = (f: string) => JSON.parse(readFileSync(path.join(FIX, f), 'utf8')) as unknown;

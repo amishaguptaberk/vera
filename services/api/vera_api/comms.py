@@ -1,4 +1,4 @@
-"""Cardholder follow-up (VER-005): effects, fact provider, messaging adapter, routes, watcher."""
+"""Cardholder follow-up: effects, fact provider, messaging adapter, routes, watcher."""
 
 import json
 import uuid

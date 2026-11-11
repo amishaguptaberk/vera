@@ -1,4 +1,4 @@
-"""Dashboard exposure (plan §19 D-H): pure computation from plain case rows to metrics.
+"""Dashboard exposure: pure computation from plain case rows to metrics.
 
 Gross is primary; net deducts only confirmed (finalized) recoveries. Every metric carries one
 basis and its amounts are never summed across bases; estimated amounts are not inputs here.

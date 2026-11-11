@@ -1,4 +1,4 @@
-"""Assignable people for the case UI (VER-016). Read-only."""
+"""Assignable people for the case UI. Read-only."""
 
 from fastapi import APIRouter
 from sqlalchemy import select

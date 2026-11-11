@@ -1,7 +1,7 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (VER-007 is implemented; covered by its integration tests)",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_callbacks.py)",
   "fixture": 9,
   "title": "Callback unanswered",
-  "description": "Fixture 9: Callback unanswered. ToSpec 15.9"
+  "description": "Fixture 9: Callback unanswered."
 }

@@ -1,7 +1,7 @@
-"""Verification callbacks (VER-007): attempts, transcript lines, notes.
+"""Verification callbacks: attempts, transcript lines, notes.
 
 Revision ID: 0012
-Revises: 0009
+Revises: 0011
 """
 
 from alembic import op

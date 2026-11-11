@@ -13,7 +13,7 @@ export function TaskParas({ paras }: { paras: readonly string[] }) {
   );
 }
 
-/** Decision D6: "Simulated · No funds moved" marks money and control actions only. */
+/** "Simulated · No funds moved" marks money and control actions only. */
 export function SimulatedNote() {
   return (
     <span className={styles.simnote} data-testid="money-sim">

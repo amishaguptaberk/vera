@@ -1,5 +1,5 @@
 /* Prototype .btn (Main.dc.html:26-37, 439, 873-874). Heights follow the prototype's applied cascade:
-   40px, and 34px for .sm (Handoff §9.4 says 30px). */
+   40px, and 34px for .sm. */
 .btn {
   display: inline-flex;
   align-items: center;

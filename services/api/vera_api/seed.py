@@ -36,7 +36,7 @@ class DisplayRow:
     step: CaseStep
     due: tuple[int, int, int, int] | None  # month, day, hour, minute (2026)
     credit_cents: int = 0
-    next_action: str | None = None  # spec prototype dashRows(): next / waiting / blocker
+    next_action: str | None = None  # prototype dashRows(): next / waiting / blocker
     waiting_on: str | None = None
     blocker: str | None = None
 

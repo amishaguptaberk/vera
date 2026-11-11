@@ -1,7 +1,7 @@
-"""Identity verification (VER-006): payloads, reducers and command specs. Pure; no I/O.
+"""Identity verification: payloads, reducers and command specs. Pure; no I/O.
 
 The raw one-time code never appears here: payloads carry it only into the effect, which compares
-it against a salted HMAC; reducers and events see only the outcome (decision D8).
+it against a salted HMAC; reducers and events see only the outcome.
 """
 
 from typing import Literal

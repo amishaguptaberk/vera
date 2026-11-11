@@ -1,4 +1,4 @@
-"""Investigation (VER-003): start/retry effects and the `specialist_runner` job.
+"""Investigation: start/retry effects and the `specialist_runner` job.
 
 The worker runs workflow v3's investigation segment through LangGraph on the shared
 SpecialistRunner. Each specialist reads only its permitted records through the ToolGateway;

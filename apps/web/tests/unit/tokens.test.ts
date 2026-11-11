@@ -9,7 +9,7 @@ function token(name: string): string | undefined {
   return m?.[1].trim().toLowerCase();
 }
 
-// Handoff §9.1 (and §9.3 / §9.4 literals).
+// Color tokens.
 const colors: Record<string, string> = {
   ink: '#0c0a08',
   ink2: '#3b3a39',
@@ -30,12 +30,12 @@ const colors: Record<string, string> = {
   'btn-border': '#d3d3d3',
 };
 
-describe('tokens.css matches Handoff §9', () => {
+describe('tokens.css design tokens', () => {
   it.each(Object.entries(colors))('--%s is %s', (name, value) => {
     expect(token(name)).toBe(value);
   });
 
-  // Handoff §9.2 typography.
+  // Typography.
   const typography: Record<string, string> = {
     'font-size-base': '14px',
     'line-height-base': '1.5',
@@ -48,7 +48,7 @@ describe('tokens.css matches Handoff §9', () => {
     'font-weight-medium': '500',
     'font-weight-semibold': '600',
   };
-  // Handoff §9.3 spacing (4px grid, gaps 8/12/16/20/24, gutter 24px) and radius.
+  // Spacing (4px grid, gaps 8/12/16/20/24, gutter 24px) and radius.
   const spacing: Record<string, string> = {
     'space-1': '4px',
     'space-2': '8px',
@@ -61,7 +61,7 @@ describe('tokens.css matches Handoff §9', () => {
     'radius-input': '8px',
     'radius-panel': '12px',
   };
-  // Handoff §9.5 motion.
+  // Motion.
   const motion: Record<string, string> = {
     ease: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
     'duration-local': '220ms',
@@ -74,7 +74,7 @@ describe('tokens.css matches Handoff §9', () => {
     expect(token(name)).toBe(value);
   });
 
-  // Handoff §8.1 (sidebar widths), §9.4 (control sizes, selection bars, tabs, disabled), §8.2 (focus ring), §9.5 (spinner).
+  // Shell geometry: sidebar widths, control sizes, selection bars, tabs, disabled opacity, focus ring, spinner.
   const shell: Record<string, string> = {
     'sidebar-width': '220px',
     'sidebar-width-max': '320px',
@@ -98,16 +98,16 @@ describe('tokens.css matches Handoff §9', () => {
     expect(token(name)).toBe(value);
   });
 
-  it('records the prototype-applied small button height separately from the Handoff value', () => {
+  it('records the prototype-applied small button height separately from the nominal value', () => {
     expect(token('control-h-sm-proto')).toBe('34px');
   });
 
-  it('uses the monospace stack and Inter for the font families (§9.2)', () => {
+  it('uses the monospace stack and Inter for the font families', () => {
     expect(token('font-sans')).toMatch(/^'inter'/);
     expect(token('font-mono')).toMatch(/^ui-monospace/);
   });
 
-  it('shrinks the page gutter to 16px at <=1279px (§9.3)', () => {
+  it('shrinks the page gutter to 16px at <=1279px', () => {
     expect(css).toMatch(/@media \(max-width: 1279px\)\s*\{\s*:root\s*\{\s*--gutter:\s*16px;/);
   });
 });

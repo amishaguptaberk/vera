@@ -70,14 +70,14 @@ class Case(Base):
     policy_version: Mapped[int] = mapped_column(Integer)
     evidence_snapshot: Mapped[str] = mapped_column(String)
     credit_cents: Mapped[int] = mapped_column(BigInteger, default=0)
-    credit_status: Mapped[str | None] = mapped_column(String)  # issued | finalized (VER-015)
+    credit_status: Mapped[str | None] = mapped_column(String)  # issued | finalized
     credit_finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     live: Mapped[bool] = mapped_column(Boolean, default=True)
     display_label: Mapped[str | None] = mapped_column(String)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     hold: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = _ts()
-    # Display-only rows: queue strings from the spec fixture (migration 0008).
+    # Display-only rows: queue strings for non-live cases (migration 0008).
     display_next_action: Mapped[str | None] = mapped_column(String)
     display_waiting_on: Mapped[str | None] = mapped_column(String)
     display_blocker: Mapped[str | None] = mapped_column(String)

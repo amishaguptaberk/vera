@@ -50,7 +50,7 @@ class CardholderView(BaseModel):
 
 class ChargeImpact(BaseModel):
     posted_cents: int
-    exposure_cents: int  # gross: the posted amount (D-H)
+    exposure_cents: int  # gross: the posted amount
     temporary_credit_cents: int
     confirmed_recovery_cents: int
     net_exposure_cents: int
@@ -101,7 +101,7 @@ class CaseView(BaseModel):
     recovery_actions: list[ActionView] = []  # e.g. retry_specialist_step after a failed step
     hold: Hold | None = None
     policy: "PolicyView | None" = None
-    steps: list[ProgressStep] = []  # display only (VER-016)
+    steps: list[ProgressStep] = []  # display only
 
 
 class QueueRow(BaseModel):

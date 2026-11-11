@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
-// No mocks. Continues the CHG-1042 journey through the UI as far as the merged backend serves it:
+// No mocks. Continues the CHG-1042 journey through the UI as far as the backend serves it:
 // follow-up draft → send → cardholder reply with an attachment → analyst review. Later stages are asserted only
 // when the server offers them (annotated otherwise).
 const setRole = async (page: Page, role: string) => expect((await page.request.post('/api/session/role', { data: { role } })).ok()).toBe(true);

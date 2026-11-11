@@ -7,7 +7,7 @@ export { CardholderVerifyPanel } from "./CardholderVerifyPanel";
 export { IdentityPanel, type IdentityPanelProps } from "./IdentityPanel";
 export type * from "./contract";
 
-/** Case-workspace tabs this feature adds (the integrator decides placement; the prototype shows these inside Communications). */
+/** Case-workspace tabs this feature adds (the prototype shows these inside Communications). */
 export const tabs = [
   { key: "identity", label: "Identity verification", Panel: IdentityPanel },
   { key: "call", label: "Verification call", Panel: CallPanel },

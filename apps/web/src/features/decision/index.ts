@@ -1,4 +1,4 @@
-// Decision packet, reviewer view and Vera rail (VER-012-F7, VER-012-F9). Mounting instructions: README.md.
+// Decision packet, reviewer view and Vera rail. Mounted into the case workspace by features/case/mounts.tsx.
 import { DecisionPanel } from './DecisionPanel';
 
 export { commandForms } from './command-forms';

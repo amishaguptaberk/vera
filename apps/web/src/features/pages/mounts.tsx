@@ -1,4 +1,4 @@
-// The one place feature modules are mounted into route slots (see README of each feature).
+// The one place feature modules are mounted into route slots.
 import type { ComponentType } from 'react';
 import { RequestPage } from '@/features/comms';
 import { CardholderHome } from './CardholderHome';

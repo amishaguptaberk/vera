@@ -43,7 +43,7 @@ a {
   color: var(--ink);
 }
 
-/* Splitter drag state (Handoff §8.2): set on <body> by the Splitter primitive while dragging. */
+/* Splitter drag state: set on <body> by the Splitter primitive while dragging. */
 body.vera-dragging {
   user-select: none;
 }

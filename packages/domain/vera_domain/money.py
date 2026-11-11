@@ -1,4 +1,4 @@
-"""Credit, dispute and card controls (VER-010): payloads, reducers and command specs (pure).
+"""Credit, dispute and card controls: payloads, reducers and command specs (pure).
 
 Every reducer mirrors the fact value its effect stored (ctx.extra); nothing here assumes an
 adapter succeeded. Commands that dispatch to an adapter declare a `*.requested` event; the
@@ -110,7 +110,7 @@ _TRACK_STEPS = (
     CaseStep.WAITCTL,
     CaseStep.CTL_APPLY,
 )
-# Dispute and controls are parallel tracks (decision D3): the case step shows only the analyst's
+# Dispute and controls are parallel tracks: the case step shows only the analyst's
 # focused step, so track commands are accepted on every track step and each effect checks its
 # own track's stored status.
 TRACKS = StepSet(

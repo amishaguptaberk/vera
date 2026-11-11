@@ -70,7 +70,7 @@ def test_summary_is_computed_from_rows(client: TestClient, db_url: str) -> None:
         return metric["amount_cents"], metric["count"]
 
     summary = client.get("/api/cases/summary").json()
-    # gross (D-H): 284000 + 118000 + 162000 + 120000 + 396000 + 42000; credit not deducted
+    # gross: 284000 + 118000 + 162000 + 120000 + 396000 + 42000; credit not deducted
     assert pair(summary["gross_exposure"]) == (1122000, 6)
     assert pair(summary["net_exposure"]) == (1122000, 6)
     assert pair(summary["due_today"]) == (566000, 3)

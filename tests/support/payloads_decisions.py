@@ -1,4 +1,4 @@
-"""Decision packet, decision and reviewer approval (VER-009) command test inputs and extras."""
+"""Decision packet, decision and reviewer approval command test inputs and extras."""
 
 from command_payloads import register_reducer_extras, register_test_payloads
 

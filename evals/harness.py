@@ -1,4 +1,4 @@
-"""Scenario replay harness (VER-013).
+"""Scenario replay harness.
 
 A scenario is JSON data under evals/scenarios/NN_name.json: ordered steps and assertions on
 persisted state. A step {"fragment": "name"} inlines the steps of evals/fragments/name.json (shared

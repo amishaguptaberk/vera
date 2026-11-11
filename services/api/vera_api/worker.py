@@ -1,4 +1,4 @@
-"""Postgres-backed job worker (plan §12): FOR UPDATE SKIP LOCKED, no Redis.
+"""Postgres-backed job worker: FOR UPDATE SKIP LOCKED, no Redis.
 
 A job locked by a worker that died becomes claimable again after the visibility timeout.
 Handlers must be idempotent per (run_id, step_key): the runner skips succeeded steps and the

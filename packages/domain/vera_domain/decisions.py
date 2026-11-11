@@ -27,7 +27,7 @@ from vera_domain.specialists import Finding, SpecialistSpec
 
 DecisionKind = Literal["credit", "dispute", "clear", "violation", "unresolved"]
 
-# Policy statuses that allow each decision (Handoff 7.4): credit only on an eligible evaluation;
+# Policy statuses that allow each decision: credit only on an eligible evaluation;
 # the other decisions never grant credit, so any stored evaluation allows them.
 ANY_POLICY = frozenset({"eligible", "needs_evidence", "blocked", "ineligible"})
 DECISION_POLICY: dict[str, frozenset[str]] = {
@@ -441,7 +441,7 @@ COMMANDS = (
     REASSIGN,
 )
 
-# ---- Ask Vera: deterministic intents (Handoff 3.4), explicit before generic ---------------------
+# ---- Ask Vera: deterministic intents, explicit before generic -----------------------------------
 
 REFUSAL = "Approval must be recorded with the reviewer action below, not through chat."
 CREDIT_ISSUED = "Credit has already been issued for this case."

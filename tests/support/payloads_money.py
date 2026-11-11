@@ -1,4 +1,4 @@
-"""Credit, dispute and card controls (VER-010) command test inputs and reducer extras."""
+"""Credit, dispute and card controls command test inputs and reducer extras."""
 
 from command_payloads import register_reducer_extras, register_test_payloads
 

@@ -1,6 +1,6 @@
 import type { FormField } from '@/features/case/command-forms';
 
-// Inputs for VER-009 decision commands (same shape as features/case/command-forms.ts). Which commands appear is
+// Inputs for decision commands (same shape as features/case/command-forms.ts). Which commands appear is
 // always the server's `available_actions`; this only maps a command to its input fields.
 export const commandForms: Readonly<Record<string, readonly FormField[]>> = {
   record_decision: [

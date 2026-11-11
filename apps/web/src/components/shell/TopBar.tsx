@@ -14,7 +14,7 @@ export type TopBarProps = {
   navOpen: boolean;
   menuButtonRef?: RefObject<HTMLButtonElement | null>;
   onToggleNav: () => void;
-  /** The one and only place the environment is shown (Handoff D6). */
+  /** The one and only place the environment is shown. */
   synthetic: boolean;
   role: RoleSelectorProps;
   /** Demo reset; the control is not rendered when absent. */

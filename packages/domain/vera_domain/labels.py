@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from vera_domain.enums import CaseState, CaseStep, StateKind
 
-# (state, step) -> (state_label, state_kind, next_action). Grows with later tickets.
+# (state, step) -> (state_label, state_kind, next_action).
 _LABELS: dict[tuple[CaseState, CaseStep], tuple[str, StateKind, str]] = {
     (CaseState.REPORTED, CaseStep.INTAKE): (
         "New report",
@@ -40,7 +40,7 @@ def describe(state: CaseState, step: CaseStep) -> tuple[str, StateKind, str]:
     return (state.value.replace("_", " ").capitalize(), StateKind.IDLE, "Review the case")
 
 
-# --- VER-016: queue and activity display labels (spec prototype tables) ---
+# --- Queue and activity display labels (prototype tables) ---
 
 # step -> what is blocking the case (prototype `BLK`).
 BLOCKER_BY_STEP: dict[CaseStep, str] = {

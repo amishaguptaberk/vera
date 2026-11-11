@@ -1,7 +1,7 @@
 'use client';
 
-// Preview states for the integrator's /preview route (VERA_PREVIEW=1 only). Renders the REAL presentational
-// components with DEVELOPMENT FIXTURES from ./dev-fixtures — never imported by panels, hooks or pages.
+// Development preview states. Renders the REAL presentational components with DEVELOPMENT FIXTURES from
+// ./dev-fixtures — never imported by panels, hooks or pages.
 import type { ReactNode } from 'react';
 import type { ActionView } from '@/api';
 import { ActionBar } from '@/components/case';

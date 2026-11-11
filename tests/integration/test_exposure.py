@@ -1,4 +1,4 @@
-"""VER-015: dashboard exposure is gross and net (plan §19 D-H), through GET /api/cases/summary."""
+"""Dashboard exposure is gross and net, through GET /api/cases/summary."""
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text

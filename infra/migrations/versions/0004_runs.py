@@ -4,7 +4,7 @@ The checkpointer's own tables are created here with PostgresSaver.setup() (idemp
 dropped on downgrade; the worker does not create schema at start.
 
 Revision ID: 0004
-Revises: 0002
+Revises: 0005
 """
 
 import os

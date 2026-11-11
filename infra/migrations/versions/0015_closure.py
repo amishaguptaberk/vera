@@ -1,7 +1,7 @@
-"""Final communication and closure (VER-011): final_messages, case_closures.
+"""Final communication and closure: final_messages, case_closures.
 
 Revision ID: 0015
-Revises: 0009
+Revises: 0014
 """
 
 from alembic import op

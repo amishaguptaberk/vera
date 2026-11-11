@@ -1,4 +1,4 @@
-"""SpecialistRunner (plan §18): one loop for LIVE and REPLAY.
+"""SpecialistRunner: one loop for LIVE and REPLAY.
 
 typed input -> messages -> ModelClient -> tool calls through ToolGateway -> schema validation
 -> grounding validation -> validated typed output handed to the caller's `apply` callback.

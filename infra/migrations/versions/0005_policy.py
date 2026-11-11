@@ -1,7 +1,7 @@
 """Policy Controller: immutable policy versions and append-only evaluations.
 
 Revision ID: 0005
-Revises: 0002
+Revises: 0003
 """
 
 from alembic import op

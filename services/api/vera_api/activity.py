@@ -1,4 +1,4 @@
-"""Case activity feed and queue filter counts: read-only views over stored rows (VER-016)."""
+"""Case activity feed and queue filter counts: read-only views over stored rows."""
 
 from collections.abc import Iterator
 from typing import Annotated

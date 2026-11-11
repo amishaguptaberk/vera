@@ -1,4 +1,4 @@
-"""Progress steps (display only) and the event summary label table (VER-016)."""
+"""Progress steps (display only) and the event summary label table."""
 
 from vera_domain.enums import CaseStep, EventType, RunEventType
 from vera_domain.labels import EVENT_SUMMARIES, event_summary
@@ -65,5 +65,5 @@ def test_every_event_type_has_a_summary_label() -> None:
 def test_event_summary_examples_and_fallback() -> None:
     assert event_summary("case.held") == "Case put on hold"
     assert event_summary("case.opened") == "Case opened"
-    # An event type appended later by another ticket still gets a readable sentence.
+    # An event type without a table entry still gets a readable sentence.
     assert event_summary("callback.scheduled") == "Callback scheduled"

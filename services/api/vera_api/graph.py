@@ -1,4 +1,4 @@
-"""LangGraph workflow graph built from data (plan §11), checkpointed in Postgres.
+"""LangGraph workflow graph built from data, checkpointed in Postgres.
 
 The graph only holds the run's position; nodes call `node_fn`, which goes through the
 SpecialistRunner and gateway commands. thread_id is the run id, so a restarted worker resumes

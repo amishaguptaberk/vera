@@ -1,4 +1,4 @@
-"""Credit, dispute and card controls (VER-010): simulated adapters, effects, facts, routes, jobs.
+"""Credit, dispute and card controls: simulated adapters, effects, facts, routes, jobs.
 
 Approval is enforced only by gateway stage 8 (`requires_approval`); nothing here re-checks it.
 An adapter is reached only through `adapters.execute` with a business key, and an `uncertain`
@@ -128,10 +128,9 @@ def _issue_effect(
 
 
 def _consume_approval(session: Session, case: Case, execution_id: str, now: datetime) -> None:
-    """Marks the case's approved approval (VER-009) consumed by this credit execution, so a later
+    """Marks the case's approved approval consumed by this credit execution, so a later
     evidence change cannot stale an approval whose money already moved. The gateway's approval
-    gate has already checked it; no stored approval row (no decisions feature) means nothing to
-    consume."""
+    gate has already checked it; no stored approval row means nothing to consume."""
     from vera_api import decisions
 
     row = decisions.latest_approval(session, case.id)

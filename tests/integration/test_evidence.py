@@ -1,4 +1,4 @@
-"""Evidence provenance, snapshots, conflicts and the material-change pipeline (VER-004)."""
+"""Evidence provenance, snapshots, conflicts and the material-change pipeline."""
 
 from collections.abc import Iterator
 from typing import Any

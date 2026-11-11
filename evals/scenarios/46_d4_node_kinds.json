@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "scenario steps not written yet (VER-014 is implemented; covered by its integration tests)",
-  "fixture": 46,
-  "title": "D4 node kinds",
-  "description": "Fixture 46: D4 node kinds. every node in v3 has a `kind`; LangGraph build reads `kind`"
-}

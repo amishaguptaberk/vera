@@ -1,4 +1,4 @@
-"""Cardholder follow-up (VER-005): payloads, command specs and reducers (pure)."""
+"""Cardholder follow-up: payloads, command specs and reducers (pure)."""
 
 import json
 from typing import Any, Literal

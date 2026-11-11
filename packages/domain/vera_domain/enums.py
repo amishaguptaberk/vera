@@ -101,7 +101,7 @@ class EventType(StrEnum):
 
 
 class RunEventType(StrEnum):
-    """Stream events for specialist steps (plan §8)."""
+    """Stream events for specialist steps."""
 
     RUN_STEP_STARTED = "run.step_started"
     RUN_STEP_SUCCEEDED = "run.step_succeeded"

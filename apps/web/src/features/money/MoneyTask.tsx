@@ -17,7 +17,7 @@ export const MONEY_STEPS: ReadonlySet<Step> = new Set<Step>([
   'waitctl', 'ctl_apply', 'finalprep', 'final', 'close', 'monitoring', 'closed',
 ]);
 
-// Prototype copy (Main.dc.html task builder, lines ~4068-4083), data-free parts only. GAP: the server `task` block.
+// Prototype copy (Main.dc.html task builder, lines ~4068-4083), data-free parts only. The API does not serve a `task` block.
 const COPY: Partial<Record<Step, string>> = {
   issue: 'It can be issued only once, and the original charge stays visible.',
   credit_check: 'The credit service’s response was interrupted after the request went out. Vera looks up the existing request before anything is retried.',
@@ -41,9 +41,9 @@ const CREDIT_NOTE: Partial<Record<string, string>> = {
   finalized: 'Credit finalized after the dispute outcome.',
 };
 
-/** Decision D6: commands that call a simulated adapter (money or card controls). Copy tagging only — never gating. */
+/** Commands that call a simulated adapter (money or card controls). Copy tagging only — never gating. */
 const SIMULATED_COMMANDS = new Set(['issue_provisional_credit', 'lookup_execution_result', 'submit_dispute', 'apply_card_controls']);
-/** Commands whose payload is the selected control list (Handoff §3.2: `{controls: [...]}`). */
+/** Commands whose payload is the selected control list (`{controls: [...]}`). */
 const CONTROL_LIST_COMMANDS = new Set(['propose_card_controls', 'approve_card_controls']);
 /** Commands whose payload carries the edited final message body. */
 const BODY_COMMANDS = new Set(['update_final_message', 'send_final_message']);
@@ -51,7 +51,7 @@ const BODY_COMMANDS = new Set(['update_final_message', 'send_final_message']);
 // Prototype DSP_L / CTL_L (Main.dc.html 3754-3755): display copy for the server's status values.
 const DSP_L: Record<string, string> = { not_prepared: 'Not prepared', prepared: 'Prepared', ready_for_review: 'Ready for review', ready_to_submit: 'Ready to submit', submitted: 'Submission recorded · simulated', failed: 'Submission failed', accepted: 'Accepted', denied: 'Denied' };
 const CTL_L: Record<string, string> = { not_recommended: 'Not recommended', recommended: 'Recommended', awaiting_approval: 'Awaiting admin approval', approved: 'Approved', applied: 'Applied · simulated', declined: 'Declined' };
-// Generic names for the server's ControlName values. GAP: per-case reason/scope/reversibility are not served yet.
+// Generic names for the server's ControlName values. Per-case reason/scope/reversibility are not served by the API.
 const CONTROL_LABEL: Record<string, string> = { lock: 'Lock card', replace: 'Replace card', virtual: 'Create replacement virtual card', block: 'Block merchant on this card', monitor: 'Monitor merchant for 30 days' };
 const CONTROL_STEPS = new Set<Step>(['controls', 'waitctl', 'ctl_apply']);
 /** The server's recovery command for a failed dispute narrative: shown on the failure line, not in the action bar. */

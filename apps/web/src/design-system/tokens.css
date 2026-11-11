@@ -1,6 +1,6 @@
-/* Design tokens: Vera Handoff §9. Values are authoritative; tests/unit/tokens.test.ts asserts them. */
+/* Design tokens. Values are authoritative; tests/unit/tokens.test.ts asserts them. */
 :root {
-  /* §9.1 color */
+  /* Color */
   --ink: #0c0a08;
   --ink2: #3b3a39;
   --mute: #6f6c68;
@@ -19,7 +19,7 @@
   --task-card-border: #d9d6d1;
   --btn-border: #d3d3d3;
 
-  /* §9.2 typography */
+  /* Typography */
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-size-base: 14px;
@@ -33,7 +33,7 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
 
-  /* §9.3 spacing (4px grid), radius */
+  /* Spacing (4px grid), radius */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -45,14 +45,14 @@
   --radius-input: 8px;
   --radius-panel: 12px;
 
-  /* §8.1 shell geometry */
+  /* Shell geometry */
   --sidebar-width: 220px;
   --sidebar-width-max: 320px;
   --sidebar-width-collapsed: 64px;
   --sidebar-width-drawer: 248px;
 
-  /* §9.4 control sizes. --control-h-sm-proto is the 34px the prototype's cascade actually applies to
-     .btn.sm (Main.dc.html:873); Handoff §9.4 says 30px (--control-h-sm). */
+  /* Control sizes. --control-h-sm is the nominal 30px small control; --control-h-sm-proto is the
+     34px the prototype's cascade actually applies to .btn.sm (Main.dc.html:873). */
   --control-h-min: 36px;
   --control-h-max: 40px;
   --control-h-sm: 30px;
@@ -66,7 +66,7 @@
   --focus-ring-color: var(--cobalt);
   --opacity-disabled: 0.45;
 
-  /* §9.5 motion */
+  /* Motion */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration-local: 220ms;
   --duration-icon: 200ms;

@@ -1,4 +1,4 @@
-"""Policy v1 evaluator: rule matrix, determinism, text immunity, purity (VER-008)."""
+"""Policy v1 evaluator: rule matrix, determinism, text immunity, purity."""
 
 import ast
 import pathlib

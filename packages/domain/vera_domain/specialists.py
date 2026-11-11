@@ -1,4 +1,4 @@
-"""Specialist contracts (plan §18): pure types and the grounding validator. No I/O."""
+"""Specialist contracts: pure types and the grounding validator. No I/O."""
 
 import re
 from collections.abc import Callable

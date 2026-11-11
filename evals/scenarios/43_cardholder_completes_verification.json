@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_identity.py)",
+  "fixture": 43,
+  "title": "Cardholder completes verification",
+  "description": "Fixture 43: Cardholder completes verification. code entered in the cardholder view -> `Identity verified`; event who=cardholder"
+}

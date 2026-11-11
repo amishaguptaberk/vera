@@ -1,4 +1,4 @@
-"""VER-007: analyst-approved verification callback through HTTP commands and the gateway."""
+"""Analyst-approved verification callback through HTTP commands and the gateway."""
 
 import json
 from collections.abc import Iterator
@@ -53,8 +53,8 @@ def db(client: TestClient, db_url: str) -> Iterator[Session]:
 
 @pytest.fixture
 def verified(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """Test-only upstream provider: identity verified. Stands in for VER-006's provider, which
-    owns identity_status in the combined tree (two owners of one fact raise)."""
+    """Test-only upstream provider: identity verified. Replaces the identity feature's provider,
+    which owns identity_status (two owners of one fact raise)."""
     from vera_api.identity import _facts as identity_facts
 
     monkeypatch.setattr(
@@ -163,7 +163,7 @@ def test_no_answer_goes_to_callfail_preserves_attempt_and_retry_gets_new_id(
     first = call(verified, db, "no_answer", monkeypatch, NO_ANSWER)
     assert step(verified) == "callfail"
     offered = actions(verified)
-    assert {"start_callback", "hold_case"} <= offered  # follow-up: comms ticket (VER-005)
+    assert {"start_callback", "hold_case"} <= offered  # follow-up is offered by comms
     assert describe(CaseState.CALLBACK_PENDING, CaseStep.CALLFAIL)[0] == "Evidence conflict"
     assert BLOCKER_BY_STEP[CaseStep.CALLFAIL] == "Callback unanswered"
     second = call(verified, db, "confirmed", monkeypatch, CONFIRMED)

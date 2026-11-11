@@ -24,7 +24,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('CasesQueue', () => {
-  it('renders five D1 columns with the broad state in the case subtitle', async () => {
+  it('renders five columns with the broad state in the case subtitle', async () => {
     renderWithProviders(<CasesQueue />);
     await screen.findByText('CHG-1042 · Bayline Industrial Supply');
     const heads = screen.getAllByRole('columnheader').map((h) => h.textContent);

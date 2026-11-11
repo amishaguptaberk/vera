@@ -1,8 +1,9 @@
-// Typed contract for the money / remediation / closure screens (VER-012-F8).
-// Aligned (00:22) with the VER-010 worktree (services/api/vera_api/money.py: ExecutionView, ExecutionList,
-// MoneyView / CreditSummary / DisputeSummary / ControlsSummary, GET /remediation, GET /executions) and the VER-011
-// worktree (packages/domain/vera_domain/closure.py ChecklistItem / ClosureChecklist; closure.py FinalMessageView,
-// GET /closure-checklist, GET /final-message). CaseView extensions from Handoff §3.2 stay OPTIONAL (not served yet).
+// Typed contract for the money / remediation / closure screens.
+// Mirrors services/api/vera_api/money.py (ExecutionView, ExecutionList, MoneyView / CreditSummary /
+// DisputeSummary / ControlsSummary, GET /remediation, GET /executions) and the closure feature
+// (packages/domain/vera_domain/closure.py ChecklistItem / ClosureChecklist; services/api/vera_api/closure.py
+// FinalMessageView, GET /closure-checklist, GET /final-message). The CaseView extensions below are OPTIONAL:
+// the API does not serve them, and they are rendered only when present.
 import type { CaseView } from '@/api';
 
 export type CreditStatus = 'not_eligible' | 'eligible' | 'awaiting_approval' | 'approved' | 'issued' | 'checking' | 'finalized' | 'reversed';
@@ -23,20 +24,20 @@ export type ControlPlanItem = {
   permission: string;
   record_id?: string | null;
 };
-/** GAP: Handoff §2 ControlPlan data ("recommended controls with reason, scope, reversibility, permission, evidence"). */
+/** Control plan: recommended controls with reason, scope, reversibility, permission and evidence. Not served by the API; rendered only when present. */
 export type ControlPlanView = { plan_id: string; items: ControlPlanItem[]; requested?: string[]; approved?: string[] };
 
-/** CaseView plus the Handoff §3.2 money facts not yet in the generated schema. */
+/** CaseView plus the money facts that are not in the generated schema. Rendered only when present. */
 export type MoneyCaseView = CaseView & {
   credit?: CreditFact | null;
   dispute?: DisputeFact | null;
   controls?: ControlsFact | null;
   control_plan?: ControlPlanView | null;
-  /** GAP: final message draft (communication id + body) for the `final` step. */
+  /** Final message draft (communication id + body) for the `final` step. Not served by the API; rendered only when present. */
   final_message?: { communication_id: string; to: string; body: string } | null;
 };
 
-/** GET /api/cases/{id}/closure-checklist (VER-011 ChecklistItem). `owner` / `next_action` are GAPS (not served yet). */
+/** GET /api/cases/{id}/closure-checklist (ChecklistItem). `owner` and `next_action` are rendered only when present. */
 export type ClosureItem = {
   name: string;
   label: string;
@@ -48,7 +49,7 @@ export type ClosureItem = {
 };
 export type ClosureChecklistBody = { case_id: string; ready: boolean; items: ClosureItem[] };
 
-/** GET /api/cases/{id}/remediation (VER-010 MoneyView). */
+/** GET /api/cases/{id}/remediation (MoneyView). */
 export type RemediationBody = {
   case_id: string;
   credit: { status: string; credit_id?: string | null; amount_cents?: number | null; currency?: string | null; issued_at?: string | null; simulated: boolean };
@@ -66,7 +67,7 @@ export type RemediationBody = {
   controls: { status: string; plan_id?: number | null; controls: string[]; applied: string[]; reason?: string | null; simulated: boolean };
 };
 
-/** GET /api/cases/{id}/executions (VER-010 ExecutionView). */
+/** GET /api/cases/{id}/executions (ExecutionView). */
 export type ExecutionView = {
   id: number;
   adapter: string;
@@ -81,5 +82,5 @@ export type ExecutionView = {
 };
 export type ExecutionsBody = { case_id: string; executions: ExecutionView[] };
 
-/** GET /api/cases/{id}/final-message (VER-011 FinalMessageView; null when none drafted). */
+/** GET /api/cases/{id}/final-message (FinalMessageView; null when none drafted). */
 export type FinalMessageBody = { message_id: string; status: string; body: string; created_at: string; updated_at: string; sent_at: string | null; execution_id: number | null } | null;

@@ -1,4 +1,4 @@
-// The one place feature modules are mounted into the case workspace (see registry.ts and each feature's README).
+// The one place feature modules are mounted into the case workspace (see registry.ts).
 import { CommsPanel, commandForms as commsForms, FollowupTask, isFollowupStep } from '@/features/comms';
 import { CallPanel, CardholderVerifyPanel, commandForms as verifyForms, IdentityPanel } from '@/features/verify';
 import { useQuery } from '@tanstack/react-query';

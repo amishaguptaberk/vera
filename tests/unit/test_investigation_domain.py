@@ -1,4 +1,4 @@
-"""VER-003B domain: derive_step for investigation facts, recovery actions, specialist schemas."""
+"""Investigation: derive_step for investigation facts, recovery actions, specialist schemas."""
 
 from datetime import UTC, datetime
 

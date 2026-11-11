@@ -1,7 +1,7 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (VER-010 is implemented; covered by its integration tests)",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_money.py)",
   "fixture": 23,
   "title": "Card control recommendation and approval",
-  "description": "Fixture 23: Card control recommendation and approval. ToSpec 15.23"
+  "description": "Fixture 23: Card control recommendation and approval."
 }

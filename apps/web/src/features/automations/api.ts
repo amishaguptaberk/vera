@@ -37,7 +37,7 @@ export function useAutomationCommand() {
   });
 }
 
-/** Map the VER-014 wire shape onto the screen contract. Only the active version's graph is served. */
+/** Map the API wire shape onto the screen contract. Only the active version's graph is served. */
 export function fromWorkflowOut(raw: WorkflowOut | WorkflowDetail): WorkflowDetail {
   if ('pinned_cases' in raw) return raw;
   return {

@@ -1,5 +1,5 @@
-// Data this feature needs from the server. Written from the VER-009 brief and Vera_Handoff §3.2/§3.4 while
-// services/api/vera_api/decisions.py was still being built; optional fields tolerate both shapes.
+// Data this feature needs from the server (backend: services/api/vera_api/decisions.py).
+// Optional fields are read only when present.
 
 /** One citation in an ask answer: selecting it selects the cited record. */
 export type AskCitation = { record_id: string; version: number; field: string };
@@ -16,11 +16,11 @@ export type AskResponse = {
   title?: string | null;
   paragraphs?: string[] | null;
   actions?: AskAction[] | null;
-  /** Server dedup key (Handoff §3.4). When absent the client keys on the server's answer + citations, never the question text. */
+  /** Server dedup key. When absent the client keys on the server's answer + citations, never the question text. */
   signature?: string | null;
 };
 
-/** VER-009 AskIn is `{text}` only; the server classifies intent. */
+/** The request carries only `{text}`; the server classifies intent. */
 export type AskRequest = { text: string };
 
 /** A record version (and field) a packet statement cites (backend Citation). */
@@ -44,7 +44,7 @@ export type ApprovalView = {
   return_owner_id?: string | null;
 };
 
-/** `GET /api/cases/{id}/decision-packet?version=` (VER-009 DecisionPacketView). 404 `packet_not_found` = no packet yet. */
+/** `GET /api/cases/{id}/decision-packet?version=` (DecisionPacketView). 404 `packet_not_found` = no packet yet. */
 export type DecisionPacket = {
   case_id: string;
   version: number;

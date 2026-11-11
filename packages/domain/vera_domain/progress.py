@@ -1,4 +1,4 @@
-"""Workflow progress steps for display only (spec prototype `SD` and `PHASE[step][3]`).
+"""Workflow progress steps for display only (prototype `SD` and `PHASE[step][3]`).
 
 Pure: takes the stored step and facts, returns labels. It never sets state or step.
 """

@@ -1,6 +1,6 @@
-"""Identity verification (VER-006): effects, fact provider, simulated adapter, routes, expirer.
+"""Identity verification: effects, fact provider, simulated adapter, routes, expirer.
 
-Decision D8: the raw one-time code is generated inside the simulated adapter, handed to the
+The raw one-time code is generated inside the simulated adapter, handed to the
 effect in memory, persisted only as a salted HMAC-SHA256 (per-row salt + server secret) and, for
 the synthetic demo, in the cardholder-only `verification_outbox` row. It never reaches adapter
 request/result JSON, events, idempotency rows, logs or any staff response.
@@ -204,7 +204,7 @@ def _deliver(session: Session, case: Case, row: IdentityVerification, now: datet
         row.code_salt = secrets.token_hex(16)
         row.code_hash = hash_code(row.code_salt, code)
     session.flush()
-    if not _synthetic():  # D8: outside the synthetic demo the cleartext code is never stored
+    if not _synthetic():  # outside the synthetic demo the cleartext code is never stored
         return
     session.add(
         VerificationOutbox(verification_id=row.id, channel=row.channel, code=code, created_at=now)

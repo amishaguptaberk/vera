@@ -77,8 +77,8 @@ def _identity_verified(session: Session, case_id: str) -> bool:
 
 
 def load_policy_input(session: Session, case_id: str) -> PolicyInput:
-    """THE seam for evidence. Case/transaction facts come from this tree; records, conflicts,
-    missing kinds and the snapshot hash come from the evidence summary."""
+    """THE seam for evidence. Case/transaction facts come from the case and transaction rows;
+    records, conflicts, missing kinds and the snapshot hash come from the evidence summary."""
     case = session.get(Case, case_id)
     if case is None:
         raise CommandError("case_not_found", 404, "No such case.")

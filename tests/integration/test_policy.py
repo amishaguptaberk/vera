@@ -1,4 +1,4 @@
-"""Policy Controller: persistence, command, re-evaluation, gate, case view, routes (VER-008)."""
+"""Policy Controller: persistence, command, re-evaluation, gate, case view, routes."""
 
 from collections.abc import Callable, Iterator
 from typing import Any

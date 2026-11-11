@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (VER-010 is implemented; covered by its integration tests)",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_money.py)",
   "fixture": 34,
   "title": "Dispute submission failure + retry",
   "description": "Fixture 34: Dispute submission failure + retry. `failed` then `submitted` once"

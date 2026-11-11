@@ -13,7 +13,7 @@ export function Table({ variant = 'plain', ...rest }: TableProps) {
 export const TableHead = (p: HTMLAttributes<HTMLTableSectionElement>) => <thead {...p} />;
 export const TableBody = (p: HTMLAttributes<HTMLTableSectionElement>) => <tbody {...p} />;
 
-/** `selected`: cobalt-wash row with a 3px cobalt left bar (Handoff §9.4). */
+/** `selected`: cobalt-wash row with a 3px cobalt left bar. */
 export function TableRow({
   selected = false,
   ...rest

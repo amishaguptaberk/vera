@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "scenario steps not written yet (VER-006 is implemented; covered by its integration tests)",
-  "fixture": 42,
-  "title": "D8 analyst never sees the code",
-  "description": "Fixture 42: D8 analyst never sees the code. no analyst read model, response, event payload, log line or rendered text contains the OTP; analyst `submit_otp` -> 403"
-}

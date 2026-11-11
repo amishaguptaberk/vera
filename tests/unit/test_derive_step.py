@@ -1,4 +1,4 @@
-"""derive_step is total and follows Handoff 4.2 (one case per row, plus precedence)."""
+"""derive_step is total: one case per row of the state/step table, plus precedence."""
 
 from datetime import UTC, datetime
 from typing import Any
@@ -192,7 +192,7 @@ def facts(extra: dict[str, Any]) -> CaseFacts:
 
 
 @pytest.mark.parametrize(("extra", "state", "step"), [pytest.param(*r[1:], id=r[0]) for r in ROWS])
-def test_handoff_transition_table_row(extra: dict[str, Any], state: S, step: T) -> None:
+def test_transition_table_row(extra: dict[str, Any], state: S, step: T) -> None:
     assert derive_step(facts(extra)) == (state, step)
 
 

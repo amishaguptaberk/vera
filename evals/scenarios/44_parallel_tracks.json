@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_money.py)",
+  "fixture": 44,
+  "title": "Parallel tracks",
+  "description": "Fixture 44: Parallel tracks. dispute can be prepared while the control plan is unsent; `final` blocked until both tracks reach an outcome"
+}

@@ -1,9 +1,8 @@
 'use client';
 
 // DEVELOPMENT FIXTURES ONLY. The only importer of ./dev-fixtures. Renders the real Automations components with
-// contract-conforming fixture data (graph, check results and policy rules dumped from the VER-014 domain module;
-// specialists from the prototype's AGENTS data). Command buttons are no-ops. Mounted only by the integrator's
-// /preview route (VERA_PREVIEW=1), which adds the "Development fixtures — not live data" banner.
+// contract-conforming fixture data (graph, check results and policy rules dumped from the automations domain
+// module; specialists from the prototype's AGENTS data). Command buttons are no-ops. Never imported by pages.
 import type { ReactNode } from 'react';
 import { PoliciesView } from '@/components/automations/PoliciesView';
 import { SpecialistsView } from '@/components/automations/SpecialistsView';

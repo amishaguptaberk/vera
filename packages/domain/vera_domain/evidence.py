@@ -67,7 +67,7 @@ REQUIRED_KINDS = (
     RecordKind.INITIAL_REPORT,
 )
 
-# ToSpec 7.4: fields whose change is material, per kind.
+# Fields whose change is material, per kind.
 MATERIAL_FIELDS: dict[str, tuple[str, ...]] = {
     "charge": ("amount_cents", "merchant", "card_last4", "cardholder_id"),
     "purchase_order": ("approved_quantity", "approved_amount_cents", "merchant"),
@@ -79,7 +79,7 @@ MATERIAL_FIELDS: dict[str, tuple[str, ...]] = {
     "callback": ("result", "authorization_answer"),  # facts used by a policy rule
 }
 
-# plan s10: rule -> evidence kinds map. (key, label, kinds)
+# Rule -> evidence kinds map. (key, label, kinds)
 CHECKS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("purchase_records", "Purchase records agree", ("purchase_order", "delivery_record", "charge")),
     ("receipt_required", "Receipt required above $75", ("receipt", "charge")),

@@ -1,9 +1,9 @@
-"""Investigation specialists (ToSpec §8.3, plan §11/§18): pure definitions, prompts and workflow.
+"""Investigation specialists: pure definitions, prompts and workflow.
 
 The prompts give the model the permitted record ids, kinds and field NAMES only; every value has
 to be read through the `read_field` tool, and every claim must cite {record_id, version, field,
 value}. The code never decides what the findings are: it validates grounding and scope.
-Related charges are identified by full transaction identity (US-C03), never by a card suffix.
+Related charges are identified by full transaction identity, never by a card suffix.
 """
 
 import json
@@ -21,14 +21,14 @@ RELATED = "related_transaction_investigator"
 RECEIPT = "receipt_document_reviewer"
 SPECIALISTS = (CHARGE, RELATED, RECEIPT)
 
-# ToSpec §8.3: record kinds each specialist may read.
+# Record kinds each specialist may read.
 PERMITTED_KINDS: dict[str, frozenset[str]] = {
     CHARGE: frozenset({"charge", "purchase_order", "delivery_record"}),
     RELATED: frozenset({"charge", "related_charge", "cardholder_profile"}),
     RECEIPT: frozenset({"charge", "initial_report", "receipt"}),
 }
 
-# Workflow v3 investigation segment, as data (plan §11).
+# Workflow v3 investigation segment, as data.
 INVESTIGATION_V3: dict[str, Any] = {
     "id": "investigation-v3",
     "nodes": [
@@ -58,7 +58,7 @@ class PermittedRecord(BaseModel):
 
 
 class TransactionIdentity(BaseModel):
-    """Full identity of the disputed transaction. Deliberately has no card suffix (US-C03)."""
+    """Full identity of the disputed transaction. Deliberately has no card suffix."""
 
     transaction_id: str
     merchant: str
@@ -118,7 +118,7 @@ class RelatedOutput(_Output):
 
     @model_validator(mode="after")
     def _full_identity(self) -> Self:
-        """US-C03: a related charge is linked on full identity, never on a card suffix alone."""
+        """A related charge is linked on full identity, never on a card suffix alone."""
         for f in self.findings:
             if f.kind != "related_charge":
                 continue

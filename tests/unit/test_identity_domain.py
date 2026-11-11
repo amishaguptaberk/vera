@@ -1,4 +1,4 @@
-"""VER-006 pure domain: reducers mirror the effect's status; events never carry a code."""
+"""Identity pure domain: reducers mirror the effect's status; events never carry a code."""
 
 from datetime import UTC, datetime
 

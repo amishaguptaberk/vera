@@ -1,4 +1,4 @@
-/* No prototype reference. Handoff §8.3 rule 1: skeletons only on first load, never a full-page loader. */
+/* No prototype reference. Skeletons only on first load, never a full-page loader. */
 .skel {
   display: inline-block;
   background: var(--rule2);

@@ -1,11 +1,11 @@
-"""Identity verification (VER-006): requests, attempts and the cardholder-only outbox.
+"""Identity verification: requests, attempts and the cardholder-only outbox.
 
 The raw one-time code is never stored in identity_verifications or verification_attempts: only a
 salted HMAC. verification_outbox holds the simulated delivery to the cardholder (synthetic demo)
 and its row is deleted when the request is verified, expired, cancelled or locked.
 
 Revision ID: 0011
-Revises: 0009
+Revises: 0010
 """
 
 from alembic import op

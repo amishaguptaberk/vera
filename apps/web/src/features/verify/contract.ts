@@ -1,5 +1,5 @@
-// Typed contract for identity verification (VER-006, services/api/vera_api/identity.py) and verification
-// callbacks (VER-007, services/api/vera_api/callbacks.py). Written from the backend pydantic models.
+// Typed contract for identity verification (services/api/vera_api/identity.py) and verification
+// callbacks (services/api/vera_api/callbacks.py). Mirrors the backend pydantic models.
 
 /** vera_domain.identity.IdentityStatus */
 export type IdentityStatus =
@@ -61,7 +61,7 @@ export type CallProvider = "elevenlabs" | "simulated";
 export type CallAnswer = {
   question_id: string;
   answer: string;
-  /** Legacy single citation (VER-007). */
+  /** Legacy single citation. */
   line_seq?: number;
   /** Transcript line seqs the answer is grounded in. */
   cited_lines?: number[];

@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent, type PointerEvent } from 'react';
 import styles from './Splitter.module.css';
 
 export type SplitterProps = {
-  /** Accessible name, e.g. "Resize navigation" (Handoff §8.2). */
+  /** Accessible name, e.g. "Resize navigation". */
   label: string;
   orientation: 'vertical' | 'horizontal';
   min: number;
@@ -25,7 +25,7 @@ export type SplitterProps = {
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
 /**
- * Separator with the Handoff §8.2 contract: arrows +/-16, Shift+arrows +/-64, Home = min, End = max.
+ * Separator with this keyboard contract: arrows +/-16, Shift+arrows +/-64, Home = min, End = max.
  * Vertical separators resize with Left/Right, horizontal ones with Up/Down.
  */
 export function Splitter({

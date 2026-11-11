@@ -1,8 +1,8 @@
-// Typed contract for the Automations screens (VER-012-F10 against VER-014).
+// Typed contract for the Automations screens.
 // Graph, Violation, ScenarioResult and the command payloads mirror the pydantic models in
-// packages/domain/vera_domain/automations.py (VER-014 worktree). The read-endpoint envelopes
-// (WorkflowDetail, SpecialistsView, PolicyDetail draft fields) are written from Handoff §3.2 because
-// services/api/vera_api/automations.py did not exist yet when this was written — align on merge.
+// packages/domain/vera_domain/automations.py. The screen-level envelopes (WorkflowDetail,
+// SpecialistsView, PolicyDetail draft fields) are the shapes the screens consume; api.ts maps the
+// wire shapes of services/api/vera_api/automations.py (see below) onto them.
 
 export type NodeKind =
   | 'trigger'
@@ -58,7 +58,7 @@ export type AutomationAction = {
   enabled: boolean;
   blocked_reason?: string | null;
   idempotency_key: string;
-  /** Echoed into CommandIn.expected_version (VER-014 envelope). */
+  /** Echoed into CommandIn.expected_version. */
   expected_version?: number;
   payload_defaults?: Record<string, unknown>;
 };
@@ -128,7 +128,7 @@ export type PolicyRule = {
   fail_label: string;
 };
 
-/** GET /api/policies/{id} and /versions/{v} (on main). */
+/** GET /api/policies/{id} and /versions/{v}. */
 export type PolicyDetail = {
   policy_id: string;
   version: number;
@@ -149,7 +149,7 @@ export const paths = {
   command: (name: string) => `/automations/commands/${encodeURIComponent(name)}`,
 };
 
-// ---- Wire shapes of services/api/vera_api/automations.py (VER-014, read at 00:26) ----------------------------
+// ---- Wire shapes of services/api/vera_api/automations.py ----------------------------------------------------
 
 export type WorkflowOut = {
   workflow_id: string;
@@ -167,7 +167,7 @@ export type WorkflowOut = {
     latest_check: (Omit<CheckRun, 'run_id'> & { run_id: number | string; created_at: string }) | null;
   } | null;
   used_by: { case_id: string; workflow_version: number; policy_version: number }[];
-  /** Not in VER-014 yet (GAP): server-offered commands with echoed idempotency key + expected_version. */
+  /** Not served by the API; rendered only when present: server-offered commands with echoed idempotency key + expected_version. */
   available_actions?: AutomationAction[];
   rules?: Record<string, string>;
 };

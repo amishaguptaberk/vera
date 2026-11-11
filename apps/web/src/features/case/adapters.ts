@@ -1,7 +1,7 @@
 import type { ActionView, CaseView, StepOut } from '@/api';
 import type { SlotState } from '@/design-system/primitives';
 
-// Tolerant readers for fields a backend ticket is adding. Render if present; never invent.
+// Tolerant readers for optional case fields. Render if present; never invent.
 
 export function caseSteps(c: CaseView): CaseView['steps'] | null {
   return c.steps.length ? c.steps : null;

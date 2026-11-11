@@ -1,7 +1,7 @@
-"""Credit, dispute and card controls through the HTTP seam and command gateway (VER-010).
+"""Credit, dispute and card controls through the HTTP seam and command gateway.
 
-Approval (VER-009) is not in this tree: the approved state is reached with a TEST-ONLY approval
-provider and fact provider, as in test_seams.py. The gateway's stage 8 does the enforcing.
+The approved state is reached with a test-only approval provider and fact provider in place of
+the decisions feature's, as in test_seams.py. The gateway's stage 8 does the enforcing.
 """
 
 import json
@@ -28,8 +28,8 @@ from vera_domain.specialists import ExecutionMode
 CASE = "CHG-1042"
 AMOUNT = 284000  # TXN-1042 posted amount (seed)
 CKEY = "credit:TXN-1042"
-# Credit issued, neither track started. Corrected facts.py (on main): the dispute step comes
-# first (dsp_prepare); this tree's facts.py still says ctl_prep. Both are accepted until merged.
+# Credit issued, neither track started: the dispute step comes first (dsp_prepare). The control
+# plan step (ctl_prep) is also accepted.
 AFTER_ISSUE = (("dispute_prepared", "dsp_prepare"), ("credit_issued", "ctl_prep"))
 
 
@@ -110,8 +110,8 @@ def count(db: Session, sql: str) -> int:
 
 @pytest.fixture
 def approved(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    """TEST-ONLY stand-in for VER-009: decision credit, packet ready, approval approved + bound.
-    Mutate the returned dict to change the approval the provider reports."""
+    """Test-only stand-in for the decisions feature: decision credit, packet ready, approval
+    approved + bound. Mutate the returned dict to change the approval the provider reports."""
     state: dict[str, Any] = {"approval": {}, "present": True}
 
     def facts(session: Session, case: Case) -> dict[str, Any]:
@@ -119,7 +119,7 @@ def approved(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict[str, A
             return {}
         return {"packet_status": "ready", "decision": "credit", "approval_status": "approved"}
 
-    # Stands in for VER-009's provider, which owns these facts in the combined tree.
+    # Replaces the decisions provider, which owns these facts in the running app.
     from vera_api.decisions import _facts as decision_facts
 
     providers = [p for p in gateway.FACT_PROVIDERS if p is not decision_facts]

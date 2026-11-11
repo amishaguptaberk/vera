@@ -3,5 +3,5 @@
   "requires": "a credit decision, which the seeded case cannot reach in REPLAY: the investigation's PO-219/DLV-882 conflicts are never resolved by any command and the reference callback confirms the cardholder authorized the charge, so record_decision 'credit' is policy_blocked and no reviewer approval or credit follows",
   "fixture": 16,
   "title": "Duplicate credit request",
-  "description": "Fixture 16: Duplicate credit request. ToSpec 15.16"
+  "description": "Fixture 16: Duplicate credit request."
 }

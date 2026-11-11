@@ -1,5 +1,5 @@
 // Development preview of every communications state, rendered with the REAL presentational components and
-// fixtures from ./dev-fixtures (imported nowhere else). Mounted by the integrator's /preview route only.
+// fixtures from ./dev-fixtures (imported nowhere else). Development use only; never imported by pages.
 import type { ReactNode } from 'react';
 import { CardholderRequestCard, CommsActions, CommsList, DraftEditor, FollowupTaskBlock, MessageDetail, type CommsAction } from '@/components/comms';
 import type { CommunicationDetail } from './contract';

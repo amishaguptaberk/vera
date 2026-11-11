@@ -1,4 +1,4 @@
-"""Verification callback (VER-007): effects, fact provider, telephony adapter, routes.
+"""Verification callback: effects, fact provider, telephony adapter, routes.
 
 The call target is always read from the evidence register (PRF-4418.phone), never from a
 payload. The structured result is written only by the service principal (record_callback),

@@ -15,5 +15,4 @@ test-results
 **/test-results
 **/playwright-report
 apps/web/prototype
-.scratch
 tmp

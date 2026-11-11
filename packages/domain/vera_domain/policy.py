@@ -5,9 +5,8 @@ registered by name. Nothing here reads text: free text from messages, findings o
 field the predicates look at, so it cannot change a result. Imports stdlib, pydantic and
 vera_domain only (enforced by a test).
 
-Precedence (Handoff 7.4 / plan 9 are silent on ordering, so): ineligible > blocked >
-needs_evidence > eligible. The result code and label come from the first failed rule, in rule
-order, of the winning status.
+Precedence: ineligible > blocked > needs_evidence > eligible. The result code and label come
+from the first failed rule, in rule order, of the winning status.
 """
 
 from collections.abc import Callable

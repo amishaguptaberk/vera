@@ -126,7 +126,7 @@ class CommandSpec:
     # One command for a human role AND a service principal. Reserved for DUAL_COMMANDS.
     dual: bool = False
     # The only exemption from the closed gate: a SERVICE command that may run while the case is
-    # in MONITORING (VER-011 record_dispute_outcome). Never set on a human command.
+    # in MONITORING (record_dispute_outcome). Never set on a human command.
     allowed_in_monitoring: bool = False
 
 
@@ -663,7 +663,7 @@ def recovery_actions(
     case_version: int,
     failed_steps: Sequence[FailedStep],
 ) -> list[ActionView]:
-    """Plan §18: a failed specialist step offers retry_specialist_step and hold_case."""
+    """A failed specialist step offers retry_specialist_step and hold_case."""
     if not failed_steps or role is not Role.ANALYST:
         return []
     out: list[ActionView] = []

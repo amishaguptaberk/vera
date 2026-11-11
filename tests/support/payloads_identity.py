@@ -1,4 +1,4 @@
-"""Identity verification (VER-006) command test inputs and reducer extras."""
+"""Identity verification command test inputs and reducer extras."""
 
 from command_payloads import register_reducer_extras, register_test_payloads
 

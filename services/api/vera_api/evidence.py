@@ -54,8 +54,8 @@ REGISTER = Actor(
     "svc-evidence-register", "Evidence register", Role.SYSTEM, frozenset({Role.SYSTEM})
 )
 
-# Hook for the approvals ticket: (session, case, new_snapshot_hash) -> ids of approvals marked
-# stale. Each returned id gets an `approval.stale` event. Empty until approvals exist.
+# Hooks registered by the decisions feature: (session, case, new_snapshot_hash) -> ids of
+# approvals marked stale. Each returned id gets an `approval.stale` event.
 STALE_APPROVAL_HOOKS: list[Callable[[Session, Case, str], list[str]]] = []
 
 
@@ -766,7 +766,7 @@ def related_after(
 
 # ---- seed ---------------------------------------------------------------------------------------
 
-# Source records only (ToSpec s4). No finding is pre-written: conclusions come from a run.
+# Source records only. No finding is pre-written: conclusions come from a run.
 _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "CHG-1042",

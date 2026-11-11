@@ -1,4 +1,4 @@
-"""Policy Controller on real evidence: seed, material-change re-evaluation, conflicts (VER-004)."""
+"""Policy Controller on real evidence: seed, material-change re-evaluation, conflicts."""
 
 from collections.abc import Iterator
 from typing import Any

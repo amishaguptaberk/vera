@@ -1,4 +1,4 @@
-"""Read APIs for the case UI: queue next action, activity, assignable users, steps (VER-016)."""
+"""Read APIs for the case UI: queue next action, activity, assignable users, steps."""
 
 from typing import Any
 

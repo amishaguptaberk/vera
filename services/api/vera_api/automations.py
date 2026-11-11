@@ -1,4 +1,4 @@
-"""Automations versioning (VER-014): organization-level commands and reads.
+"""Automations versioning: organization-level commands and reads.
 
 Commands run through POST /api/automations/commands/{name} with the gateway's guarantees:
 role re-checked against user_roles (gateway._recheck_role) and ops_admin only, schema

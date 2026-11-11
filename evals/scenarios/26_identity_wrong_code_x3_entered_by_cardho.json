@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (VER-006 is implemented; covered by its integration tests)",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_identity.py)",
   "fixture": 26,
   "title": "Identity: wrong code x3 (entered by cardholder)",
   "description": "Fixture 26: Identity: wrong code x3 (entered by cardholder). locked, analyst sees `Verification failed`, routes to follow-up, case not closed, 3 `code_rejected` events attributed to the cardholder role"

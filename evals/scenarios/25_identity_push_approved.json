@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (VER-006 is implemented; covered by its integration tests)",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_identity.py)",
   "fixture": 25,
   "title": "Identity: push approved",
   "description": "Fixture 25: Identity: push approved. `verify` step, method recorded, policy outcome unchanged"

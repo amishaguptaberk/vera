@@ -1,4 +1,4 @@
-"""VER-003B: model-backed investigation through HTTP commands and the worker (REPLAY and LIVE)."""
+"""Model-backed investigation through HTTP commands and the worker (REPLAY and LIVE)."""
 
 import json
 import re
@@ -170,7 +170,7 @@ def test_replay_investigation_posts_grounded_findings_and_advances_step(
 
 
 def test_no_specialist_code_prompt_or_recording_joins_on_card_digits() -> None:
-    """US-C03: related charges are never linked by last four digits."""
+    """Related charges are never linked by last four digits."""
     from vera_domain.investigation import TransactionIdentity, build_messages, specialist_input
 
     assert "last4" not in TransactionIdentity.model_fields

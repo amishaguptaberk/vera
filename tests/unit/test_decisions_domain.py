@@ -1,4 +1,4 @@
-"""VER-009 domain: Ask Vera intents and the policy statuses each decision needs."""
+"""Decisions domain: Ask Vera intents and the policy statuses each decision needs."""
 
 import pytest
 from vera_domain.decisions import COMMANDS, DECISION_POLICY, ask_intent

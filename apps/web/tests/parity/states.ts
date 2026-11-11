@@ -79,7 +79,7 @@ const proto = {
     await page.evaluate(() => (window as unknown as { __vera: { openCase(): void } }).__vera.openCase());
     await page.locator('#task').waitFor();
   },
-  // The reviewer view also shows the Vera rail toggle below 1280px; the rail is F9's.
+  // The reviewer view also shows the Vera rail toggle below 1280px; it is hidden because the rail is not compared here.
   hideVeraToggle: async (page: Page) => {
     await page.addStyleTag({ content: '.vera-b{display:none !important}' });
   },
@@ -176,12 +176,12 @@ export const STATES: ParityState[] = [
     }, setupApp: app.role(/Reviewer · card admin/, /viewing as reviewer/i) }),
   ...shell({ name: 'shell/mobile-drawer-open', widths: MOBILE, sidebarWidths: MOBILE, setupPrototype: proto.upd('navOpen'), setupApp: app.openDrawer }),
   ...shell({ name: 'shell/mobile-closed', widths: MOBILE }),
-  // F2 queue (data: real captured API bodies, tests/parity/fixtures). The server reports six exposure metrics where
+  // Cases queue (data: real captured API bodies, tests/parity/fixtures). The server reports six exposure metrics where
   // the prototype shows four, and its rows carry no avatars, so the strip and the rows are not pixel-comparable;
   // the page head and the queue bar above the rows are, and their position proves the strip has the prototype's height.
   { name: 'cases/queue (page head)', prototypeSelector: '.pg-h', appSelector: '[data-parity="page-head"]', appPath: '/cases', widths: [1440, 1200], position: FROM_PAGE_ROOT, appClock: () => new Date(2026, 10, 10, 9, 8) },
   { name: 'cases/queue (queue bar)', prototypeSelector: '.tcard-h', appSelector: '[data-parity="queue-bar"]', appPath: '/cases', widths: [1440, 1200], position: FROM_PAGE_ROOT },
-  // F3 workspace once the case is opened (fixtures captured right after open_case; prototype: openCase()). At 390 the
+  // Case workspace once the case is opened (fixtures captured right after open_case; prototype: openCase()). At 390 the
   // prototype's cardholder line wraps (it adds a department the API does not have), so regions below it compare at 1440.
   { name: 'case/opened (amount)', prototypeSelector: '.chd-t', appSelector: '[data-parity="case-amount"]', appPath: '/cases/CHG-1042', fixtures: 'opened', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
   { name: 'case/opened (progress)', prototypeSelector: '.prog-wrap', appSelector: '[data-parity="progress"]', appPath: '/cases/CHG-1042', fixtures: 'opened', widths: [1440], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },

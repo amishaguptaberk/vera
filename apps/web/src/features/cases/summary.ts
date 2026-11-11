@@ -12,7 +12,7 @@ export type SummaryTile = {
   primary: boolean;
 };
 
-// Gross is the primary metric; net sits beside it (Handoff exposure decision). Order is display order only.
+// Gross is the primary metric; net sits beside it. Order is display order only.
 const ORDER: readonly (readonly [string, string])[] = [
   ['gross_exposure', 'Gross exposure'],
   ['net_exposure', 'Net exposure'],

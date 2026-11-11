@@ -16,7 +16,7 @@ function rule(selector: string): string {
 }
 
 describe('StatusSlot', () => {
-  it('has the six states of the spec', () => {
+  it('has the six states', () => {
     expect([...SLOT_STATES]).toEqual(['idle', 'review', 'wait', 'block', 'done', 'work']);
   });
 

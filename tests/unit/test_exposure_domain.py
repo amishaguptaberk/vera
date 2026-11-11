@@ -1,4 +1,4 @@
-"""Pure exposure computation (VER-015, plan §19 D-H)."""
+"""Pure exposure computation."""
 
 from datetime import UTC, datetime
 

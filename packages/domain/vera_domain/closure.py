@@ -1,4 +1,4 @@
-"""Final communication and closure (VER-011): pure types, templates, content policy, reducers.
+"""Final communication and closure: pure types, templates, content policy, reducers.
 
 The final cardholder message is built deterministically from RECORDED facts (no model call) and
 every draft, including analyst edits, passes `content_violations`: a sentence that asserts an
@@ -28,7 +28,7 @@ class ChecklistItem(BaseModel):
     next_action: str | None = None
 
 
-# Item name -> (owner role, next action) shown for an open item (Handoff 4.3, US-G08).
+# Item name -> (owner role, next action) shown for an open item.
 OPEN_ITEM_ACTIONS: dict[str, tuple[str, str]] = {
     "decision": ("analyst", "Record the decision"),
     "approval": ("reviewer", "Approve the decision packet"),

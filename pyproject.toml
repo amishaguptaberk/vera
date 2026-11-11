@@ -35,7 +35,7 @@ include = ["vera_domain*", "vera_api*"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["apps", ".scratch"]
+extend-exclude = ["apps"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]

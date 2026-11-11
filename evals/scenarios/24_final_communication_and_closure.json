@@ -1,7 +1,7 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (VER-011 is implemented; covered by its integration tests)",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_closure.py)",
   "fixture": 24,
   "title": "Final communication and closure",
-  "description": "Fixture 24: Final communication and closure. ToSpec 15.24"
+  "description": "Fixture 24: Final communication and closure."
 }

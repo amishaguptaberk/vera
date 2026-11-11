@@ -13,7 +13,7 @@ export type TabsProps = {
   variant?: 'default' | 'sub' | 'drawer';
 };
 
-/** Text tabs: active = ink + 2px ink underline (Handoff §9.4). Arrow keys, Home and End move between tabs. */
+/** Text tabs: active = ink + 2px ink underline. Arrow keys, Home and End move between tabs. */
 export function Tabs({ items, value, onChange, label, variant = 'default' }: TabsProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const onKeyDown = (e: KeyboardEvent, index: number) => {

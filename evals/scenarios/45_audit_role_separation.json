@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_money.py)",
+  "fixture": 45,
+  "title": "Audit role separation",
+  "description": "Fixture 45: Audit role separation. SIGN approval event role=reviewer; CTL approve/apply events role=card_admin; same actor Dana Okafor (also needs a reviewer approval)"
+}

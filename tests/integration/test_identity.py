@@ -1,4 +1,4 @@
-"""VER-006 identity verification through the HTTP seam and the command gateway."""
+"""Identity verification through the HTTP seam and the command gateway."""
 
 import logging
 from collections.abc import Iterator
@@ -25,7 +25,7 @@ CASE = "CHG-1042"
 
 
 def _upstream(session: Session, case: Case) -> dict[str, Any]:
-    """Test-only provider standing in for VER-005: the reply was reviewed as incomplete."""
+    """Test-only provider for the follow-up facts: the reply was reviewed as incomplete."""
     return {"followup_status": "responded", "response_review": "incomplete"}
 
 
@@ -290,7 +290,7 @@ def view_version(client: TestClient) -> int:
     return int(view(client)["case_version"])
 
 
-# --- repair: D8 outside synthetic, outbox expiry, demo route auth, limits, races ---
+# --- code storage outside synthetic, outbox expiry, demo route auth, limits, races ---
 
 ANALYST_ACTOR = Actor("usr-sam-rivera", "Sam Rivera", Role.ANALYST, frozenset({Role.ANALYST}))
 

@@ -1,4 +1,4 @@
-"""Automations (VER-014): workflow definitions/versions/drafts/check runs, specialist and
+"""Automations: workflow definitions/versions/drafts/check runs, specialist and
 policy drafts, and the organization-level command keys and events (audit_events and
 idempotency_keys require a case_id, so automations keep their own append-only trail).
 
@@ -6,7 +6,7 @@ workflow_versions, workflow_check_runs and automation_events are append-only
 (vera_forbid_mutation from 0001): a published version can never be updated or deleted.
 
 Revision ID: 0016
-Revises: 0009
+Revises: 0015
 """
 
 from alembic import op

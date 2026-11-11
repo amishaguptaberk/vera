@@ -1,7 +1,6 @@
-// Typed contract for the communications API (backend: services/api/vera_api/comms.py, VER-005).
-// Written from the pydantic models CommunicationItem / CommunicationDetail / ResponseView / CardholderRequest /
+// Typed contract for the communications API (backend: services/api/vera_api/comms.py).
+// Mirrors the pydantic models CommunicationItem / CommunicationDetail / ResponseView / CardholderRequest /
 // CardholderRequestList / ResponseIn / ResponseOut and packages/domain/vera_domain/comms.py payloads.
-// Replace with generated `components['schemas']` types once src/api/openapi.json includes these routes.
 
 /** Communication.status values written by the backend effects. */
 export type CommunicationStatus = 'drafted' | 'sent' | 'reminded' | 'overdue' | 'responded';

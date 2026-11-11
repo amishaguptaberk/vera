@@ -1,10 +1,10 @@
-"""Final communication and closure (VER-011): effects, fact provider, checklist, routes.
+"""Final communication and closure: effects, fact provider, checklist, routes.
 
 Facts owned: `final_message_status` (latest final_messages row), `closed` and `monitoring`
 (case_closures row). Commands: draft_final_message, update_final_message, send_final_message,
-close_case. `send_final_message` is distinct from VER-005's `send_communication`; it sends through
-the adapter framework with the adapter named `messaging`, looked up at call time (no adapter
-registered -> 502 `adapter_not_registered`, nothing written).
+close_case. `send_final_message` is distinct from the follow-up `send_communication`; it sends
+through the adapter framework with the adapter named `messaging`, looked up at call time (no
+adapter registered -> 502 `adapter_not_registered`, nothing written).
 
 Closure checklist seam (GET /api/cases/{id}/closure-checklist):
 
@@ -17,18 +17,19 @@ Built-in sources (registered here, read real recorded state):
     exposure_columns    - cases.credit_cents / credit_status consistent (credit recorded if any)
     final_message       - the final cardholder update was sent (final_messages)
 
-REQUIRED sources the parallel tickets must register at integration. Until registered the item is
-`unknown` and close_case (and draft_final_message, for items 1-4) is BLOCKED with
-`422 closure_incomplete` naming the item - it never passes by default:
-    "decision"  - VER-009: wrap `current_decision(session, case_id)` (met when a decision is
+REQUIRED sources, registered below from the decision and money features. While one is not
+registered its item is `unknown` and close_case (and draft_final_message, for the
+DRAFT_PREREQUISITES) is BLOCKED with `422 closure_incomplete` naming the item - it never passes
+by default:
+    "decision"  - wraps `current_decision(session, case_id)` (met when a decision is
                   recorded; record id = decision id)
-    "approval"  - VER-009: wrap `latest_approval(session, case_id)` (met when approved and bound,
+    "approval"  - wraps `latest_approval(session, case_id)` (met when approved and bound,
                   or the decision needs no approval)
-    "credit"    - VER-010: wrap `credit_summary(session, case_id)` (met when credit issued, or the
+    "credit"    - wraps `credit_summary(session, case_id)` (met when credit issued, or the
                   decision is not credit)
-    "dispute"   - VER-010: wrap `dispute_summary(session, case_id)` (met when submitted / accepted /
+    "dispute"   - wraps `dispute_summary(session, case_id)` (met when submitted / accepted /
                   denied, or not applicable)
-    "controls"  - VER-010: wrap `controls_summary(session, case_id)` (met when applied, skipped or
+    "controls"  - wraps `controls_summary(session, case_id)` (met when applied, skipped or
                   declined, or not applicable)
 """
 
@@ -82,7 +83,7 @@ REQUIRED_SOURCES: dict[str, str] = {
     "dispute": "Dispute submitted, or not applicable",
     "controls": "Card controls applied, skipped or declined",
 }
-# Items that must be met before the final update is drafted (Handoff 3.2: closure items 1-4).
+# Items that must be met before the final update is drafted.
 DRAFT_PREREQUISITES = ("decision", "credit", "dispute", "controls")
 
 
@@ -166,7 +167,7 @@ register_checklist_source("exposure_columns", _exposure_source)
 register_checklist_source("final_message", _final_message_source)
 
 
-# ---- required sources backed by the decision (VER-009) and remediation (VER-010) features --------
+# ---- required sources backed by the decision and remediation features ----------------------------
 # Both modules load before this one (plugins.FEATURES order). The tracks follow derive_step:
 # clear/violation/unresolved has no remediation; dispute runs the dispute and controls tracks;
 # credit needs an approval and a credit first.

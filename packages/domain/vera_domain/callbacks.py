@@ -1,4 +1,4 @@
-"""Verification callback (VER-007): payloads, command specs, reducers (pure)."""
+"""Verification callback: payloads, command specs, reducers (pure)."""
 
 from collections.abc import Callable
 from typing import Any, Literal
@@ -10,7 +10,7 @@ from vera_domain.enums import CaseState, CaseStep
 from vera_domain.facts import CaseFacts
 from vera_domain.specialists import Finding, SpecialistSpec
 
-MAX_ATTEMPTS = 2  # Handoff 7.2: two attempts per response
+MAX_ATTEMPTS = 2  # two attempts per response
 TARGET_RECORD = "PRF-4418"
 TARGET_FIELD = "phone"
 OUTCOMES = ("confirmed", "contradicted", "voicemail", "no_answer", "incomplete")

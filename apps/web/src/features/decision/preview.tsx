@@ -1,4 +1,4 @@
-// Development preview only (integrator mounts under VERA_PREVIEW=1). Real presentational components + dev-fixtures; no-op handlers.
+// Development preview only. Real presentational components + dev-fixtures; no-op handlers.
 import type { ReactNode } from 'react';
 import { ActionBar } from '@/components/case';
 import { ApprovalHistory, DecisionFocus, PacketView, ReviewerControls, VeraRail, type RailMessage } from '@/components/decision';

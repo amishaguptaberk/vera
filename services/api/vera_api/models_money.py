@@ -1,4 +1,4 @@
-"""ORM for credit, dispute and card controls (VER-010; migration 0014)."""
+"""ORM for credit, dispute and card controls (migration 0014)."""
 
 from datetime import datetime
 from typing import Any

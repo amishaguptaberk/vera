@@ -1,5 +1,5 @@
-/* Drawer: prototype @media (max-width:760px) sidebar drawer (Main.dc.html:1242) and the 220ms slide of
-   Handoff §9.5. `always` drawers slide at every width; `narrow` drawers are ordinary flow elements above
+/* Drawer: prototype @media (max-width:760px) sidebar drawer (Main.dc.html:1242) with a 220ms slide.
+   `always` drawers slide at every width; `narrow` drawers are ordinary flow elements above
    760px (no rules apply) and slide in at 760px and below. `.panel.x` (two classes) outranks the owner's
    one-class flow rules (sticky, 100vh, z-index) regardless of stylesheet order. */
 .scrim {
