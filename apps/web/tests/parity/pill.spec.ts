@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { launchOptions } from './browser';
 import { compareState } from './compare';
-import { installSessionRoutes } from './fixtures';
+import { installCaseRoutes, installSessionRoutes } from './fixtures';
 import { APP_PORT, PROTOTYPE_PORT } from './playwright.config';
 import { STATES, VIEWPORTS, type ParityState } from './states';
 
@@ -84,6 +84,7 @@ async function openApp(width: number, height: number, state: ParityState): Promi
   contexts.push(ctx);
   const page = await ctx.newPage();
   await installSessionRoutes(page);
+  await installCaseRoutes(page);
   await page.goto(`http://127.0.0.1:${APP_PORT}${state.appPath}`, { waitUntil: 'load' });
   // The role selector renders once the session has loaded (a skeleton stands in until then).
   await page.getByRole('button', { name: /viewing as/i }).waitFor();

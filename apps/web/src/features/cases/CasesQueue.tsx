@@ -24,7 +24,7 @@ export function SummaryStrip() {
   }
   if (!tiles.length) return null; // includes a typed 403 for roles the queue is not for
   return (
-    <dl className={styles.sumstrip} aria-label="Open charge exposure">
+    <dl className={styles.sumstrip} aria-label="Open charge exposure" data-parity="sumstrip">
       {tiles.map((t) => (
         <div key={t.key} className={cx(styles.ss, t.primary && styles.lead)} title={t.definition ?? undefined}>
           <dt>
@@ -119,7 +119,7 @@ export function CasesQueue() {
           {cases.data ? ' Showing the last loaded cases.' : ''}
         </Banner>
       ) : null}
-      <section className={styles.tcard} aria-labelledby="wtr">
+      <section className={styles.tcard} aria-labelledby="wtr" data-parity="queue">
         <div className={styles.tcardH}>
           <div className={styles.tcardL}>
             <h2 id="wtr">Case queue</h2>
