@@ -17,10 +17,12 @@ from vera_api.models import (
     User,
     UserRole,
 )
+from vera_api.policy import seed_policy_v1
 
 SAM = "usr-sam-rivera"
 DANA = "usr-dana-okafor"
 PRIYA = "chd-priya-shah"
+PRIYA_USER = "usr-priya-shah"
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,7 @@ def reset_database(session: Session, clock: Clock, tz: str) -> None:
 
 
 def _seed(session: Session, clock: Clock, tz: str) -> None:
+    seed_policy_v1(session)
     session.add_all([User(id=SAM, name="Sam Rivera"), User(id=DANA, name="Dana Okafor")])
     session.flush()
     session.add_all(
@@ -115,6 +118,10 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
             email="priya.shah@halden.example",
         )
     )
+    session.flush()
+    session.add(User(id=PRIYA_USER, name="Priya Shah", cardholder_id=PRIYA))
+    session.flush()
+    session.add(UserRole(user_id=PRIYA_USER, role=Role.CARDHOLDER.value))
     names = {"Northstar Equipment"} | {r.merchant for r in DISPLAY_ROWS}
     session.add_all([Merchant(id=_merchant_id(n), name=n) for n in sorted(names)])
     session.flush()

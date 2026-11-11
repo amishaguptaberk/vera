@@ -16,6 +16,7 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String)
+    cardholder_id: Mapped[str | None] = mapped_column(ForeignKey("cardholders.id"))
     created_at: Mapped[datetime] = _ts()
 
 
@@ -71,6 +72,8 @@ class Case(Base):
     credit_cents: Mapped[int] = mapped_column(BigInteger, default=0)
     live: Mapped[bool] = mapped_column(Boolean, default=True)
     display_label: Mapped[str | None] = mapped_column(String)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    hold: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = _ts()
 
 
@@ -131,6 +134,22 @@ class AuditEvent(Base):
     actor_role: Mapped[str] = mapped_column(String)
     record_ids: Mapped[list[Any]] = mapped_column(JSONB, default=list)
     summary: Mapped[str] = mapped_column(Text)
+    detail: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
+class IdempotencyKey(Base):
+    __tablename__ = "idempotency_keys"
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    command: Mapped[str] = mapped_column(String)
+    case_id: Mapped[str] = mapped_column(ForeignKey("cases.id"))
+    status: Mapped[str] = mapped_column(String)
+    request_id: Mapped[str] = mapped_column(String)
+    request_hash: Mapped[str] = mapped_column(String)
+    attempts: Mapped[int] = mapped_column(Integer, default=1)
+    first_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    event_ids: Mapped[list[Any]] = mapped_column(JSONB, default=list)
 
 
 ALL_TABLES = (
@@ -145,4 +164,5 @@ ALL_TABLES = (
     "claims",
     "state_transitions",
     "audit_events",
+    "idempotency_keys",
 )
