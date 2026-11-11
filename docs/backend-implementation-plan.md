@@ -284,3 +284,5 @@ Because the swap is below the agent loop, there are not two agent architectures:
 **Configuration.** `VERA_SPECIALIST_MODE=live|replay` (default `live` for the app, `replay` for tests), provider key and model id from environment, per-specialist override in the definition. Provider access sits behind `ModelClient`, so the runtime (ToSpec §18 #4) stays replaceable. Tracing via OpenTelemetry/Langfuse in LIVE; disabled in CI.
 
 Added events: `specialist.failed`, `specialist.retried`, `specialist.replayed`. Added command: `retry_specialist_step` (analyst). VER-003 owns the runner, `ModelClient` seam, validators and recordings for the three investigation specialists; later tickets add their specialists on the same runner.
+
+**D-F (Nov 10): LIVE model provider.** Same as the `echo` project: provider `openai`, model `gpt-4o`, key from `OPENAI_API_KEY`. Both are configuration (`VERA_MODEL_PROVIDER`, `VERA_MODEL_ID`), read once at startup; a missing key in LIVE mode is a startup readiness error, not a fallback to REPLAY. The key is never committed: `.env.example` lists the variable name only, `.env` is git-ignored, and CI runs REPLAY with no key.
