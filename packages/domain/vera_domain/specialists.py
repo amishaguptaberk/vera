@@ -29,6 +29,7 @@ class FailureReason(StrEnum):
     PROVIDER_ERROR = "provider_error"
     SCOPE_VIOLATION = "scope_violation"
     MISSING_RECORDING = "missing_recording"
+    APPLY_FAILED = "apply_failed"  # output was valid; writing its typed records kept failing
 
 
 class Finding(BaseModel):

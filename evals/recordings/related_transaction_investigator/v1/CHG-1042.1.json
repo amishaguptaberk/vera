@@ -23,7 +23,7 @@
           }
         ],
         "kind": "related_charge",
-        "statement": "Transaction CHG-1051 (Northstar Equipment, $1,200.00) is related to CHG-1042: same merchant Northstar Equipment on the same cardholder's case. Linked on transaction id, merchant and amount, not on card digits."
+        "statement": "Transaction CHG-1051 at Northstar Equipment for $1,200.00 shares its merchant, Northstar Equipment, with CHG-1042, so it is judged related. Linked on transaction id, merchant and amount, not on card digits."
       },
       {
         "citations": [

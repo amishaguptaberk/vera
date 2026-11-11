@@ -27,3 +27,8 @@ python -m vera_api.model_client record --specialist charge_investigator --prompt
 `record` captures one model turn; a step that calls tools needs one recording per turn (`--n 1`,
 ...) with the tool results appended to the request messages. Review, then commit. Changing a
 prompt bumps `prompt_version` and needs re-recording.
+
+LIVE requests use `response_format: {"type": "json_object"}` with the output JSON schema stated in
+the prompt (not provider-side schema enforcement); every reply is validated after the fact by the
+runner (pydantic schema, then grounding against the cited source fields), with two validation
+retries.
