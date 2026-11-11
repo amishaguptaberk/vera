@@ -1,13 +1,13 @@
 """Voice verification calls, webhook events (idempotency ledger) and transcript versions.
 
 Revision ID: 0017
-Revises: 0012
+Revises: 0016
 """
 
 from alembic import op
 
 revision = "0017"
-down_revision = "0012"
+down_revision = "0016"
 
 
 def upgrade() -> None:

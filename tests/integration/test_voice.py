@@ -88,10 +88,15 @@ def step(client: TestClient) -> str:
 
 @pytest.fixture
 def verified(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    from vera_api.identity import _facts as identity_facts
+
     monkeypatch.setattr(
         gateway,
         "FACT_PROVIDERS",
-        [*gateway.FACT_PROVIDERS, lambda s, c: {"identity_status": "verified"}],
+        [
+            *(p for p in gateway.FACT_PROVIDERS if p is not identity_facts),
+            lambda s, c: {"identity_status": "verified"},
+        ],
     )
     assert command(client, "open_case").status_code == 200
     return client
