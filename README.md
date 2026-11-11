@@ -1,6 +1,6 @@
 # Vera
 
-Vera is a post-report investigation workspace for corporate-card charges. When a cardholder reports a charge they do not recognise, Vera opens a case, gathers the source records, runs specialist agents that compare the evidence, asks the cardholder targeted questions, verifies identity, places an analyst-approved verification call, prepares a decision packet for a reviewer, and carries the approved outcome through provisional credit, dispute, card controls, the final message and closure.
+Vera is a post-report investigation workspace for corporate-card charges. When a cardholder reports a charge they do not recognise, Vera opens a case, gathers the source records, runs a team of LLM agents on NVIDIA-hosted models (Llama 3.3 70B through the NVIDIA API) that read the evidence and reason over it, asks the cardholder targeted questions, verifies identity, places an analyst-approved verification call, prepares a decision packet for a reviewer, and carries the approved outcome through provisional credit, dispute, card controls, the final message and closure.
 
 The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**.
 
@@ -8,7 +8,41 @@ The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**.
 
 ▶ [Watch the launch video](media/vera-launch.mp4) (2:19)
 
-## How it works
+## Agents, not scripts
+
+Vera's investigation is done by nine specialist agents running on **NVIDIA-hosted models** (`meta/llama-3.3-70b-instruct` by default via `integrate.api.nvidia.com`; any NVIDIA API model can be set with `VERA_MODEL_ID`):
+
+| Agent | What it decides |
+|---|---|
+| Charge Investigator | Whether the charge matches the purchase order, delivery and card records |
+| Receipt Document Reviewer | Whether the receipt agrees with the order and what was received |
+| Related Transaction Investigator | Which other charges at the merchant belong to the same pattern |
+| Cardholder Follow-up | Which targeted questions to ask the cardholder, from the open findings |
+| Response Reviewer | Whether the cardholder's reply resolves, contradicts or leaves open each finding |
+| Live Verification Agent | The answers given on the verification call, grounded in the transcript |
+| Decision Packet Preparer | The cited summary and recommendation a reviewer decides on |
+| Dispute Packet Preparer | The network reason code and cited dispute narrative |
+| Prevention Planner | Which card controls would stop a repeat |
+
+Each agent runs a tool-calling loop: the model decides which evidence fields to read through a scoped tool gateway (up to four rounds), then returns typed findings. Every finding must cite fields the agent actually read; output that fails the schema or cites evidence it never read is rejected, and the agent is re-prompted with the reason (up to two retries).
+
+### Orchestration with LangGraph
+
+Workflows are data: versioned node and edge lists that compile to a LangGraph `StateGraph`, checkpointed in Postgres so a run resumes where it stopped after a worker restart. The investigation graph fans out and joins:
+
+```
+            ┌─► Charge Investigator ──────────────┐
+  start ────┤                                     ├─► Receipt Document Reviewer ─► Policy check ─► end
+            └─► Related Transaction Investigator ─┘
+```
+
+The verification call is a second graph that pauses on a LangGraph `interrupt` after the analyst approves the questions and the cardholder consents, and resumes only when the provider's signed webhook delivers the transcript. Follow-up questions, response review, decision and dispute packets, and the prevention plan run as jobs on a Postgres-backed queue as the case reaches each step.
+
+The agents gather evidence and recommend; they never move money or change a case on their own. A deterministic Policy Controller and a human reviewer gate every credit, dispute and card control.
+
+`infra/demo.sh up` starts in **replay** mode, which feeds each agent a recorded model response through the same loop and validators, so the demo is repeatable offline. `infra/demo.sh live` (with `NVIDIA_API_KEY` exported) runs the agents against the live NVIDIA endpoint.
+
+## Architecture
 
 ```
 Next.js UI ──► FastAPI command gateway ──► PostgreSQL
