@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from vera_domain.enums import CaseState, CaseStep, StateKind
+from vera_domain.enums import CaseState, CaseStep, Role, StateKind
+from vera_domain.facts import Hold
 
 
 class Person(BaseModel):
@@ -50,6 +52,29 @@ class ChargeImpact(BaseModel):
     note: str
 
 
+class ActionView(BaseModel):
+    command: str
+    label: str
+    role: Role
+    style: Literal["primary", "secondary", "dark", "ghost"]
+    enabled: bool
+    blocked_reason: str | None = None
+    expected_state: CaseState
+    expected_step: CaseStep
+    safe_note: str | None = None
+    confirm: str | None = None
+    idempotency_key: str  # always fully resolved: the client echoes it as given
+    payload_defaults: dict[str, Any] = {}  # server-allocated payload fields; merge under the input
+    key_template: str | None = None  # informational only: never something the client fills in
+
+
+class BlockedAction(BaseModel):
+    command: str
+    label: str
+    reason: str
+    blocked_reason: str  # same text as `reason`; both names are accepted by clients
+
+
 class CaseView(BaseModel):
     case_id: str
     case_version: int
@@ -65,7 +90,10 @@ class CaseView(BaseModel):
     transaction: TransactionView
     cardholder: CardholderView
     charge_impact: ChargeImpact
-    available_actions: list[object]
+    available_actions: list[ActionView]
+    blocked_actions: list[BlockedAction] = []
+    recovery_actions: list[str] = []
+    hold: Hold | None = None
 
 
 class QueueRow(BaseModel):

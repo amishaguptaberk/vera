@@ -29,6 +29,8 @@ def test_reset_then_read_canonical_case_and_reset_is_repeatable(
     assert seed["cases"] == 6
     assert seed["reports"] == 1
     assert seed["audit_events"] == 2
+    assert seed["users"] == 3
+    assert seed["idempotency_keys"] == 0
 
     # Dirty the database: append-only rows added and a case edited.
     dup = {"report_id": "REP-1043", "transaction_id": "TXN-1042", "statement": "second"}
@@ -38,6 +40,7 @@ def test_reset_then_read_canonical_case_and_reset_is_repeatable(
         conn.execute(text("update cases set state='closed' where id='CHG-1042'"))
     engine.dispose()
     assert counts()["audit_events"] == seed["audit_events"] + 1
+    assert counts()["idempotency_keys"] == seed["idempotency_keys"] + 1
     assert client.get("/api/cases/CHG-1042").json()["state"] == "closed"
 
     assert client.post("/api/demo/reset").status_code == 200
@@ -58,7 +61,7 @@ def test_queue_rows_and_non_openable_display_cases(client: TestClient) -> None:
 
     resp = client.get("/api/cases/CHG-1029")
     assert resp.status_code == 404
-    assert resp.json()["detail"]["code"] == "case_not_openable"
+    assert resp.json()["code"] == "case_not_openable"
     assert client.get("/api/cases/CHG-9999").status_code == 404
 
 
@@ -95,8 +98,12 @@ def test_duplicate_report_links_to_existing_case(client: TestClient) -> None:
     assert r2.json() == {"case_id": "CHG-1042", "report_id": "REP-1042", "created": False}
     after = counts()
     assert after["cases"] == base["cases"]
-    assert after["reports"] == base["reports"]
+    assert after["reports"] == base["reports"] + 1  # the linked report is stored on the case
     assert after["audit_events"] == base["audit_events"] + 1
+    assert after["state_transitions"] == base["state_transitions"] + 1
+    assert after["idempotency_keys"] == base["idempotency_keys"] + 1
+    assert client.post("/api/reports", json=other).status_code == 200
+    assert counts() == after  # a retried duplicate adds no second event
 
 
 def test_report_is_a_claim_and_history_is_append_only(client: TestClient, db_url: str) -> None:
@@ -126,7 +133,7 @@ def test_report_for_display_transaction_is_typed_409(client: TestClient) -> None
         body = {"report_id": report_id, "transaction_id": txn, "statement": "x"}
         resp = client.post("/api/reports", json=body)
         assert resp.status_code == 409
-        assert resp.json()["detail"]["code"] == "case_not_openable"
+        assert resp.json()["code"] == "case_not_openable"
 
 
 def test_timestamps_are_utc(client: TestClient) -> None:
