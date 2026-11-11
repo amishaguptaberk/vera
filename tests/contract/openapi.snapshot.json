@@ -789,6 +789,43 @@
         "title": "EvidenceSummary",
         "type": "object"
       },
+      "FaultRequest": {
+        "properties": {
+          "adapter": {
+            "minLength": 1,
+            "title": "Adapter",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "fail",
+              "uncertain",
+              "timeout"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "operation": {
+            "minLength": 1,
+            "title": "Operation",
+            "type": "string"
+          },
+          "times": {
+            "default": 1,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Times",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "adapter",
+          "operation",
+          "mode"
+        ],
+        "title": "FaultRequest",
+        "type": "object"
+      },
       "FilterCounts": {
         "description": "Counts for the queue filter chips (prototype `FL`), computed with the demo clock.",
         "properties": {
@@ -2266,6 +2303,46 @@
           }
         },
         "summary": "List Runs"
+      }
+    },
+    "/api/demo/adapter-fault": {
+      "post": {
+        "operationId": "post_adapter_fault_api_demo_adapter_fault_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaultRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Post Adapter Fault Api Demo Adapter Fault Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Adapter Fault"
       }
     },
     "/api/demo/counts": {
