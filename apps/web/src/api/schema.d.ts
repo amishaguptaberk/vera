@@ -543,6 +543,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{case_id}/decision-packet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Decision Packet */
+        get: operations["get_decision_packet_api_cases__case_id__decision_packet_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ask Pairs */
+        get: operations["list_ask_pairs_api_cases__case_id__ask_get"];
+        put?: never;
+        /**
+         * Ask
+         * @description Read-only: fixed answers from stored rows. No model call, no command, no audit event.
+         */
+        post: operations["ask_api_cases__case_id__ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/automations/commands/{name}": {
         parameters: {
             query?: never;
@@ -770,6 +808,82 @@ export interface components {
             expected_case_version: number;
             /** Approve */
             approve: boolean;
+        };
+        /** ApprovalView */
+        ApprovalView: {
+            /** Approval Id */
+            approval_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Transaction Id */
+            transaction_id: string;
+            /** Packet Version */
+            packet_version: number;
+            /** Snapshot Hash */
+            snapshot_hash: string;
+            /** Policy Version */
+            policy_version: number;
+            /** Workflow Version */
+            workflow_version: number;
+            /** Status */
+            status: string;
+            /** Reviewer Id */
+            reviewer_id: string;
+            /** Return Reason */
+            return_reason?: string | null;
+            /** Return Next Step */
+            return_next_step?: string | null;
+            /** Return Owner Id */
+            return_owner_id?: string | null;
+        };
+        /**
+         * AskAction
+         * @description A button to render. Never auto-run; a command is one the server offers this role now.
+         */
+        AskAction: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Target */
+            target?: string | null;
+            /** Command */
+            command?: string | null;
+        };
+        /** AskIn */
+        AskIn: {
+            /** Text */
+            text: string;
+            /** Role */
+            role?: string | null;
+            /** Last Intent */
+            last_intent?: string | null;
+        };
+        /** AskOut */
+        AskOut: {
+            /** Intent */
+            intent: string;
+            /** Title */
+            title: string;
+            /** Paragraphs */
+            paragraphs: string[];
+            /** Cites */
+            cites: components["schemas"]["Citation"][];
+            /** Actions */
+            actions: components["schemas"]["AskAction"][];
+            /** Signature */
+            signature: string;
+        };
+        /** AskPairView */
+        AskPairView: {
+            /** Question */
+            question: string;
+            answer: components["schemas"]["AskOut"];
+            /**
+             * Asked At
+             * Format: date-time
+             */
+            asked_at: string;
         };
         /** AssignableUser */
         AssignableUser: {
@@ -1014,6 +1128,28 @@ export interface components {
             /** Stale Reason */
             stale_reason: string | null;
         };
+        /** Citation */
+        Citation: {
+            /** Record Id */
+            record_id: string;
+            /** Version */
+            version: number;
+            /** Field */
+            field: string;
+        };
+        /** CitedRecord */
+        CitedRecord: {
+            /** Record Id */
+            record_id: string;
+            /** Kind */
+            kind: string;
+            /** Version */
+            version: number;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+        };
         /** CommunicationDetail */
         CommunicationDetail: {
             /** Id */
@@ -1094,6 +1230,58 @@ export interface components {
             email: string;
             /** Verified At */
             verified_at: string | null;
+        };
+        /** DecisionPacketView */
+        DecisionPacketView: {
+            /** Case Id */
+            case_id: string;
+            /** Version */
+            version: number;
+            /** Latest Version */
+            latest_version: number;
+            /** Current */
+            current: boolean;
+            /** Snapshot Hash */
+            snapshot_hash: string;
+            /** Workflow Version */
+            workflow_version: number;
+            /** Policy Version */
+            policy_version: number;
+            /** Policy Evaluation Id */
+            policy_evaluation_id: number | null;
+            /** Packet Status */
+            packet_status: string;
+            preparer: components["schemas"]["PreparerView"];
+            /** Statements */
+            statements: components["schemas"]["PacketStatement"][];
+            /** Recommendation */
+            recommendation: string | null;
+            /** Recommendation Reasons */
+            recommendation_reasons: components["schemas"]["PacketStatement"][];
+            /** Open Conflicts */
+            open_conflicts: {
+                [key: string]: unknown;
+            }[];
+            /** Missing */
+            missing: string[];
+            /** Policy */
+            policy: {
+                [key: string]: unknown;
+            } | null;
+            /** Decision */
+            decision: string | null;
+            approval: components["schemas"]["ApprovalView"] | null;
+            /** Cited Records */
+            cited_records: components["schemas"]["CitedRecord"][];
+            /** Actions */
+            actions: components["schemas"]["PacketAction"][];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** DraftOut */
         DraftOut: {
@@ -1422,6 +1610,22 @@ export interface components {
             /** Outcome */
             outcome: string;
         };
+        /** PacketAction */
+        PacketAction: {
+            /** Command */
+            command: string;
+            /** Label */
+            label: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** PacketStatement */
+        PacketStatement: {
+            /** Text */
+            text: string;
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+        };
         /** Person */
         Person: {
             /** Id */
@@ -1484,6 +1688,19 @@ export interface components {
              * Format: date-time
              */
             evaluated_at: string;
+        };
+        /** PreparerView */
+        PreparerView: {
+            /** Run Id */
+            run_id: string;
+            /** Status */
+            status: string;
+            /** Execution Mode */
+            execution_mode: string | null;
+            /** Model Id */
+            model_id: string | null;
+            /** Failure Reason */
+            failure_reason: string | null;
         };
         /** ProgressStep */
         ProgressStep: {
@@ -2914,6 +3131,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OutcomeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_packet_api_cases__case_id__decision_packet_get: {
+        parameters: {
+            query?: {
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionPacketView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ask_pairs_api_cases__case_id__ask_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskPairView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_api_cases__case_id__ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
                 };
             };
             /** @description Validation Error */
