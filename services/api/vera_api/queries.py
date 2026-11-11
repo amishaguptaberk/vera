@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -7,14 +8,15 @@ from sqlalchemy.orm import Session
 from vera_domain.commands import REGISTRY, available_actions
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.exposure import CreditStatus, ExposureRow, case_impact, compute_exposure
-from vera_domain.facts import Hold
-from vera_domain.labels import describe
+from vera_domain.facts import Hold, derive_step
+from vera_domain.labels import BLOCKER_BY_STEP, WAIT_KIND_BY_STEP, describe
 from vera_domain.models import (
     CardholderView,
     CaseView,
     ChargeImpact,
     ContactOnFile,
     Due,
+    FilterCounts,
     Person,
     Pins,
     QueueRow,
@@ -22,9 +24,14 @@ from vera_domain.models import (
     SummaryMetric,
     TransactionView,
 )
+from vera_domain.progress import ProgressStep, progress_steps
+from vera_domain.specialists import StepStatus
 
+from vera_api import auth
 from vera_api import policy as policy_service
+from vera_api.gateway import facts_of
 from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
+from vera_api.models_runs import WorkflowRun, WorkflowStep
 
 
 class CaseNotFoundError(LookupError):
@@ -54,6 +61,11 @@ def _mask_phone(phone: str) -> str:
 
 
 def list_cases(session: Session, now: datetime, tz: str) -> list[QueueRow]:
+    return [row for row, _ in _queue(session, now, tz)]
+
+
+def _queue(session: Session, now: datetime, tz: str) -> list[tuple[QueueRow, str]]:
+    """Queue rows with the id of the person the case is with (hold's next owner, else owner)."""
     stmt = (
         select(Case, CardTransaction, Merchant, User)
         .join(CardTransaction, CardTransaction.id == Case.transaction_id)
@@ -61,25 +73,100 @@ def list_cases(session: Session, now: datetime, tz: str) -> list[QueueRow]:
         .join(User, User.id == Case.owner_id)
         .order_by(Case.due_at.asc().nulls_last(), Case.id)
     )
-    rows: list[QueueRow] = []
+    rows: list[tuple[QueueRow, str]] = []
     for case, txn, merchant, owner in session.execute(stmt):
         state, step = CaseState(case.state), CaseStep(case.step)
-        rows.append(
-            QueueRow(
-                case_id=case.id,
-                merchant=merchant.name,
-                amount_cents=txn.amount_cents,
-                currency=txn.currency,
-                state=state,
-                step=step,
-                state_label=case.display_label or describe(state, step)[0],
-                owner=Person(id=owner.id, name=owner.name),
-                due=_due(case.due_at, now, tz),
-                credit_cents=case.credit_cents,
-                live=case.live,
-            )
+        hold = Hold.model_validate(case.hold) if case.hold else None
+        if case.live:
+            waiting = _waiting_on(session, case, txn)
+            next_action: str | None = describe(state, step)[2]
+            waiting_on = waiting.name if waiting else None
+            blocker = BLOCKER_BY_STEP.get(step)
+        else:
+            next_action = case.display_next_action
+            waiting_on = case.display_waiting_on
+            blocker = case.display_blocker
+        due = _due(case.due_at, now, tz)
+        row = QueueRow(
+            case_id=case.id,
+            merchant=merchant.name,
+            amount_cents=txn.amount_cents,
+            currency=txn.currency,
+            state=state,
+            step=step,
+            state_label=case.display_label or describe(state, step)[0],
+            owner=Person(id=owner.id, name=owner.name),
+            due=due,
+            credit_cents=case.credit_cents,
+            live=case.live,
+            next_action=next_action,
+            waiting_on=waiting_on,
+            blocker=blocker,
+            wait_kind=WAIT_KIND_BY_STEP.get(step),
+            due_today=_due_today(case.due_at, now, tz, closed=state == CaseState.CLOSED),
         )
+        rows.append((row, hold.next_owner_id if hold else owner.id))
     return rows
+
+
+def _due_today(due_at: datetime | None, now: datetime, tz: str, *, closed: bool) -> bool:
+    if due_at is None or closed or due_at < now:
+        return False
+    zone = ZoneInfo(tz)
+    return due_at.astimezone(zone).date() == now.astimezone(zone).date()
+
+
+def filter_counts(session: Session, now: datetime, tz: str, user_id: str) -> FilterCounts:
+    """Queue filter chip counts (prototype `FL`), server-side with the demo clock."""
+    rows = _queue(session, now, tz)
+
+    def count(pred: Callable[[QueueRow, str], bool]) -> int:
+        return sum(1 for row, with_id in rows if pred(row, with_id))
+
+    return FilterCounts(
+        all=len(rows),
+        due_today=count(lambda r, _: r.due_today),
+        overdue=count(lambda r, _: r.state != CaseState.CLOSED and bool(r.due and r.due.overdue)),
+        mine=count(
+            lambda r, who: who == user_id and r.wait_kind is None and r.state != CaseState.CLOSED
+        ),
+        cardholder=count(lambda r, _: r.wait_kind == "cardholder"),
+        reviewer=count(lambda r, _: r.wait_kind == "reviewer"),
+    )
+
+
+def _waiting_on(session: Session, case: Case, txn: CardTransaction) -> Person | None:
+    """Who a live case waits on: the hold's next owner, else the party its step waits on."""
+    if case.hold:
+        return _person(session, Hold.model_validate(case.hold).next_owner_id)
+    kind = WAIT_KIND_BY_STEP.get(CaseStep(case.step))
+    if kind == "cardholder":
+        holder = session.get(Cardholder, txn.cardholder_id)
+        return Person(id=holder.profile_id, name=holder.name) if holder else None
+    if kind == "reviewer":
+        reviewer = session.get(User, case.waiting_on_id) if case.waiting_on_id else None
+        reviewer = reviewer or auth.user_for_role(session, Role.REVIEWER)
+        return Person(id=reviewer.id, name=reviewer.name) if reviewer else None
+    return None
+
+
+def _steps(session: Session, case: Case) -> list[ProgressStep]:
+    held_step = derive_step(facts_of(case).model_copy(update={"hold": None}))[1]
+    latest = session.scalars(
+        select(WorkflowRun.id)
+        .where(WorkflowRun.case_id == case.id)
+        .order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
+        .limit(1)
+    ).first()
+    failed = latest is not None and (
+        session.scalars(
+            select(WorkflowStep.step_key).where(
+                WorkflowStep.run_id == latest, WorkflowStep.status == StepStatus.FAILED.value
+            )
+        ).first()
+        is not None
+    )
+    return progress_steps(CaseStep(case.step), held_step=held_step, run_failed=failed)
 
 
 def _exposure_row(case: Case, txn: CardTransaction) -> ExposureRow:
@@ -160,7 +247,7 @@ def get_case_view(
         state_kind=kind,
         next_action=next_action,
         owner=_person(session, case.owner_id),
-        waiting_on=None,
+        waiting_on=_waiting_on(session, case, txn),
         due=_due(case.due_at, now, tz),
         pins=Pins(
             workflow_version=case.workflow_version,
@@ -190,4 +277,5 @@ def get_case_view(
         recovery_actions=[],
         hold=Hold.model_validate(case.hold) if case.hold else None,
         policy=policy_service.latest_view(session, case.id),
+        steps=_steps(session, case),
     )

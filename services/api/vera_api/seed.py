@@ -36,6 +36,9 @@ class DisplayRow:
     step: CaseStep
     due: tuple[int, int, int, int] | None  # month, day, hour, minute (2026)
     credit_cents: int = 0
+    next_action: str | None = None  # spec prototype dashRows(): next / waiting / blocker
+    waiting_on: str | None = None
+    blocker: str | None = None
 
 
 DISPLAY_ROWS = [
@@ -47,6 +50,9 @@ DISPLAY_ROWS = [
         CaseState.WAITING_ON_CARDHOLDER,
         CaseStep.NORESP1,
         (11, 10, 7, 0),
+        next_action="Send reminder or reassign",
+        waiting_on="Marcus Chen",
+        blocker="Reply overdue",
     ),
     DisplayRow(
         "CHG-1039",
@@ -56,6 +62,9 @@ DISPLAY_ROWS = [
         CaseState.REVIEWER_PENDING,
         CaseStep.WAITRV,
         (11, 10, 14, 0),
+        next_action="Open reviewer decision",
+        waiting_on="Dana Okafor",
+        blocker="Reviewer approval",
     ),
     DisplayRow(
         "CHG-1051",
@@ -65,6 +74,9 @@ DISPLAY_ROWS = [
         CaseState.INVESTIGATING,
         CaseStep.INTAKE,
         (11, 10, 17, 0),
+        next_action="Investigate related charge",
+        waiting_on=None,
+        blocker="Not investigated",
     ),
     DisplayRow(
         "CHG-1036",
@@ -75,6 +87,9 @@ DISPLAY_ROWS = [
         CaseStep.DSP_SUBMIT,
         (11, 11, 10, 0),
         396000,
+        next_action="Review merchant response",
+        waiting_on="Kessler Supply",
+        blocker="Merchant response",
     ),
     DisplayRow(
         "CHG-1033",
@@ -84,6 +99,9 @@ DISPLAY_ROWS = [
         CaseState.WAITING_ON_CARDHOLDER,
         CaseStep.WAITING,
         (11, 12, 12, 0),
+        next_action="Send reminder or reassign",
+        waiting_on="Ana Ruiz",
+        blocker="Receipt missing",
     ),
 ]
 
@@ -169,6 +187,9 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
                 credit_status="issued" if row.credit_cents else None,
                 live=False,
                 display_label=row.label,
+                display_next_action=row.next_action,
+                display_waiting_on=row.waiting_on,
+                display_blocker=row.blocker,
             )
         )
     session.flush()
