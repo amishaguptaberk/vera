@@ -15,6 +15,7 @@ from vera_domain.clock import default_demo_clock
 from vera_domain.commands import PolicyState
 from vera_domain.enums import EventType, Role
 from vera_domain.errors import CommandError
+from vera_domain.evidence import EvidenceSummary
 from vera_domain.models import PolicyView
 from vera_domain.policy import (
     POLICY_ID,
@@ -27,6 +28,7 @@ from vera_domain.policy import (
     policy_input_from,
 )
 
+from vera_api import evidence as evidence_service
 from vera_api.auth import Actor
 from vera_api.intake import _emit
 from vera_api.models import Cardholder as CardholderRow
@@ -63,17 +65,13 @@ def _version(session: Session, version: int) -> PolicyVersion:
     return PolicyVersion(version=row.version, rules=[Rule.model_validate(r) for r in row.rules])
 
 
-def _evidence_summary(session: Session, case_id: str) -> Any:
-    try:
-        from vera_api.evidence import get_evidence_summary  # type: ignore[import-not-found,unused-ignore]
-    except ImportError:  # replaced at merge with VER-004: the evidence module is absent here
-        return None
-    return get_evidence_summary(session, case_id)
+def _evidence_summary(session: Session, case_id: str) -> EvidenceSummary:
+    return evidence_service.get_evidence_summary(session, case_id)
 
 
 def load_policy_input(session: Session, case_id: str) -> PolicyInput:
     """THE seam for evidence. Case/transaction facts come from this tree; records, conflicts,
-    missing kinds and the snapshot hash come from the evidence summary when it exists."""
+    missing kinds and the snapshot hash come from the evidence summary."""
     case = session.get(Case, case_id)
     if case is None:
         raise CommandError("case_not_found", 404, "No such case.")
@@ -109,6 +107,10 @@ def _latest(session: Session, case_id: str, snapshot: str | None = None) -> Poli
     if snapshot is not None:
         stmt = stmt.where(PolicyEvaluation.snapshot_hash == snapshot)
     return session.scalars(stmt.order_by(PolicyEvaluation.id.desc())).first()
+
+
+def has_evaluation(session: Session, case_id: str) -> bool:
+    return _latest(session, case_id) is not None
 
 
 def store(

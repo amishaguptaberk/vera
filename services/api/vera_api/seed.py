@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from vera_domain.clock import Clock, demo_local
 from vera_domain.enums import CaseState, CaseStep, Role
 
+from vera_api.evidence import seed_evidence
 from vera_api.intake import EMPTY_SNAPSHOT, POLICY_VERSION, WORKFLOW_VERSION, submit_report
 from vera_api.models import (
     ALL_TABLES,
@@ -179,3 +180,4 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
         now=demo_local(tz, 2026, 11, 10, 8, 52),
         due_at=demo_local(tz, 2026, 11, 10, 12, 0),
     )
+    seed_evidence(session, clock.now())
