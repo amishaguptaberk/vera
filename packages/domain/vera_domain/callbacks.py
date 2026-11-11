@@ -1,12 +1,14 @@
 """Verification callback (VER-007): payloads, command specs, reducers (pure)."""
 
-from typing import Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from vera_domain.commands import EventDraft, Payload, ReduceContext, Reduction, StepSet
 from vera_domain.enums import CaseState, CaseStep
 from vera_domain.facts import CaseFacts
+from vera_domain.specialists import Finding, SpecialistSpec
 
 MAX_ATTEMPTS = 2  # Handoff 7.2: two attempts per response
 TARGET_RECORD = "PRF-4418"
@@ -37,11 +39,17 @@ class Answer(Payload):
 
 
 class RecordCallbackPayload(Payload):
+    """The validated Live Verification Agent output for one call (service principal only)."""
+
     callback_id: str
+    run_id: str
     outcome: Outcome
-    transcript: list[Line]
     authorization_answer: Literal["authorized", "unauthorized"] | None = None
     answers: list[Answer] = []
+
+
+class RetryAgentPayload(Payload):
+    mode: Literal["live", "replay"]
 
 
 class CallbackNotePayload(Payload):
@@ -90,7 +98,12 @@ def reduce_start(f: CaseFacts, p: StartCallbackPayload, ctx: ReduceContext) -> R
                 {"questions": [q.id for q in p.questions]},
             )
         ],
-        result={"callback_id": cid, "attempt": ctx.extra["attempt"]},
+        result={
+            "callback_id": cid,
+            "attempt": ctx.extra["attempt"],
+            "run_id": ctx.extra.get("run_id"),
+            "job_id": ctx.extra.get("job_id"),
+        },
     )
 
 
@@ -116,4 +129,138 @@ def reduce_note(f: CaseFacts, p: CallbackNotePayload, ctx: ReduceContext) -> Red
         reason="Callback note",
         events=[EventDraft("callback.note_added", "Note added to the call", [p.callback_id])],
         result={"callback_id": p.callback_id, "note_id": ctx.extra["note_id"]},
+    )
+
+
+# ---- Live Verification Agent (specialist) ----------------------------------------------------
+
+AGENT = "live_verification_agent"
+AGENT_PROMPT_VERSION = "v1"
+
+
+class AgentInput(BaseModel):
+    case_id: str
+    callback_id: str
+    question_fields: list[str]  # "question:{id}" field names on the callback record
+    line_fields: list[str]  # "line:{seq}" field names on the callback record
+
+
+class AgentAnswer(BaseModel):
+    question_id: str
+    answer: Literal["yes", "no", "unclear"]
+    line_seq: int = Field(ge=1)
+    quote: str  # exact text of the cited transcript line
+
+
+class AgentOutput(BaseModel):
+    outcome: Outcome
+    result: Literal["confirmed", "failed"]
+    authorization_answer: Literal["authorized", "unauthorized"] | None = None
+    outcome_line_seq: int = Field(ge=1)
+    outcome_quote: str
+    answers: list[AgentAnswer] = []
+
+    @model_validator(mode="after")
+    def _consistent(self) -> "AgentOutput":
+        if (self.result == "confirmed") != (self.outcome == "confirmed"):
+            raise ValueError("result is confirmed exactly when the outcome is confirmed")
+        return self
+
+
+def agent_findings(callback_id: str) -> Callable[[BaseModel], list[Finding]]:
+    """Every answer cites its approved question and one transcript line (exact text)."""
+
+    def findings(output: BaseModel) -> list[Finding]:
+        out = AgentOutput.model_validate(output.model_dump())
+        found = [
+            Finding(
+                record_id=callback_id,
+                version=1,
+                field=f"line:{out.outcome_line_seq}",
+                value=out.outcome_quote,
+                statement=f"outcome {out.outcome}",
+            )
+        ]
+        for a in out.answers:
+            found.append(
+                Finding(
+                    record_id=callback_id,
+                    version=1,
+                    field=f"question:{a.question_id}",
+                    value=a.question_id,
+                    statement="approved question",
+                )
+            )
+            found.append(
+                Finding(
+                    record_id=callback_id,
+                    version=1,
+                    field=f"line:{a.line_seq}",
+                    value=a.quote,
+                    statement=f"answer to {a.question_id}",
+                )
+            )
+        return found
+
+    return findings
+
+
+AGENT_PURPOSE = (
+    "Live Verification Agent. Purpose: you ran an analyst-approved verification call to the "
+    "contact on file. Read the approved questions and the call transcript with the read_field "
+    "tool (record = the callback id; fields 'question:{id}' return the question id, 'line:{seq}' "
+    "return the exact transcript line). Report the structured result: outcome (confirmed = the "
+    "contact answered and confirmed every approved question; contradicted = the contact denied; "
+    "voicemail; no_answer; incomplete = the call ended before the questions were answered), "
+    "result (confirmed only when outcome is confirmed, else failed), authorization_answer when "
+    "the contact stated it, and one answer per approved question you could ask. Cite the "
+    "transcript line that supports the outcome and each answer with its exact text. You may "
+    "answer only the approved questions. You make no credit or policy decision. Reply with one "
+    "JSON object only."
+)
+
+
+def agent_messages(inputs: AgentInput) -> list[dict[str, Any]]:
+    import json
+
+    schema = AgentOutput.model_json_schema()
+    return [
+        {
+            "role": "system",
+            "content": f"{AGENT_PURPOSE}\n\nOutput JSON schema: {json.dumps(schema)}",
+        },
+        {"role": "user", "content": json.dumps(inputs.model_dump(), sort_keys=True)},
+    ]
+
+
+def build_agent_spec(callback_id: str) -> SpecialistSpec:
+    def messages(inputs: BaseModel) -> list[dict[str, Any]]:
+        return agent_messages(AgentInput.model_validate(inputs.model_dump()))
+
+    return SpecialistSpec(
+        name=AGENT,
+        prompt_version=AGENT_PROMPT_VERSION,
+        input_schema=AgentInput,
+        output_schema=AgentOutput,
+        allowed_tools=frozenset({"read_field"}),
+        allowed_record_ids=lambda _case_id: frozenset({callback_id}),
+        build_messages=messages,
+        findings_of=agent_findings(callback_id),
+    )
+
+
+def reduce_retry(f: CaseFacts, p: RetryAgentPayload, ctx: ReduceContext) -> Reduction:
+    cid = ctx.extra.get("callback_id", "")
+    return Reduction(
+        facts=f,
+        reason="Agent retried",
+        events=[
+            EventDraft(
+                "callback.agent_retried",
+                f"Live Verification Agent retried ({p.mode})",
+                [cid],
+                {"mode": p.mode},
+            )
+        ],
+        result={k: ctx.extra.get(k) for k in ("callback_id", "run_id", "mode", "job_id")},
     )
