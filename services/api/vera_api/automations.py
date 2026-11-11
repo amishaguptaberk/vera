@@ -906,5 +906,8 @@ plugins.register_reset_tables(
         "workflow_drafts",
         "workflow_versions",
         "workflow_definitions",
+        # Published policy versions > 1 come only from publish_policy_version; the demo reset
+        # truncates them and seed.py re-seeds v1.
+        "policy_versions",
     ]
 )
