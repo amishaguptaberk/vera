@@ -285,6 +285,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/demo/adapter-fault": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Adapter Fault */
+        post: operations["post_adapter_fault_api_demo_adapter_fault_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session/role": {
         parameters: {
             query?: never;
@@ -625,6 +642,23 @@ export interface components {
             open_conflicts: components["schemas"]["OpenConflict"][];
             /** Missing */
             missing: string[];
+        };
+        /** FaultRequest */
+        FaultRequest: {
+            /** Adapter */
+            adapter: string;
+            /** Operation */
+            operation: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "fail" | "uncertain" | "timeout";
+            /**
+             * Times
+             * @default 1
+             */
+            times: number;
         };
         /**
          * FilterCounts
@@ -1480,6 +1514,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_adapter_fault_api_demo_adapter_fault_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaultRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

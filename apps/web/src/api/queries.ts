@@ -13,7 +13,7 @@ export type SummaryBody = S['Summary'] | Record<string, unknown>;
 
 export const casesKey = ['cases'] as const;
 /** Client errors (403 role_forbidden, 404) are final; only transient failures retry. */
-const retryTransient = (n: number, e: unknown) => !(e instanceof ApiError && e.status >= 400 && e.status < 500) && n < 2;
+const retryTransient = (n: number, e: Error) => !(e instanceof ApiError && e.status >= 400 && e.status < 500) && n < 2;
 export const caseKey = (id: string) => ['case', id] as const;
 
 export const casesListQuery = queryOptions({
@@ -69,6 +69,7 @@ export const evidenceQuery = (id: string) =>
     queryFn: ({ signal }) => apiGet<EvidenceRegister>(`/cases/${encodeURIComponent(id)}/evidence`, signal),
     refetchInterval: CASE_POLL_MS,
     placeholderData: keepPreviousData,
+    retry: retryTransient,
   });
 
 export const evidenceRecordQuery = (id: string, recordId: string) =>
