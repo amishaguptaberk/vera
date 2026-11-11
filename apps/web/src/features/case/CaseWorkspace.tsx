@@ -303,7 +303,9 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const recovery = recoveryActions(c);
   const synthetic = session.data?.environment === 'synthetic';
   const role = session.data ? viewForRole(session.data.active_role) : null;
-  const slot: CaseSlotProps = { caseId, c, role, sel, onSelectRecord: selectRecord };
+  // Mounted blocks and the Decision tab see the same pruned blocked list as the ActionBar.
+  const cv: CaseView = { ...c, blocked_actions: c.blocked_actions.filter((x) => !wrongStep(x, c)) };
+  const slot: CaseSlotProps = { caseId, c: cv, role, sel, onSelectRecord: selectRecord };
   const block = taskBlockFor(caseRegistry, c, role);
   const mounted = panelsFor(caseRegistry, tab);
   const hidden = block?.hides?.(c) ?? [];
@@ -423,7 +425,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                 </div>
               ) : null}
               {/* The policy block always shows; a mounted decision packet stacks below it. */}
-              {tab === 'decision' ? <DecisionPanel c={c} /> : null}
+              {tab === 'decision' ? <DecisionPanel c={cv} /> : null}
               {tab === 'trace' ? <RunDetails c={c} ev={evidence.data} recovery={recovery} onRecovery={onAction} /> : null}
               {mounted.map((m) => (
                 <div key={m.key} data-testid={`tab-panel-${m.key}`}>

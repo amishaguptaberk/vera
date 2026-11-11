@@ -66,5 +66,15 @@ test('journey: follow-up → cardholder reply with attachment → analyst review
   await page.reload();
   const decided = await caseView(request);
   await expect(page.getByTestId('case-state')).toHaveText(decided.state_label);
+
+  // A dispute decision moves to the money tracks: the money task block renders the server's actions.
+  if (decided.step === 'dsp_prepare') {
+    await expect(page.getByTestId('task-block-money')).toBeVisible();
+    const before = decided.case_version;
+    await page.getByTestId('task-block-money').getByRole('button', { name: 'Prepare dispute packet' }).click();
+    await expect.poll(async () => (await caseView(request)).case_version, { timeout: 15_000 }).toBeGreaterThan(before);
+    const moved = await caseView(request);
+    await expect(page.getByTestId('case-state')).toHaveText(moved.state_label);
+  }
   test.info().annotations.push({ type: 'reached', description: `${decided.state} / ${decided.step}: ${decided.available_actions.map((a: { command: string }) => a.command).join(', ')}` });
 });
