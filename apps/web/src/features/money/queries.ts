@@ -1,5 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
-import { apiGet, caseKey } from '@/api';
+import { CASE_POLL_MS, apiGet, caseKey } from '@/api';
 import type { ClosureChecklistBody, ExecutionsBody, FinalMessageBody, RemediationBody } from './contract';
 
 // Keys live under caseKey(id), so runCommand's invalidation refreshes them after every command.
@@ -22,6 +22,8 @@ export const remediationQuery = (id: string) =>
     queryKey: [...caseKey(id), 'remediation'] as const,
     queryFn: ({ signal }) => apiGet<RemediationBody>(`/cases/${encodeURIComponent(id)}/remediation`, signal),
     retry: false,
+    // The dispute narrative is prepared by a worker job: refresh until it is ready or failed.
+    refetchInterval: (q) => (q.state.data?.dispute.narrative_status === 'pending' ? CASE_POLL_MS : false),
   });
 
 export const finalMessageQuery = (id: string) =>

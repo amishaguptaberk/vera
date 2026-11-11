@@ -1,0 +1,103 @@
+{
+  "messages": [
+    {
+      "content": "Dispute Packet Preparer. Purpose: prepare the reason code and a short cited narrative for a card-network dispute packet that a finance analyst opens, reviews and submits. You submit nothing and change no case state. Choose reason_code from: unauthorized, goods_not_received, quantity_mismatch, amount_mismatch, duplicate. Read every value you use with the read_field tool, only from the permitted records (evidence register, open findings, response review, callback result). Write 1 to 5 statements; each statement cites exactly one value as record_id, version, field and value, exactly as read_field returned them. Reply with one JSON object only.\n\nOutput JSON schema: {\"$defs\": {\"Statement\": {\"properties\": {\"text\": {\"maxLength\": 500, \"minLength\": 1, \"title\": \"Text\", \"type\": \"string\"}, \"record_id\": {\"title\": \"Record Id\", \"type\": \"string\"}, \"version\": {\"minimum\": 1, \"title\": \"Version\", \"type\": \"integer\"}, \"field\": {\"title\": \"Field\", \"type\": \"string\"}, \"value\": {\"title\": \"Value\"}}, \"required\": [\"text\", \"record_id\", \"version\", \"field\", \"value\"], \"title\": \"Statement\", \"type\": \"object\"}}, \"properties\": {\"reason_code\": {\"enum\": [\"unauthorized\", \"goods_not_received\", \"quantity_mismatch\", \"amount_mismatch\", \"duplicate\"], \"title\": \"Reason Code\", \"type\": \"string\"}, \"statements\": {\"items\": {\"$ref\": \"#/$defs/Statement\"}, \"maxItems\": 5, \"minItems\": 1, \"title\": \"Statements\", \"type\": \"array\"}}, \"required\": [\"reason_code\", \"statements\"], \"title\": \"PreparerOutput\", \"type\": \"object\"}",
+      "role": "system"
+    },
+    {
+      "content": "{\"case_id\": \"CHG-1042\", \"permitted_records\": [{\"fields\": [\"amount_cents\", \"card_last4\", \"cardholder_id\", \"currency\", \"merchant\", \"posted_at\"], \"kind\": \"charge\", \"record_id\": \"CHG-1042\"}, {\"fields\": [\"amount_cents\"], \"kind\": \"related_charge\", \"record_id\": \"CHG-1048\"}, {\"fields\": [\"amount_cents\", \"merchant\"], \"kind\": \"related_charge\", \"record_id\": \"CHG-1051\"}, {\"fields\": [\"received_quantity\"], \"kind\": \"delivery_record\", \"record_id\": \"DLV-882\"}, {\"fields\": [\"approved_amount_cents\", \"approved_quantity\", \"merchant\"], \"kind\": \"purchase_order\", \"record_id\": \"PO-219\"}, {\"fields\": [\"statement\"], \"kind\": \"initial_report\", \"record_id\": \"REP-1042\"}], \"reason_codes\": [\"unauthorized\", \"goods_not_received\", \"quantity_mismatch\", \"amount_mismatch\", \"duplicate\"]}",
+      "role": "user"
+    }
+  ],
+  "response_schema": {
+    "$defs": {
+      "Statement": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text",
+          "record_id",
+          "version",
+          "field",
+          "value"
+        ],
+        "title": "Statement",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "reason_code": {
+        "enum": [
+          "unauthorized",
+          "goods_not_received",
+          "quantity_mismatch",
+          "amount_mismatch",
+          "duplicate"
+        ],
+        "title": "Reason Code",
+        "type": "string"
+      },
+      "statements": {
+        "items": {
+          "$ref": "#/$defs/Statement"
+        },
+        "maxItems": 5,
+        "minItems": 1,
+        "title": "Statements",
+        "type": "array"
+      }
+    },
+    "required": [
+      "reason_code",
+      "statements"
+    ],
+    "title": "PreparerOutput",
+    "type": "object"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Read one field of a record.",
+        "name": "read_field",
+        "parameters": {
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "record_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "record_id",
+            "field"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

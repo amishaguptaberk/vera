@@ -7,7 +7,7 @@ result is never treated as success: the credit row stays `uncertain` until `adap
 
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -268,6 +268,20 @@ def _dispute_step(expected: tuple[str, ...], new: str):  # type: ignore[no-untyp
     return effect
 
 
+def _prepare_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    payload: Any,
+    now: datetime,
+    ctx: EffectContext,
+    outcome: Outcome,
+) -> None:
+    from vera_api import dispute_prep  # the preparer drafts the reason and narrative; never gates
+
+    dispute_prep.enqueue_preparer(session, case.id, now)
+
+
 def _submit_effect(
     session: Session, case: Case, actor: Actor, payload: Any, now: datetime, ctx: EffectContext
 ) -> dict[str, Any]:
@@ -439,12 +453,23 @@ class CreditSummary(BaseModel):
     simulated: bool = True
 
 
+class NarrativeStatement(BaseModel):
+    text: str
+    record_id: str
+    version: int
+    field: str
+
+
 class DisputeSummary(BaseModel):
     status: str
     dispute_id: str | None = None
     submission_id: str | None = None
     submitted_at: datetime | None = None
     simulated: bool = True
+    # Dispute Packet Preparer output; never gates the track. None until a packet exists.
+    reason_code: str | None = None
+    narrative: list[NarrativeStatement] = []
+    narrative_status: Literal["pending", "ready", "failed"] | None = None
 
 
 class ControlsSummary(BaseModel):
@@ -473,11 +498,16 @@ def dispute_summary(session: Session, case_id: str) -> DisputeSummary:
     row = _one(session, DisputePacket, case_id)
     if row is None:
         return DisputeSummary(status="none")
+    from vera_api import dispute_prep
+
     return DisputeSummary(
         status=row.status,
         dispute_id=f"DSP-{row.id}",
         submission_id=row.submission_reference,
         submitted_at=row.submitted_at,
+        reason_code=row.reason_code,
+        narrative=[NarrativeStatement.model_validate(s) for s in row.narrative or []],
+        narrative_status=dispute_prep.narrative_status(session, row),
     )
 
 
@@ -534,6 +564,7 @@ gateway.register_commands(
         "reconcile_execution_result": _credit_after(
             "credit.confirmed", "{ref} issued once · nothing re-sent"
         ),
+        "prepare_dispute_packet": _prepare_after,
         "submit_dispute": _submit_after,
         "apply_card_controls": _apply_after,
     },

@@ -39,6 +39,7 @@ register_test_payloads(
         "approve_card_controls": {},
         "decline_card_controls": {"reason": "Not needed"},
         "apply_card_controls": {},
+        "retry_dispute_narrative": {"mode": "replay"},
     }
 )
 # What each money effect puts in ctx.extra: the stored track fact it mirrors.
@@ -655,3 +656,235 @@ def test_prevention_planner_live_over_mock_transport(
         text("select model_id from workflow_steps where step_key='prevention_planner'")
     ).scalar_one()
     assert row == "stub/live-model"
+
+
+# --- dispute packet preparer specialist ---
+
+DSP_REC = Path("evals/recordings/dispute_packet_preparer/v1")
+# The reference narrative (evals/recordings/dispute_packet_preparer/v1/CHG-1042.1.json), cited
+# from the seeded evidence: PO-219 approves 1 unit for $2,400; DLV-882 records 2; charge $2,840.
+NARRATIVE = [
+    ("PO-219", 1, "approved_quantity"),
+    ("PO-219", 1, "approved_amount_cents"),
+    ("DLV-882", 1, "received_quantity"),
+    ("CHG-1042", 1, "amount_cents"),
+]
+
+
+def _dispute_run(db: Session, mode: ExecutionMode) -> str:
+    from vera_api.runner import create_run
+
+    db.execute(text("delete from jobs"))
+    run_id = create_run(db, case_id=CASE, mode=mode, now=datetime(2031, 1, 1, tzinfo=UTC))
+    db.commit()
+    return run_id
+
+
+def _prepare(client: TestClient, db: Session) -> None:
+    issue(client)
+    db.execute(text("delete from jobs where kind = 'prevention_planner'"))
+    db.commit()
+    ok(client, "prepare_dispute_packet")
+    assert count(db, "select count(*) from jobs where kind='dispute_packet_preparer'") == 1
+
+
+def _dispute(client: TestClient) -> dict[str, Any]:
+    body = client.get(f"/api/cases/{CASE}/remediation").json()
+    return body["dispute"]  # type: ignore[no-any-return]
+
+
+def _assert_narrative(client: TestClient, db: Session) -> None:
+    d = _dispute(client)
+    assert d["narrative_status"] == "ready"
+    assert d["reason_code"] == "quantity_mismatch"
+    assert [(s["record_id"], s["version"], s["field"]) for s in d["narrative"]] == NARRATIVE
+    assert all(s["text"] for s in d["narrative"])
+    db.rollback()
+    actor = db.execute(
+        text("select actor_id from audit_events where type='dispute.narrative_recorded'")
+    ).scalar_one()
+    assert actor == "specialist:dispute_packet_preparer"
+    stored = db.execute(text("select reason_code from dispute_packets")).scalar_one()
+    assert stored == "quantity_mismatch"
+
+
+def test_dispute_preparer_replay_stores_a_grounded_narrative_on_the_packet(
+    client: TestClient,
+    db: Session,
+    approved: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from vera_api import dispute_prep, investigation
+
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", Path("evals/recordings"))
+    _dispute_run(db, ExecutionMode.REPLAY)
+    _prepare(client, db)
+    assert _dispute(client)["narrative_status"] == "pending"
+    _drain(db)
+    _assert_narrative(client, db)
+    row = db.execute(
+        text(
+            "select model_id, status, execution_mode from workflow_steps "
+            "where step_key='dispute_packet_preparer'"
+        )
+    ).one()
+    assert tuple(row) == ("reference-recording", "succeeded", "replay")
+    # The committed request file is what this case sends: ids, kinds and field names only.
+    dumped = dispute_prep.dump_request(db, CASE, tmp_path)
+    committed = Path("evals/requests/dispute_packet_preparer/v1/CHG-1042.json")
+    assert json.loads(dumped.read_text()) == json.loads(committed.read_text())
+    prompt = json.loads(committed.read_text())["messages"][1]["content"]
+    assert "284000" not in prompt and "Northstar" not in prompt and "PRF-4418" not in prompt
+
+
+def _bad_recordings(root: Path) -> None:
+    """The reference tool round, then a statement citing a value the source does not hold
+    (DLV-882 received 3 units), on every attempt the runner makes."""
+    out = root / "dispute_packet_preparer" / "v1"
+    out.mkdir(parents=True)
+    out.joinpath(f"{CASE}.json").write_text((DSP_REC / f"{CASE}.json").read_text())
+    bad = json.loads((DSP_REC / f"{CASE}.1.json").read_text())
+    bad["content"]["statements"][2]["value"] = 3
+    for n in (1, 2, 3):
+        out.joinpath(f"{CASE}.{n}.json").write_text(json.dumps(bad))
+
+
+def test_ungrounded_narrative_fails_the_step_and_the_dispute_track_still_advances(
+    client: TestClient,
+    db: Session,
+    approved: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from vera_api import investigation
+
+    _bad_recordings(tmp_path / "rec")
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", tmp_path / "rec")
+    _dispute_run(db, ExecutionMode.REPLAY)
+    _prepare(client, db)
+    _drain(db)
+    row = db.execute(
+        text(
+            "select status, failure_reason, attempts from workflow_steps "
+            "where step_key='dispute_packet_preparer'"
+        )
+    ).one()
+    assert tuple(row) == ("failed", "ungrounded", 3)  # first try and two validation retries
+    d = _dispute(client)
+    assert d["narrative_status"] == "failed" and d["narrative"] == [] and d["reason_code"] is None
+    failed = db.execute(
+        text("select detail from audit_events where type='specialist.failed'")
+    ).scalar_one()
+    assert failed["step_key"] == "dispute_packet_preparer" and failed["reason"] == "ungrounded"
+    assert count(db, "select count(*) from dispute_packets where narrative is not null") == 0
+    # The server offers the explicit retry; the track never waits for the narrative.
+    assert "retry_dispute_narrative" in offered(client)
+    ok(client, "open_dispute_packet")
+    ok(client, "review_dispute_packet")
+    assert ok(client, "submit_dispute")["result"]["dispute_status"] == "submitted"
+    assert _dispute(client)["narrative_status"] == "failed"
+
+
+def test_retry_after_a_failed_narrative_replays_the_reference_and_stores_it(
+    client: TestClient,
+    db: Session,
+    approved: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from vera_api import investigation
+
+    _bad_recordings(tmp_path / "rec")
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", tmp_path / "rec")
+    _dispute_run(db, ExecutionMode.REPLAY)
+    _prepare(client, db)
+    _drain(db)
+    assert _dispute(client)["narrative_status"] == "failed"
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", Path("evals/recordings"))
+    ok(client, "retry_dispute_narrative", {"mode": "replay"})
+    assert _dispute(client)["narrative_status"] == "failed"  # until the queued job runs
+    _drain(db)
+    _assert_narrative(client, db)
+    again = send(client, "retry_dispute_narrative", {"mode": "replay"})
+    assert again.status_code == 409 and again.json()["code"] == "invalid_step"
+
+
+def _preparer_stub() -> httpx.MockTransport:
+    turns = [json.loads((DSP_REC / f).read_text()) for f in (f"{CASE}.json", f"{CASE}.1.json")]
+    seen = [0]
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        turn = turns[min(seen[0], 1)]
+        if seen[0] == 1:  # the tool round's results went back to the model as data
+            tool_msgs = [m for m in body["messages"] if m["role"] == "tool"]
+            values = [json.loads(m["content"])["value"] for m in tool_msgs]
+            assert values == [284000, 1, 240000, 2]
+        seen[0] += 1
+        message: dict[str, Any] = {"role": "assistant", "content": json.dumps(turn["content"])}
+        if turn["tool_calls"]:
+            message = {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": json.dumps(tc["arguments"])},
+                    }
+                    for tc in turn["tool_calls"]
+                ],
+            }
+        return httpx.Response(
+            200, json={"model": "stub/live-model", "choices": [{"message": message}]}
+        )
+
+    return httpx.MockTransport(handle)
+
+
+def test_dispute_preparer_live_over_mock_transport(
+    client: TestClient,
+    db: Session,
+    approved: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from vera_api import investigation
+
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", tmp_path / "empty")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", _preparer_stub())
+    _dispute_run(db, ExecutionMode.LIVE)
+    _prepare(client, db)
+    _drain(db)
+    _assert_narrative(client, db)
+    row = db.execute(
+        text(
+            "select model_id, execution_mode from workflow_steps "
+            "where step_key='dispute_packet_preparer'"
+        )
+    ).one()
+    assert tuple(row) == ("stub/live-model", "live")
+
+
+@pytest.mark.parametrize("role", [Role.ANALYST, Role.REVIEWER, Role.CARD_ADMIN, Role.OPS_ADMIN])
+def test_human_roles_cannot_record_a_dispute_narrative(
+    client: TestClient, db: Session, approved: dict[str, Any], role: Role
+) -> None:
+    assert "record_dispute_narrative" in SERVICE_COMMANDS
+    assert "record_dispute_narrative" not in REGISTRY
+    issue(client)
+    ok(client, "prepare_dispute_packet")
+    packet_id = int(_dispute(client)["dispute_id"].split("-")[1])
+    switch(client, role)
+    resp = client.post(
+        f"/api/cases/{CASE}/commands/record_dispute_narrative",
+        json={
+            "idempotency_key": f"dspnarr:{CASE}:{packet_id}",
+            "expected_case_version": view(client)["case_version"],
+            "payload": {"packet_id": packet_id, "run_id": "run_x"},
+        },
+    )
+    assert resp.status_code == 403 and resp.json()["code"] == "role_forbidden"
+    assert count(db, "select count(*) from dispute_packets where narrative is not null") == 0

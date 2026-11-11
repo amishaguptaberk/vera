@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ApiError, useRunCommand, type ActionView } from '@/api';
 import { ActionBar } from '@/components/case';
-import { ClosureChecklist, ControlPlan, FinalDraft, ParallelTracks, SimulatedNote, TaskNote, TaskParas, type ClosureItemView, type TrackRow } from '@/components/money';
+import { ClosureChecklist, ControlPlan, DisputeNarrative, FinalDraft, ParallelTracks, SimulatedNote, TaskNote, TaskParas, type ClosureItemView, type TrackRow } from '@/components/money';
 import { Banner, Button, Field } from '@/design-system/primitives';
 import { commandForms } from './command-forms';
 import type { ControlPlanItem, ControlsStatus, DisputeStatus, MoneyCaseView, RemediationBody } from './contract';
@@ -54,6 +54,8 @@ const CTL_L: Record<string, string> = { not_recommended: 'Not recommended', reco
 // Generic names for the server's ControlName values. GAP: per-case reason/scope/reversibility are not served yet.
 const CONTROL_LABEL: Record<string, string> = { lock: 'Lock card', replace: 'Replace card', virtual: 'Create replacement virtual card', block: 'Block merchant on this card', monitor: 'Monitor merchant for 30 days' };
 const CONTROL_STEPS = new Set<Step>(['controls', 'waitctl', 'ctl_apply']);
+/** The server's recovery command for a failed dispute narrative: shown on the failure line, not in the action bar. */
+const NARRATIVE_RETRY = 'retry_dispute_narrative';
 
 const TRACK_STEPS = new Set<Step>(['controls', 'ctl_prep', 'dsp_prepare', 'dsp_open', 'dsp_review', 'dsp_submit', 'dsp_failed', 'waitctl', 'ctl_apply']);
 const CLOSURE_STEPS = new Set<Step>(['finalprep', 'final', 'close']);
@@ -101,7 +103,9 @@ export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
   const [confirming, setConfirming] = useState<ActionView | null>(null);
   const checklist = useClosureChecklist(caseId, CLOSURE_STEPS.has(c.step));
 
-  const actions = c.available_actions;
+  const narrativeRetry = c.available_actions.find((a) => a.command === NARRATIVE_RETRY) ?? null;
+  const actions = c.available_actions.filter((a) => a.command !== NARRATIVE_RETRY);
+  const dispute = remediation.data?.dispute;
   const editableControls = actions.some((a) => CONTROL_LIST_COMMANDS.has(a.command));
   const simulated = actions.some((a) => SIMULATED_COMMANDS.has(a.command));
   const paras = COPY[c.step];
@@ -143,6 +147,17 @@ export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
     <div data-testid="money-task" data-step={c.step}>
       {paras ? <TaskParas paras={[paras]} /> : null}
       <ParallelTracks tracks={tracksFor(c, remediation.data)} onFocus={() => {}} />
+      {c.step.startsWith('dsp_') && dispute?.narrative_status ? (
+        <DisputeNarrative
+          status={dispute.narrative_status}
+          reasonCode={dispute.reason_code}
+          statements={dispute.narrative ?? []}
+          retryLabel={narrativeRetry?.label}
+          onRetry={narrativeRetry ? () => onAction(narrativeRetry) : undefined}
+          busy={run.isPending}
+          onOpenRecord={onOpenRecord}
+        />
+      ) : null}
       {planItems.length && CONTROL_STEPS.has(c.step) ? (
         <ControlPlan
           items={planItems}

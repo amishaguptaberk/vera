@@ -1895,6 +1895,41 @@
             ],
             "title": "Dispute Id"
           },
+          "narrative": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NarrativeStatement"
+            },
+            "title": "Narrative",
+            "type": "array"
+          },
+          "narrative_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pending",
+                  "ready",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative Status"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
           "simulated": {
             "default": true,
             "title": "Simulated",
@@ -2659,6 +2694,34 @@
           "controls"
         ],
         "title": "MoneyView",
+        "type": "object"
+      },
+      "NarrativeStatement": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text",
+          "record_id",
+          "version",
+          "field"
+        ],
+        "title": "NarrativeStatement",
         "type": "object"
       },
       "Node": {

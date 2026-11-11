@@ -52,7 +52,17 @@ export type ClosureChecklistBody = { case_id: string; ready: boolean; items: Clo
 export type RemediationBody = {
   case_id: string;
   credit: { status: string; credit_id?: string | null; amount_cents?: number | null; currency?: string | null; issued_at?: string | null; simulated: boolean };
-  dispute: { status: string; dispute_id?: string | null; submission_id?: string | null; submitted_at?: string | null; simulated: boolean };
+  dispute: {
+    status: string;
+    dispute_id?: string | null;
+    submission_id?: string | null;
+    submitted_at?: string | null;
+    simulated: boolean;
+    /** Dispute Packet Preparer output stored on the packet; never gates the track. */
+    reason_code?: string | null;
+    narrative?: { text: string; record_id: string; version: number; field: string }[];
+    narrative_status?: 'pending' | 'ready' | 'failed' | null;
+  };
   controls: { status: string; plan_id?: number | null; controls: string[]; applied: string[]; reason?: string | null; simulated: boolean };
 };
 

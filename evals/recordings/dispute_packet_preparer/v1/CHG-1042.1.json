@@ -1,0 +1,39 @@
+{
+  "content": {
+    "reason_code": "quantity_mismatch",
+    "statements": [
+      {
+        "field": "approved_quantity",
+        "record_id": "PO-219",
+        "text": "Purchase order PO-219 approves 1 unit.",
+        "value": 1,
+        "version": 1
+      },
+      {
+        "field": "approved_amount_cents",
+        "record_id": "PO-219",
+        "text": "PO-219 approves $2,400.00 for that unit.",
+        "value": 240000,
+        "version": 1
+      },
+      {
+        "field": "received_quantity",
+        "record_id": "DLV-882",
+        "text": "Delivery record DLV-882 records 2 units received, one more than the purchase order approves.",
+        "value": 2,
+        "version": 1
+      },
+      {
+        "field": "amount_cents",
+        "record_id": "CHG-1042",
+        "text": "The card was charged $2,840.00, which is $440.00 more than the approved amount.",
+        "value": 284000,
+        "version": 1
+      }
+    ]
+  },
+  "model_id": "reference-recording",
+  "provenance": "reference",
+  "tool_calls": [],
+  "usage": {}
+}

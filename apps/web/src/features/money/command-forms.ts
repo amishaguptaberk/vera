@@ -5,6 +5,7 @@ import type { FormField } from '@/features/case/command-forms';
 export const commandForms: Readonly<Record<string, readonly FormField[]>> = {
   skip_card_controls: [{ name: 'reason', label: 'Reason', multiline: true }],
   decline_card_controls: [{ name: 'reason', label: 'Reason', multiline: true }],
+  retry_dispute_narrative: [{ name: 'mode', label: 'Mode (live or replay)', placeholder: 'replay' }],
   // VER-011 CloseCasePayload: reason (5-500 chars), outcome resolved | no_action | unresolved.
   close_case: [
     { name: 'reason', label: 'Reason', multiline: true },

@@ -176,3 +176,65 @@ describe('MoneyTask · tracks and closure', () => {
     expect(await screen.findByText('The message says the card is locked, but no lock has been applied.')).toBeTruthy();
   });
 });
+
+describe('MoneyTask · dispute narrative', () => {
+  const action = (command: string, label: string, step: string) => ({
+    command, label, role: 'analyst', style: 'secondary', enabled: true, blocked_reason: null, expected_state: 'dispute_prepared', expected_step: step,
+    safe_note: null, confirm: null, idempotency_key: `${command}:CHG-1042:9`, payload_defaults: {}, key_template: `${command}:{case_id}:{case_version}`,
+  });
+  const reviewCase = asCase({
+    ...dspPrepare,
+    state: 'dispute_prepared',
+    step: 'dsp_review',
+    available_actions: [action('review_dispute_packet', 'Mark reviewed', 'dsp_review'), action('retry_dispute_narrative', 'Retry dispute narrative', 'dsp_review')],
+  });
+  const withDispute = (dispute: Record<string, unknown>) => ({ ...remediation, dispute: { ...remediation.dispute, status: 'reviewed', ...dispute } });
+  const serve = (dispute: Record<string, unknown>) =>
+    mockFetch((c) => (c.url === '/api/cases/CHG-1042/remediation' ? json(withDispute(dispute)) : c.method === 'POST' ? json({ status: 'recorded', result: {}, case: reviewCase }) : json({ code: 'not_found', message: 'Not found' }, 404)));
+
+  it('shows the reason code and each statement with its cited record, version and field', async () => {
+    serve({
+      narrative_status: 'ready',
+      reason_code: 'quantity_mismatch',
+      narrative: [
+        { text: 'Purchase order PO-219 approves 1 unit.', record_id: 'PO-219', version: 1, field: 'approved_quantity' },
+        { text: 'Delivery record DLV-882 records 2 units received.', record_id: 'DLV-882', version: 1, field: 'received_quantity' },
+      ],
+    });
+    const open = vi.fn();
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={reviewCase} onOpenRecord={open} />);
+    const list = await screen.findByRole('list', { name: 'Dispute narrative' });
+    expect(screen.getByText('Quantity mismatch')).toBeTruthy();
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows.map((r) => r.textContent)).toEqual([
+      'Purchase order PO-219 approves 1 unit.PO-219 v1 · approved_quantity',
+      'Delivery record DLV-882 records 2 units received.DLV-882 v1 · received_quantity',
+    ]);
+    await userEvent.click(within(rows[1]!).getByRole('button', { name: 'DLV-882 v1 · received_quantity' }));
+    expect(open).toHaveBeenCalledWith('DLV-882');
+    // No failure, so the retry is not offered anywhere; the review action still is.
+    expect(screen.queryByRole('button', { name: 'Retry dispute narrative' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Mark reviewed' })).toBeTruthy();
+  });
+
+  it('says the narrative is being prepared while the server reports pending', async () => {
+    serve({ narrative_status: 'pending', reason_code: null, narrative: [] });
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={reviewCase} />);
+    expect(await screen.findByText('Preparing dispute narrative…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mark reviewed' })).toBeTruthy();
+  });
+
+  it('a failed narrative shows an honest line with the server retry; the dispute track still offers review', async () => {
+    const calls = serve({ narrative_status: 'failed', reason_code: null, narrative: [] });
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={reviewCase} />);
+    expect(await screen.findByText(/The dispute narrative could not be prepared/)).toBeTruthy();
+    const bar = screen.getByRole('group', { name: 'Case actions' });
+    expect(within(bar).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mark reviewed']);
+    await userEvent.click(screen.getByRole('button', { name: 'Retry dispute narrative' }));
+    await userEvent.type(screen.getByLabelText('Mode (live or replay)'), 'replay');
+    await userEvent.click(within(screen.getByRole('form', { name: 'Retry dispute narrative' })).getByRole('button', { name: 'Retry dispute narrative' }));
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect(post.url).toBe('/api/cases/CHG-1042/commands/retry_dispute_narrative');
+    expect((JSON.parse(post.body!) as { payload: unknown }).payload).toEqual({ mode: 'replay' });
+  });
+});

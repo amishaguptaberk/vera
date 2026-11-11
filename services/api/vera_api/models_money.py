@@ -1,6 +1,7 @@
 """ORM for credit, dispute and card controls (VER-010; migration 0014)."""
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -36,6 +37,9 @@ class DisputePacket(Base):
     status: Mapped[str] = mapped_column(String)
     submission_reference: Mapped[str | None] = mapped_column(String)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Dispute Packet Preparer output (migration 0018): stored by record_dispute_narrative.
+    reason_code: Mapped[str | None] = mapped_column(String)
+    narrative: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     created_by: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
