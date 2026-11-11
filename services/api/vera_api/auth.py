@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.requests import cookie_parser
 from vera_domain.enums import Role
 from vera_domain.errors import CommandError
 
@@ -34,6 +35,22 @@ def sign(secret: str, user_id: str, role: str) -> str:
     body = base64.urlsafe_b64encode(json.dumps({"user_id": user_id, "active_role": role}).encode())
     mac = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     return f"{body.decode()}.{mac}"
+
+
+def session_cookie(cookie_headers: list[str]) -> str | None:
+    """The session cookie value only if exactly one is sent across all Cookie headers.
+
+    Duplicates are ambiguous (frameworks silently keep one), so they count as no session.
+    """
+    # Parse each pair on its own with Starlette's parser (same unquoting as request.cookies),
+    # because parsing the whole header into a dict would hide duplicates.
+    values = [
+        value
+        for header in cookie_headers
+        for part in header.split(";")
+        if (value := cookie_parser(part).get(COOKIE)) is not None
+    ]
+    return values[0] if len(values) == 1 else None
 
 
 def verify(secret: str, cookie: str | None) -> tuple[str, str] | None:

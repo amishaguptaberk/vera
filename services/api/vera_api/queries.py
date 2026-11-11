@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from vera_domain.commands import REGISTRY, available_actions
 from vera_domain.enums import CaseState, CaseStep, Role
+from vera_domain.exposure import CreditStatus, ExposureRow, case_impact, compute_exposure
 from vera_domain.facts import Hold
 from vera_domain.labels import describe
 from vera_domain.models import (
@@ -81,42 +82,24 @@ def list_cases(session: Session, now: datetime, tz: str) -> list[QueueRow]:
     return rows
 
 
+def _exposure_row(case: Case, txn: CardTransaction) -> ExposureRow:
+    return ExposureRow(
+        amount_cents=txn.amount_cents,
+        currency=txn.currency,
+        closed=case.state == CaseState.CLOSED.value,
+        due_at=case.due_at,
+        credit_cents=case.credit_cents,
+        credit_status=CreditStatus(case.credit_status) if case.credit_status else None,
+    )
+
+
 def summarize(session: Session, now: datetime, tz: str) -> Summary:
-    zone = ZoneInfo(tz)
-    today = now.astimezone(zone).date()
     stmt = select(Case, CardTransaction).join(
         CardTransaction, CardTransaction.id == Case.transaction_id
     )
-    exposure = [0, 0]
-    due_today = [0, 0]
-    overdue = [0, 0]
-    credit = [0, 0]
-    for case, txn in session.execute(stmt):
-        if case.state == CaseState.CLOSED.value:
-            continue
-        open_cents = txn.amount_cents - case.credit_cents
-        exposure[0] += open_cents
-        exposure[1] += 1
-        if case.credit_cents > 0:
-            credit[0] += case.credit_cents
-            credit[1] += 1
-        if case.due_at is not None:
-            if case.due_at < now:
-                overdue[0] += open_cents
-                overdue[1] += 1
-            elif case.due_at.astimezone(zone).date() == today:
-                due_today[0] += open_cents
-                due_today[1] += 1
-
-    def metric(pair: list[int]) -> SummaryMetric:
-        return SummaryMetric(amount_cents=pair[0], cases=pair[1])
-
-    return Summary(
-        open_exposure=metric(exposure),
-        due_today=metric(due_today),
-        overdue=metric(overdue),
-        temporary_credit=metric(credit),
-    )
+    rows = [_exposure_row(case, txn) for case, txn in session.execute(stmt)]
+    metrics = compute_exposure(rows, now, tz)
+    return Summary(**{k: SummaryMetric(**vars(m)) for k, m in metrics.items()})
 
 
 _SEQUENTIAL_REPORT_ID = re.compile(r"REP-([0-9]{1,9})", re.ASCII)
@@ -152,7 +135,6 @@ def get_case_view(
     assert merchant is not None and holder is not None
     state, step = CaseState(case.state), CaseStep(case.step)
     label, kind, next_action = describe(state, step)
-    exposure = txn.amount_cents - case.credit_cents
     gated = any(s.requires_policy is not None for s in REGISTRY.values())
     enabled, blocked = (
         available_actions(
@@ -202,14 +184,7 @@ def get_case_view(
                 verified_at=holder.contact_verified_at,
             ),
         ),
-        charge_impact=ChargeImpact(
-            posted_cents=txn.amount_cents,
-            credit_cents=case.credit_cents,
-            exposure_cents=exposure,
-            note="No temporary credit issued."
-            if case.credit_cents == 0
-            else "Temporary credit issued.",
-        ),
+        charge_impact=ChargeImpact(**vars(case_impact(_exposure_row(case, txn)))),
         available_actions=enabled,
         blocked_actions=blocked,
         recovery_actions=[],
