@@ -581,6 +581,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{case_id}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Executions */
+        get: operations["get_executions_api_cases__case_id__executions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/remediation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Remediation */
+        get: operations["get_remediation_api_cases__case_id__remediation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/automations/commands/{name}": {
         parameters: {
             query?: never;
@@ -1231,6 +1265,48 @@ export interface components {
             /** Verified At */
             verified_at: string | null;
         };
+        /** ControlsSummary */
+        ControlsSummary: {
+            /** Status */
+            status: string;
+            /** Plan Id */
+            plan_id?: number | null;
+            /**
+             * Controls
+             * @default []
+             */
+            controls: string[];
+            /**
+             * Applied
+             * @default []
+             */
+            applied: string[];
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Simulated
+             * @default true
+             */
+            simulated: boolean;
+        };
+        /** CreditSummary */
+        CreditSummary: {
+            /** Status */
+            status: string;
+            /** Credit Id */
+            credit_id?: string | null;
+            /** Amount Cents */
+            amount_cents?: number | null;
+            /** Currency */
+            currency?: string | null;
+            /** Issued At */
+            issued_at?: string | null;
+            /**
+             * Simulated
+             * @default true
+             */
+            simulated: boolean;
+        };
         /** DecisionPacketView */
         DecisionPacketView: {
             /** Case Id */
@@ -1282,6 +1358,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** DisputeSummary */
+        DisputeSummary: {
+            /** Status */
+            status: string;
+            /** Dispute Id */
+            dispute_id?: string | null;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /**
+             * Simulated
+             * @default true
+             */
+            simulated: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -1351,6 +1443,45 @@ export interface components {
             open_conflicts: components["schemas"]["OpenConflict"][];
             /** Missing */
             missing: string[];
+        };
+        /** ExecutionList */
+        ExecutionList: {
+            /** Case Id */
+            case_id: string;
+            /** Executions */
+            executions: components["schemas"]["ExecutionView"][];
+        };
+        /** ExecutionView */
+        ExecutionView: {
+            /** Id */
+            id: number;
+            /** Adapter */
+            adapter: string;
+            /** Operation */
+            operation: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Status */
+            status: string;
+            /** Attempts */
+            attempts: number;
+            /** Error */
+            error: string | null;
+            /**
+             * Simulated
+             * @default true
+             */
+            simulated: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** ExpireOut */
         ExpireOut: {
@@ -1494,6 +1625,14 @@ export interface components {
             stale_checks: string[];
             /** Event Ids */
             event_ids: string[];
+        };
+        /** MoneyView */
+        MoneyView: {
+            /** Case Id */
+            case_id: string;
+            credit: components["schemas"]["CreditSummary"];
+            dispute: components["schemas"]["DisputeSummary"];
+            controls: components["schemas"]["ControlsSummary"];
         };
         /** Node */
         Node: {
@@ -3230,6 +3369,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_executions_api_cases__case_id__executions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_remediation_api_cases__case_id__remediation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyView"];
                 };
             };
             /** @description Validation Error */
