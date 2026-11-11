@@ -83,6 +83,7 @@ class ReduceContext:
     now: datetime
     resolve_user: Callable[[str], tuple[str, str] | None]  # ref -> (id, name)
     first_report_id: str | None
+    extra: dict[str, Any] = field(default_factory=dict)  # side-effect output (service commands)
 
 
 @dataclass(frozen=True)
