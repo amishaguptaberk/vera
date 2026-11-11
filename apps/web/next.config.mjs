@@ -1,4 +1,4 @@
-const apiUrl = process.env.VERA_API_URL ?? 'http://127.0.0.1:8000';
+const apiUrl = process.env.VERA_API_ORIGIN ?? process.env.VERA_API_URL ?? 'http://127.0.0.1:8000';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
