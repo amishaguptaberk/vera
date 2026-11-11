@@ -9,7 +9,8 @@
 #
 # Overrides (env): VERA_DEMO_DB (vera_demo), VERA_DEMO_API_PORT (8300), VERA_DEMO_WEB_PORT (3300),
 #   VERA_DEMO_PG_HOST (127.0.0.1), VERA_DEMO_PG_PORT (54329), VERA_DEMO_RUN (/tmp/vera-demo),
-#   VERA_DEMO_SKIP_WEB=1 (backend only), VERA_DEMO_REBUILD=1 (force `next build`).
+#   VERA_DEMO_SKIP_WEB=1 (backend only), VERA_DEMO_REBUILD=1 (force `next build`),
+#   VERA_DEMO_WEB_DIR (web app dir to build/serve; default apps/web of this checkout).
 # Never stops Postgres, never kills anything it did not start.
 set -euo pipefail
 
@@ -126,23 +127,24 @@ up() {
   start_proc worker uv run --no-sync python -c "$WORKER_PY"
 
   if [ "${VERA_DEMO_SKIP_WEB:-0}" != 1 ]; then
-    local web="$ROOT/apps/web"
+    local web="${VERA_DEMO_WEB_DIR:-$ROOT/apps/web}"
     export VERA_API_ORIGIN="$API" VERA_API_URL="$API"
-    if [ ! -d "$web/node_modules" ]; then
+    if [ ! -f "$web/node_modules/.package-lock.json" ] \
+       || [ "$web/package-lock.json" -nt "$web/node_modules/.package-lock.json" ]; then
       say "installing web dependencies (npm ci)"
       (cd "$web" && npm ci --no-audit --no-fund >"$RUN/web-install.log" 2>&1) \
         || { tail -20 "$RUN/web-install.log" >&2; die "npm ci failed"; }
     fi
     # Rewrites are baked in at build time, so rebuild when the API origin changes.
     if [ "${VERA_DEMO_REBUILD:-0}" = 1 ] || [ ! -f "$web/.next/BUILD_ID" ] \
-       || [ "$(cat "$RUN/web-origin" 2>/dev/null)" != "$API" ] \
+       || [ "$(cat "$RUN/web-origin" 2>/dev/null)" != "$API $web" ] \
        || [ -n "$(find "$web/src" "$web/next.config.mjs" -newer "$web/.next/BUILD_ID" -print -quit 2>/dev/null)" ]; then
       say "building web (next build, ~1-2 min)"
       (cd "$web" && npx next build >"$RUN/web-build.log" 2>&1) \
         || { tail -30 "$RUN/web-build.log" >&2; die "web build failed (backend is still up; VERA_DEMO_SKIP_WEB=1 to skip)"; }
-      echo "$API" > "$RUN/web-origin"
+      echo "$API $web" > "$RUN/web-origin"
     fi
-    start_proc web bash -c "cd apps/web && exec npx next start -H 127.0.0.1 -p $WEB_PORT"
+    start_proc web bash -c "cd '$web' && exec npx next start -H 127.0.0.1 -p $WEB_PORT"
     wait_http "$WEB/" 60 || { tail -20 "$RUN/web.log" >&2; die "web did not answer on $WEB"; }
   fi
 
