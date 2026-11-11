@@ -9,4 +9,3 @@ export { communicationsKey, communicationKey, requestKey, useCardholderRequest, 
 
 /** Case-workspace tabs this feature adds (the prototype's "Communications" tab). */
 export const tabs = [{ key: 'comms', label: 'Communications', Panel: CommsPanel }] as const;
-export { previewStates } from './preview';

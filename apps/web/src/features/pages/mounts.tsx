@@ -1,5 +1,7 @@
 // The one place feature modules are mounted into route slots (see README of each feature).
 import type { ComponentType } from 'react';
+import { RequestPage } from '@/features/comms';
+import { CardholderHome } from './CardholderHome';
 
 export type PageMounts = {
   /** `/requests/[id]`: the cardholder's request page. */
@@ -9,6 +11,6 @@ export type PageMounts = {
 };
 
 export const pageMounts: PageMounts = {
-  RequestPage: null,
-  CardholderHome: null,
+  RequestPage,
+  CardholderHome,
 };
