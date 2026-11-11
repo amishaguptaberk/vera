@@ -212,8 +212,8 @@ def _facts(session: Session, case: Case) -> dict[str, Any]:
     out: dict[str, Any] = {"final_message_status": msg.status if msg else "none"}
     row = closure_record(session, case.id)
     if row is not None:
+        # `closed` is a case-row fact: close_case / record_dispute_outcome set it via the reducer.
         out["monitoring"] = row.monitoring
-        out["closed"] = not row.monitoring
     return out
 
 
