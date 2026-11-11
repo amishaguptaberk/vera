@@ -1,0 +1,16 @@
+.envpill {
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mute);
+  border: 1px dashed #cfccc7;
+  border-radius: 999px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .envpill {
+    display: none;
+  }
+}

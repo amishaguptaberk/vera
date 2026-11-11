@@ -1,0 +1,60 @@
+/* Design tokens: Vera Handoff §9. Values are authoritative; tests/unit/tokens.test.ts asserts them. */
+:root {
+  /* §9.1 color */
+  --ink: #0c0a08;
+  --ink2: #3b3a39;
+  --mute: #6f6c68;
+  --canvas: #f4f2f0;
+  --paper: #ffffff;
+  --rule: #e5e7eb;
+  --rule2: #efede9;
+  --cobalt: #2446c7;
+  --cobalt-wash: #eef2fc;
+  --chart: #e4f222;
+  --ok: #1d6a43;
+  --warn: #8a5300;
+  --warn-icon: #b7791f;
+  --bad: #b42318;
+  --btn-dark: #1a1919;
+  --task-card-border: #d9d6d1;
+  --btn-border: #d3d3d3;
+
+  /* §9.2 typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-size-base: 14px;
+  --line-height-base: 1.5;
+  --font-size-label: 12px;
+  --font-size-title-page: 22px;
+  --font-size-title-task: 19px;
+  --font-size-title-section: 14px;
+  --font-size-metric: 22px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* §9.3 spacing (4px grid), radius */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --gutter: 24px;
+  --radius-chip: 6px;
+  --radius-input: 8px;
+  --radius-panel: 12px;
+
+  /* §9.5 motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-local: 220ms;
+  --duration-icon: 200ms;
+  --duration-drawer: 220ms;
+  --duration-connector: 600ms;
+}
+
+@media (max-width: 1279px) {
+  :root {
+    --gutter: 16px;
+  }
+}
