@@ -45,8 +45,8 @@
       "CHG-1048"
     ]
   },
-  "model_id": "reference-recording",
-  "provenance": "reference",
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
   "tool_calls": [],
   "usage": {}
 }
