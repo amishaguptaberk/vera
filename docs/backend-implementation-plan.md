@@ -1,6 +1,6 @@
 # Vera — Backend Implementation Plan (Phase 0 architecture gate)
 
-Status: **draft for sign-off** · Nov 10, 2026 · No feature code starts until §16 is answered.
+Status: **decisions recorded (§17)** · Nov 10, 2026 · One item still open: the GitHub repository name (§17 D-B).
 
 ## 0. Sources and precedence
 
@@ -220,7 +220,7 @@ The prompt lists VER-004 after VER-003, but 003 needs somewhere typed to write f
 | R9 | `docker compose up -d postgres redis` in the test gates | Compose file ships with `postgres` only (plus api, worker, web). This build workspace has no Docker daemon, so local runs use the installed Postgres 16 binaries via `infra/dev-db.sh`; the compose path will be written but can only be verified on a machine with Docker. |
 | R10 | Python 3.12 required; workspace default is 3.13 | venv on the installed `python3.12`. |
 
-## 16. Unresolved assumptions — need an answer before VER-001
+## 16. Open questions (answered Nov 10 — see §17)
 
 | # | Question | Default if unanswered |
 |---|---|---|
@@ -230,3 +230,13 @@ The prompt lists VER-004 after VER-003, but 003 needs somewhere typed to write f
 | U4 | **Ticket skills.** `to-tickets` and `run-tickets` in the plugin are user-invoked only; the assistant cannot start them. | wait for you to run them |
 | U5 | **VER-014 Automations versioning** as an added ticket (see §14). | add it |
 | U6 | ToSpec §18 #1–3 are settled by the prototype (five controls, immediate synthetic credit, full transcript + structured record). #4–7 (runtime, Langfuse in CI, auth, retention) remain open; defaults: LangGraph, Langfuse off in CI, demo cookie session, no retention policy. | as stated |
+
+## 17. Decisions recorded Nov 10 (these override §11, §16 where they differ)
+
+| ID | Decision |
+|---|---|
+| D-A | **Frontend: port to Next.js/React.** The prototype is the pixel-level visual and interaction reference. Rebuild with typed contracts and a shared design system; no redesign, no simplification; no parallel state model or duplicated business logic. Design is in `docs/frontend-architecture.md`. |
+| D-B | **Repo home: GitHub.** Repository name and permission to push still needed (the orchestration prompt says "Do not push remotely"). Until then, commits stay local. |
+| D-C | **Specialists are real model-backed agents; LIVE is the primary experience, REPLAY is the deterministic mode.** One architecture, two model transports. See §18. |
+| D-D | **VER-014 Automations versioning is added** (workflow/specialist/policy draft, validate, check, publish). |
+| D-E | `to-tickets` / `run-tickets` remain user-invoked. |
