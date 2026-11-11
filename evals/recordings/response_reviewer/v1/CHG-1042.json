@@ -1,0 +1,32 @@
+{
+  "content": {},
+  "model_id": "reference-recording",
+  "provenance": "reference",
+  "tool_calls": [
+    {
+      "arguments": {
+        "field": "text",
+        "record_id": "RSP-2201"
+      },
+      "id": "call_0",
+      "name": "read_field"
+    },
+    {
+      "arguments": {
+        "field": "questions",
+        "record_id": "MSG-2201"
+      },
+      "id": "call_1",
+      "name": "read_field"
+    },
+    {
+      "arguments": {
+        "field": "statement",
+        "record_id": "REP-1042"
+      },
+      "id": "call_2",
+      "name": "read_field"
+    }
+  ],
+  "usage": {}
+}

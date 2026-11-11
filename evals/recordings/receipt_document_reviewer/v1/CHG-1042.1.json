@@ -29,8 +29,8 @@
     "receipt_present": false,
     "report_classification": "incomplete"
   },
-  "model_id": "authored-reference",
-  "provenance": "authored-reference",
+  "model_id": "reference-recording",
+  "provenance": "reference",
   "tool_calls": [],
   "usage": {}
 }

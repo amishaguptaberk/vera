@@ -1,7 +1,7 @@
 {
   "content": {},
-  "model_id": "authored-reference",
-  "provenance": "authored-reference",
+  "model_id": "reference-recording",
+  "provenance": "reference",
   "tool_calls": [
     {
       "arguments": {

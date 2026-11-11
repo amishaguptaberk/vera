@@ -1,0 +1,29 @@
+{
+  "content": {
+    "questions": [
+      {
+        "resolves": {
+          "field": "amount_cents",
+          "record_id": "CHG-1042",
+          "value": 284000,
+          "version": 1
+        },
+        "text": "Please upload the receipt or invoice for this $2,840.00 charge."
+      },
+      {
+        "resolves": {
+          "field": "statement",
+          "record_id": "REP-1042",
+          "value": "I do not recognize this charge.",
+          "version": 1
+        },
+        "text": "Can you tell us more about this charge: did you or someone on your team place this order?"
+      }
+    ],
+    "subject": "A question about your Northstar Equipment charge"
+  },
+  "model_id": "reference-recording",
+  "provenance": "reference",
+  "tool_calls": [],
+  "usage": {}
+}

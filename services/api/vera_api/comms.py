@@ -1,14 +1,14 @@
 """Cardholder follow-up (VER-005): effects, fact provider, messaging adapter, routes, watcher."""
 
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Engine, func, select
+from sqlalchemy.orm import Session, sessionmaker
 from vera_domain import comms as dom
 from vera_domain.adapters import AdapterResult
 from vera_domain.clock import Clock
@@ -16,15 +16,27 @@ from vera_domain.enums import CaseState, CaseStep, Role, StateKind
 from vera_domain.errors import CommandError
 from vera_domain.evidence import content_hash
 from vera_domain.labels import register_event_summaries, register_labels
+from vera_domain.specialists import ExecutionMode, StepStatus
 
 from vera_api import adapters, auth, gateway, plugins
+from vera_api import investigation as inv
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
-from vera_api.evidence import recompute_snapshot
+from vera_api.evidence import read_evidence_field, recompute_snapshot
 from vera_api.gateway import EffectContext
-from vera_api.models import CardTransaction, Case, User
+from vera_api.model_client import default_mode
+from vera_api.models import AuditEvent, CardTransaction, Case, User
 from vera_api.models_comms import Communication, CommunicationDraft, CommunicationResponse
-from vera_api.models_evidence import Attachment, EvidenceRecord, EvidenceVersion, Finding
+from vera_api.models_evidence import (
+    Attachment,
+    EvidenceRecord,
+    EvidenceVersion,
+    Finding,
+    FindingLink,
+)
+from vera_api.models_runs import WorkflowRun
+from vera_api.runner import SpecialistRunner, create_run
+from vera_api.worker import Touch, enqueue, register, run_once
 
 REPLY_WINDOW = timedelta(days=3)
 FIRST_MESSAGE = 2201
@@ -115,37 +127,116 @@ def _require(session: Session, case: Case) -> Communication:
 
 # ---- effects ------------------------------------------------------------------------------------
 
-_QUESTIONS = [
-    "Please upload the receipt or invoice for the Northstar Equipment charge.",
-    "Did you receive the items on this order?",
-]
+FU_PREFIX = "run_fu_"
+RR_PREFIX = "run_rr_"
+FU_JOB = "follow_up_drafter"
+RR_JOB = "response_reviewer"
+WATCH_JOB = "deadline_watcher"
 
 
-def _open_questions(session: Session, case_id: str) -> list[str]:
-    """Only unresolved questions: missing records and open findings in the evidence register."""
+def _unresolved(session: Session, case_id: str) -> tuple[list[dom.OpenFindingRef], list[str]]:
+    """Open findings (with their cited record/version/field) and missing records."""
+    findings = session.scalars(
+        select(Finding).where(Finding.case_id == case_id, Finding.status == "open")
+    ).all()
+    out = []
+    for f in sorted(findings, key=lambda x: x.id):
+        links = session.scalars(select(FindingLink).where(FindingLink.finding_id == f.id)).all()
+        out.append(
+            dom.OpenFindingRef(
+                finding_id=f.id,
+                kind=f.kind,
+                links=[
+                    dom.ItemRef(record_id=lk.record_id, version=lk.version, field=lk.field)
+                    for lk in links
+                ],
+            )
+        )
     missing = session.scalars(
-        select(EvidenceRecord.kind).where(
+        select(EvidenceRecord.id).where(
             EvidenceRecord.case_id == case_id, EvidenceRecord.status == "missing"
         )
     ).all()
-    qs = [f"Please provide the {k.replace('_', ' ')} for this charge." for k in missing]
-    return qs or _QUESTIONS
+    return out, sorted(missing)
+
+
+def _guard_no_followup(session: Session, case: Case) -> None:
+    if latest_communication(session, case.id) is not None:
+        raise CommandError("followup_exists", 409, "This case already has a cardholder request.")
 
 
 def _draft(
     session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: EffectContext
 ) -> dict[str, Any]:
-    if latest_communication(session, case.id) is not None:
-        raise CommandError("followup_exists", 409, "This case already has a cardholder request.")
+    """Starts the Cardholder Follow-up specialist; it drafts, the analyst approves and sends."""
+    _guard_no_followup(session, case)
+    try:
+        mode = default_mode()
+    except (RuntimeError, ValueError) as exc:
+        raise CommandError("execution_mode_unset", 503, str(exc)) from None
+    run_id = create_run(
+        session,
+        case_id=case.id,
+        mode=mode,
+        now=now,
+        run_id=f"{FU_PREFIX}{uuid.uuid4().hex[:10]}",
+        commit=False,
+    )
+    job_id = enqueue(session, FU_JOB, {"run_id": run_id, "case_id": case.id}, now=now)
+    return {"run_id": run_id, "job_id": job_id, "mode": mode.value}  # reducer: run running
+
+
+def _recommend(
+    session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    row = _require(session, case)
+    run = session.get(WorkflowRun, p.run_id)
+    if run is None or run.case_id != case.id:
+        raise CommandError("run_not_found", 404, f"No run '{p.run_id}' on this case.")
+    run.status, run.updated_at = "succeeded", now
+    row.review_recommendation = {
+        "response_id": p.response_id,
+        "classification": p.classification,
+        "citations": [c.model_dump(mode="json") for c in p.citations],
+        "run_id": p.run_id,
+    }
+    session.flush()
+    return {
+        "request_id": row.id,
+        "recommendation": p.classification,
+        "_facts": {"investigation_run_status": "succeeded"},
+    }
+
+
+def _retry(
+    session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    run = inv.latest_run(session, case.id)
+    if run is None or not run.id.startswith(FU_PREFIX) or run.status != "failed":
+        raise CommandError("invalid_step", 409, "No failed follow-up draft to retry.")
+    run.status, run.updated_at = "running", now
+    job_id = enqueue(
+        session, FU_JOB, {"run_id": run.id, "case_id": case.id, "mode": p.mode}, now=now
+    )
+    return {"run_id": run.id, "job_id": job_id, "mode": p.mode}
+
+
+def _store_draft(
+    session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    _guard_no_followup(session, case)
+    run = session.get(WorkflowRun, p.run_id)
+    if run is None or run.case_id != case.id:
+        raise CommandError("run_not_found", 404, f"No run '{p.run_id}' on this case.")
+    run.status, run.updated_at = "succeeded", now
     n = session.scalar(select(func.count()).select_from(Communication)) or 0
-    questions = _open_questions(session, case.id)
-    subject = f"Question about your charge on case {case.id}"
+    questions = [q.text for q in p.questions]
     body = "Hello,\n\n" + "\n".join(f"- {q}" for q in questions) + "\n\nThank you."
     row = Communication(
         id=f"MSG-{FIRST_MESSAGE + n}",
         case_id=case.id,
         status="drafted",
-        subject=subject,
+        subject=p.subject,
         body=body,
         questions=questions,
         attachments=[],
@@ -160,14 +251,19 @@ def _draft(
         CommunicationDraft(
             communication_id=row.id,
             version=1,
-            subject=subject,
+            subject=p.subject,
             body=body,
             created_by=actor.user_id,
             created_at=now,
         )
     )
     session.flush()
-    return {"request_id": row.id, "questions": questions}
+    return {
+        "request_id": row.id,
+        "questions": questions,
+        "version": 1,
+        "_facts": {"investigation_run_status": "succeeded", "followup_status": "drafted"},
+    }
 
 
 def _update(
@@ -322,7 +418,20 @@ def _respond(
     session.add(rsp)
     row.status = "responded"
     session.flush()
-    return {"request_id": row.id, "response_id": rsp.id, "evidence_record_id": record_id}
+    out: dict[str, Any] = {
+        "request_id": row.id,
+        "response_id": rsp.id,
+        "evidence_record_id": record_id,
+    }
+    try:
+        mode = default_mode()
+    except (RuntimeError, ValueError):
+        return out  # no execution mode: the analyst reviews without a recommendation
+    run_id = create_run(
+        session, case_id=case.id, mode=mode, now=now, run_id=f"{RR_PREFIX}{rsp.id}", commit=False
+    )
+    enqueue(session, RR_JOB, {"run_id": run_id, "case_id": case.id}, now=now)
+    return {**out, "_facts": {"investigation_run_status": "running"}}
 
 
 def _review(
@@ -355,7 +464,8 @@ def _review(
 
 def _request_key(session: Session, case: Case, body: dict[str, Any]) -> dict[str, object]:
     row = latest_communication(session, case.id)
-    return {"request_id": row.id if row else "none"}
+    run = inv.latest_run(session, case.id)
+    return {"request_id": row.id if row else "none", "run_id": run.id if run else "none"}
 
 
 gateway.register_commands(
@@ -364,6 +474,9 @@ gateway.register_commands(
     service=dom.SERVICE,
     effects={
         "draft_follow_up": _draft,
+        "retry_follow_up_draft": _retry,
+        "store_communication_draft": _store_draft,
+        "store_review_recommendation": _recommend,
         "update_communication_draft": _update,
         "send_communication": _send,
         "send_reminder": _remind,
@@ -591,12 +704,175 @@ def post_response(
     return ResponseOut(request_id=request_id, status="answered", received=True)
 
 
+# ---- worker jobs: specialists and the deadline watcher ------------------------------------------
+
+
+def _factory(session: Session) -> sessionmaker[Session]:
+    bind = session.get_bind()
+    engine = bind.engine if not isinstance(bind, Engine) else bind
+    return sessionmaker(engine, expire_on_commit=False)
+
+
+def _evidence_reader(
+    session: Session, case_id: str, allow: Callable[[str, str], bool]
+) -> Callable[[str, str], tuple[Any, int]]:
+    def read(record_id: str, field: str) -> tuple[Any, int]:
+        if not allow(record_id, field):
+            raise LookupError(f"{record_id}.{field} is not an unresolved item")
+        try:
+            return read_evidence_field(session, case_id, record_id, field)
+        except CommandError as exc:
+            raise LookupError(exc.message) from None
+
+    return read
+
+
+def _initial_report(session: Session, case_id: str) -> str | None:
+    return session.scalars(
+        select(EvidenceRecord.id).where(
+            EvidenceRecord.case_id == case_id, EvidenceRecord.kind == "initial_report"
+        )
+    ).first()
+
+
+def _run_specialist(
+    session: Session,
+    payload: dict[str, Any],
+    touch: Touch,
+    build: Callable[
+        [Session, str, str], tuple[Any, BaseModel, Callable[[str, str], tuple[Any, int]]]
+    ],
+    store: Callable[[sessionmaker[Session], str, str, BaseModel], None],
+    step_key: str,
+) -> None:
+    run_id, case_id = str(payload["run_id"]), str(payload["case_id"])
+    run = session.get(WorkflowRun, run_id)
+    if run is None or run.status != "running":
+        session.rollback()
+        return
+    mode = ExecutionMode(str(payload.get("mode") or run.mode))
+    spec, inputs, read = build(session, case_id, run_id)
+    session.rollback()
+    factory = _factory(session)
+
+    def apply(output: BaseModel) -> None:
+        store(factory, case_id, run_id, output)
+
+    outcome = SpecialistRunner(inv.client_for, read, inv._clock()).run_step(
+        session, run_id, step_key, spec, inputs, mode, apply, touch
+    )
+    if outcome.status != StepStatus.SUCCEEDED.value:
+        inv._fail_run(factory, run_id, case_id)  # explicit; recovery is retry_follow_up_draft
+
+
+def _build_follow_up(
+    session: Session, case_id: str, run_id: str
+) -> tuple[Any, BaseModel, Callable[[str, str], tuple[Any, int]]]:
+    findings, missing = _unresolved(session, case_id)
+    items = {(lk.record_id, lk.field) for f in findings for lk in f.links}
+    whole = set(missing)
+    allowed = frozenset({r for r, _ in items} | whole)
+    inputs = dom.FollowUpInput(
+        case_id=case_id,
+        open_findings=findings,
+        missing_records=missing,
+        initial_report_id=_initial_report(session, case_id),
+    )
+    read = _evidence_reader(session, case_id, lambda r, f: (r, f) in items or r in whole)
+    return dom.follow_up_spec(allowed), inputs, read
+
+
+def _store_follow_up(
+    factory: sessionmaker[Session], case_id: str, run_id: str, out: BaseModel
+) -> None:
+    assert isinstance(out, dom.FollowUpOutput)
+    by_ref = {}
+    with factory() as s:
+        for f in _unresolved(s, case_id)[0]:
+            for lk in f.links:
+                by_ref.setdefault((lk.record_id, lk.field), f.finding_id)
+    questions = [
+        {
+            **q.model_dump(mode="json"),
+            "finding_id": q.finding_id or by_ref.get((q.resolves.record_id, q.resolves.field)),
+        }
+        for q in out.questions
+    ]
+    inv._execute_retrying(
+        factory,
+        case_id,
+        "store_communication_draft",
+        f"store-draft:{case_id}:{run_id}",
+        {"run_id": run_id, "subject": out.subject, "questions": questions},
+        inv.specialist_actor(dom.FOLLOW_UP),
+    )
+
+
+@register(FU_JOB)
+def run_follow_up(session: Session, payload: dict[str, Any], touch: Touch) -> None:
+    _run_specialist(session, payload, touch, _build_follow_up, _store_follow_up, dom.FOLLOW_UP)
+
+
+def _build_review(
+    session: Session, case_id: str, run_id: str
+) -> tuple[Any, BaseModel, Callable[[str, str], tuple[Any, int]]]:
+    row = latest_communication(session, case_id)
+    assert row is not None
+    rsp = session.scalars(
+        select(CommunicationResponse).where(CommunicationResponse.communication_id == row.id)
+    ).one()
+    rep = _initial_report(session, case_id) or "none"
+    texts = {(rsp.id, "text"): rsp.text, (row.id, "questions"): "\n".join(row.questions)}
+    evidence = _evidence_reader(session, case_id, lambda r, f: r == rep and f == "statement")
+
+    def read(record_id: str, field: str) -> tuple[Any, int]:
+        if (record_id, field) in texts:
+            return texts[(record_id, field)], 1
+        return evidence(record_id, field)
+
+    inputs = dom.ResponseReviewInput(
+        case_id=case_id, request_id=row.id, response_id=rsp.id, initial_report_id=rep
+    )
+    return dom.response_review_spec(frozenset({rsp.id, row.id, rep})), inputs, read
+
+
+def _store_review(
+    factory: sessionmaker[Session], case_id: str, run_id: str, out: BaseModel
+) -> None:
+    assert isinstance(out, dom.ResponseReviewOutput)
+    response_id = run_id.removeprefix(RR_PREFIX)
+    inv._execute_retrying(
+        factory,
+        case_id,
+        "store_review_recommendation",
+        f"recommend:{case_id}:{response_id}",
+        {
+            "response_id": response_id,
+            "run_id": run_id,
+            "classification": out.classification,
+            "citations": [c.model_dump(mode="json") for c in out.citations],
+        },
+        inv.specialist_actor(dom.RESPONSE_REVIEWER),
+    )
+
+
+@register(RR_JOB)
+def run_response_review(session: Session, payload: dict[str, Any], touch: Touch) -> None:
+    _run_specialist(session, payload, touch, _build_review, _store_review, dom.RESPONSE_REVIEWER)
+
+
+@register(WATCH_JOB)
+def deadline_watcher_job(session: Session, payload: dict[str, Any], touch: Touch) -> None:
+    run_deadline_watcher(session, datetime.fromisoformat(str(payload["now"])))
+
+
 class WatcherIn(BaseModel):
     advance_hours: int = 0
 
 
 class WatcherOut(BaseModel):
-    marked_overdue: list[str]
+    job_id: int
+    marked_overdue: list[str]  # case ids marked overdue by this watcher run
 
 
 def run_deadline_watcher(session: Session, now: datetime) -> list[str]:
@@ -635,7 +911,19 @@ def run_deadline_watcher(session: Session, now: datetime) -> list[str]:
 def demo_deadline_watcher(body: WatcherIn, request: Request, session: DbSession) -> WatcherOut:
     clock: Clock = request.app.state.clock
     now = clock.now() + timedelta(hours=body.advance_hours)
-    return WatcherOut(marked_overdue=run_deadline_watcher(session, now))
+    before = session.scalar(select(func.max(AuditEvent.id))) or 0
+    job_id = enqueue(session, WATCH_JOB, {"now": now.isoformat()}, now=now)
+    session.commit()
+    handler = {WATCH_JOB: deadline_watcher_job}
+    while run_once(session, worker_id="demo-deadline", now=now, handlers=handler) is not None:
+        pass
+    session.rollback()
+    marked = session.scalars(
+        select(AuditEvent.case_id).where(
+            AuditEvent.type == "communication.overdue", AuditEvent.id > before
+        )
+    ).all()
+    return WatcherOut(job_id=job_id, marked_overdue=sorted({str(m) for m in marked}))
 
 
 plugins.register_router(router)
