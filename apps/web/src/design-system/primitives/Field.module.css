@@ -1,0 +1,41 @@
+/* Prototype .field/.input/.ta/.err (Main.dc.html:122-127). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.label {
+  font-size: var(--font-size-label);
+  font-weight: 510;
+  color: var(--ink2);
+}
+.control {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius-input);
+  padding: 8px 10px;
+  background: var(--paper);
+}
+.control:focus {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -1px;
+}
+.invalid {
+  border-color: var(--bad);
+}
+.textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.55;
+}
+.err {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 510;
+  margin-top: 4px;
+}

@@ -1,0 +1,203 @@
+{
+    "case_id": "CHG-1042",
+    "case_version": 1,
+    "state": "reported",
+    "step": "intake",
+    "state_label": "New report",
+    "state_kind": "idle",
+    "next_action": "Open the case and start the investigation",
+    "owner": {
+        "id": "usr-sam-rivera",
+        "name": "Sam Rivera"
+    },
+    "waiting_on": null,
+    "due": {
+        "at": "2026-11-10T20:00:00Z",
+        "label": "Nov 10, 12:00 PM",
+        "overdue": false
+    },
+    "pins": {
+        "workflow_version": 3,
+        "policy_version": 1,
+        "evidence_snapshot": "sha256:43aa1b74586685e8c58b4872ebf31fa10880de0fa8aa77b336568861e2a788ea"
+    },
+    "transaction": {
+        "id": "TXN-1042",
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "currency": "USD",
+        "card_last4": "4418",
+        "posted_at": "2026-11-08T22:30:00Z"
+    },
+    "cardholder": {
+        "id": "PRF-4418",
+        "name": "Priya Shah",
+        "contact_on_file": {
+            "phone_masked": "(415)\u2022\u2022\u2022-0182",
+            "email": "priya.shah@halden.example",
+            "verified_at": null
+        }
+    },
+    "charge_impact": {
+        "posted_cents": 284000,
+        "exposure_cents": 284000,
+        "temporary_credit_cents": 0,
+        "confirmed_recovery_cents": 0,
+        "net_exposure_cents": 284000,
+        "bases": {
+            "posted_cents": "verified",
+            "exposure_cents": "verified",
+            "temporary_credit_cents": "pending",
+            "confirmed_recovery_cents": "verified",
+            "net_exposure_cents": "verified"
+        },
+        "note": "No credit issued."
+    },
+    "available_actions": [
+        {
+            "command": "open_case",
+            "label": "Open case",
+            "role": "analyst",
+            "style": "primary",
+            "enabled": true,
+            "blocked_reason": null,
+            "expected_state": "reported",
+            "expected_step": "intake",
+            "safe_note": "Safe to retry \u00b7 the same key replays the original result",
+            "confirm": null,
+            "idempotency_key": "open:CHG-1042:usr-sam-rivera",
+            "payload_defaults": {},
+            "key_template": "open:{case_id}:{user_id}"
+        },
+        {
+            "command": "hold_case",
+            "label": "Hold for more information",
+            "role": "analyst",
+            "style": "secondary",
+            "enabled": true,
+            "blocked_reason": null,
+            "expected_state": "reported",
+            "expected_step": "intake",
+            "safe_note": "Safe to retry \u00b7 the same key replays the original result",
+            "confirm": null,
+            "idempotency_key": "hold:CHG-1042:1",
+            "payload_defaults": {},
+            "key_template": "hold:{case_id}:{case_version}"
+        },
+        {
+            "command": "reassign_case",
+            "label": "Reassign",
+            "role": "analyst",
+            "style": "ghost",
+            "enabled": true,
+            "blocked_reason": null,
+            "expected_state": "reported",
+            "expected_step": "intake",
+            "safe_note": "Safe to retry \u00b7 the same key replays the original result",
+            "confirm": null,
+            "idempotency_key": "reassign:CHG-1042:1",
+            "payload_defaults": {},
+            "key_template": "reassign:{case_id}:{case_version}"
+        },
+        {
+            "command": "link_report",
+            "label": "Link duplicate report",
+            "role": "analyst",
+            "style": "ghost",
+            "enabled": true,
+            "blocked_reason": null,
+            "expected_state": "reported",
+            "expected_step": "intake",
+            "safe_note": "Safe to retry \u00b7 the same key replays the original result",
+            "confirm": null,
+            "idempotency_key": "report:REP-1043",
+            "payload_defaults": {
+                "report_id": "REP-1043"
+            },
+            "key_template": "report:{report_id}"
+        },
+        {
+            "command": "evaluate_policy",
+            "label": "Evaluate policy",
+            "role": "analyst",
+            "style": "ghost",
+            "enabled": true,
+            "blocked_reason": null,
+            "expected_state": "reported",
+            "expected_step": "intake",
+            "safe_note": "Safe to retry \u00b7 the same key replays the original result",
+            "confirm": null,
+            "idempotency_key": "policy:CHG-1042:43aa1b74586685e8c58b4872ebf31fa10880de0fa8aa77b336568861e2a788ea:1",
+            "payload_defaults": {},
+            "key_template": "policy:{case_id}:{snapshot_hash}:{policy_version}"
+        }
+    ],
+    "blocked_actions": [
+        {
+            "command": "resume_case",
+            "label": "Resume",
+            "reason": "Resume is not available while the case is 'New report'.",
+            "blocked_reason": "Resume is not available while the case is 'New report'."
+        }
+    ],
+    "recovery_actions": [],
+    "hold": null,
+    "policy": null,
+    "steps": [
+        {
+            "key": "report_received",
+            "label": "Report received",
+            "status": "done"
+        },
+        {
+            "key": "investigate",
+            "label": "Investigate",
+            "status": "current"
+        },
+        {
+            "key": "request_info",
+            "label": "Request info",
+            "status": "upcoming"
+        },
+        {
+            "key": "review_response",
+            "label": "Review response",
+            "status": "upcoming"
+        },
+        {
+            "key": "verify",
+            "label": "Verify",
+            "status": "upcoming"
+        },
+        {
+            "key": "prepare_decision",
+            "label": "Prepare decision",
+            "status": "upcoming"
+        },
+        {
+            "key": "reviewer_decision",
+            "label": "Reviewer decision",
+            "status": "upcoming"
+        },
+        {
+            "key": "credit_dispute",
+            "label": "Credit & dispute",
+            "status": "upcoming"
+        },
+        {
+            "key": "card_controls",
+            "label": "Card controls",
+            "status": "upcoming"
+        },
+        {
+            "key": "final_followup",
+            "label": "Final follow-up",
+            "status": "upcoming"
+        },
+        {
+            "key": "close_or_monitor",
+            "label": "Close or monitor",
+            "status": "upcoming"
+        }
+    ]
+}

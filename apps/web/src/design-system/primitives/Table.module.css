@@ -1,0 +1,50 @@
+/* Prototype .pt (399-402) and table.wt (934-940). */
+.pt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pt th {
+  text-align: left;
+  font-weight: 500;
+  color: #6d6c6b;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.pt td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--rule2);
+  vertical-align: top;
+}
+.wt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  min-width: 900px;
+}
+.wt th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mute);
+  padding: 8px 16px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+  background: #fcfbfa;
+}
+.wt td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule2);
+  vertical-align: top;
+}
+.wt tr:last-child td {
+  border-bottom: 0;
+}
+.wt .sel td {
+  background: var(--cobalt-wash);
+}
+.wt .sel td:first-child {
+  box-shadow: inset var(--selection-bar) 0 0 var(--cobalt);
+}

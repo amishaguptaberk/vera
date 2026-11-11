@@ -17,9 +17,9 @@
 }
 
 /* Base styles from the prototype's .app rule and global resets. */
-*,
-*::before,
-*::after {
+/* The prototype's `*{box-sizing:border-box}` does not match pseudo-elements; their borders are added to the
+   declared size (checkmarks, status marks, nav bars). Keep it that way so ported pseudo-element CSS matches. */
+* {
   box-sizing: border-box;
 }
 
@@ -32,4 +32,26 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--ink);
+}
+
+/* Splitter drag state (Handoff §8.2): set on <body> by the Splitter primitive while dragging. */
+body.vera-dragging {
+  user-select: none;
+}
+body.vera-drag-col,
+body.vera-drag-col * {
+  cursor: col-resize !important;
+}
+body.vera-drag-row,
+body.vera-drag-row * {
+  cursor: row-resize !important;
 }
