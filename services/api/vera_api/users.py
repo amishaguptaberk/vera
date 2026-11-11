@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from vera_domain.enums import Role
+from vera_domain.errors import CommandError
 from vera_domain.models import AssignableUser, AssignableUsers
 
 from vera_api.activity import ActorDep, DbSession, require_staff
@@ -33,4 +34,6 @@ router = APIRouter(prefix="/api")
 def get_users(session: DbSession, actor: ActorDep, assignable: bool = True) -> AssignableUsers:
     """Staff who can own a case. Only `assignable=true` is supported (the default)."""
     require_staff(actor, "the user list")
+    if not assignable:
+        raise CommandError("schema_invalid", 422, "assignable: only true is supported")
     return assignable_users(session)

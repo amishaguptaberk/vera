@@ -17,11 +17,13 @@ from vera_domain.models import ActionView, CaseView, Person, QueueRow, Summary
 
 from vera_api import auth, queries
 from vera_api import evidence as evidence_api
+from vera_api.activity import require_staff
 from vera_api.activity import router as activity_router
 from vera_api.auth import Actor
 from vera_api.config import Settings
 from vera_api.db import make_engine
 from vera_api.gateway import execute_command
+from vera_api.health import router as health_router
 from vera_api.intake import CaseNotOpenableError, UnknownTransactionError, submit_report
 from vera_api.models import ALL_TABLES
 from vera_api.policy import router as policy_router
@@ -67,12 +69,16 @@ cases = APIRouter(prefix="/api")
 
 
 @cases.get("/cases")
-def list_cases(session: DbSession, clock: ClockDep, settings: SettingsDep) -> list[QueueRow]:
+def list_cases(
+    session: DbSession, clock: ClockDep, settings: SettingsDep, actor: ActorDep
+) -> list[QueueRow]:
+    require_staff(actor, "the case queue")
     return queries.list_cases(session, clock.now(), settings.demo_tz)
 
 
 @cases.get("/cases/summary")
-def summary(session: DbSession, clock: ClockDep, settings: SettingsDep) -> Summary:
+def summary(session: DbSession, clock: ClockDep, settings: SettingsDep, actor: ActorDep) -> Summary:
+    require_staff(actor, "the case summary")
     try:
         return queries.summarize(session, clock.now(), settings.demo_tz)
     except MixedCurrencyError as exc:
@@ -291,6 +297,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.state.settings = settings
     app.state.clock = clock or default_demo_clock(settings.demo_tz)
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
+    app.include_router(health_router)
     app.include_router(activity_router)  # before `cases`: /cases/filter-counts is static
     app.include_router(users_router)
     app.include_router(cases)

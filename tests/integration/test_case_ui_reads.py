@@ -157,3 +157,58 @@ def test_openapi_describes_new_routes_and_fields(client: TestClient) -> None:
         assert name in schemas, name
     assert "/api/cases/{case_id}/activity" in spec["paths"]
     assert "/api/users" in spec["paths"]
+
+
+QUEUE_READS = ["/api/cases", "/api/cases/filter-counts", "/api/cases/summary"]
+
+
+def test_after_out_of_bigint_range_is_a_typed_422(client: TestClient) -> None:
+    for bad in ("99999999999999999999999", "9223372036854775808", "-1"):
+        resp = client.get(f"/api/cases/{CASE}/activity", params={"after": bad})
+        assert resp.status_code == 422, (bad, resp.text)
+        assert resp.json()["code"] == "schema_invalid"
+
+
+def test_queue_reads_are_staff_only(client: TestClient) -> None:
+    for role in ("analyst", "reviewer"):
+        assert client.post("/api/session/role", json={"role": role}).status_code == 200
+        for path in QUEUE_READS:
+            assert client.get(path).status_code == 200, (role, path)
+    client.post("/api/session/role", json={"role": "cardholder"})
+    for path in QUEUE_READS:
+        resp = client.get(path)
+        assert resp.status_code == 403, path
+        assert resp.json()["code"] == "role_forbidden"
+
+
+def test_queue_reads_need_a_session_outside_synthetic(db_url: str) -> None:
+    from vera_api.app import create_app
+    from vera_api.config import Settings
+
+    app = create_app(Settings(database_url=db_url, env="staging", session_secret="s3cret"))
+    with TestClient(app) as c:
+        for path in QUEUE_READS:
+            assert c.get(path).status_code == 401, path
+
+
+def test_users_rejects_assignable_false(client: TestClient) -> None:
+    resp = client.get("/api/users", params={"assignable": "false"})
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "schema_invalid"
+
+
+def test_health_checks_the_database_without_a_session(db_url: str) -> None:
+    from vera_api.app import create_app
+    from vera_api.config import Settings
+
+    app = create_app(Settings(database_url=db_url, env="staging", session_secret="s3cret"))
+    with TestClient(app) as c:
+        resp = c.get("/api/health")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+    bad = "postgresql+psycopg://vera:vera@127.0.0.1:1/nope?connect_timeout=1"
+    with TestClient(create_app(Settings(database_url=bad, env="synthetic"))) as c:
+        resp = c.get("/api/health")
+        assert resp.status_code == 503
+        assert resp.json()["code"] == "database_unavailable"
