@@ -17,6 +17,7 @@ from vera_domain.models import ActionView, CaseView, Person, QueueRow, Summary
 
 from vera_api import auth, queries
 from vera_api import evidence as evidence_api
+from vera_api.activity import router as activity_router
 from vera_api.auth import Actor
 from vera_api.config import Settings
 from vera_api.db import make_engine
@@ -26,6 +27,7 @@ from vera_api.models import ALL_TABLES
 from vera_api.policy import router as policy_router
 from vera_api.runs import router as runs_router
 from vera_api.seed import reset_database
+from vera_api.users import router as users_router
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -289,6 +291,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.state.settings = settings
     app.state.clock = clock or default_demo_clock(settings.demo_tz)
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
+    app.include_router(activity_router)  # before `cases`: /cases/filter-counts is static
+    app.include_router(users_router)
     app.include_router(cases)
     app.include_router(policy_router)
     app.include_router(session_router)
