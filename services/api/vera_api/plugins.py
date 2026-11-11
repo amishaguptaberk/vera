@@ -11,6 +11,7 @@ from fastapi import APIRouter
 # One line per feature module, imported in order by load_features().
 FEATURES: list[str] = [
     "vera_api.adapters",
+    "vera_api.automations",
 ]
 
 ROUTERS: list[tuple[APIRouter, bool]] = []  # (router, synthetic_only)
