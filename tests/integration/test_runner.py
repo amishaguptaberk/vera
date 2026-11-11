@@ -421,3 +421,17 @@ def test_heartbeat_is_called_before_each_model_call(session: Session) -> None:
     )
     assert outcome.status == "succeeded"
     assert beats == [0, 1]
+
+
+def test_latest_run_is_the_last_created_even_at_the_same_instant(session: Session) -> None:
+    """The demo clock does not advance between commands: run order is creation order, not id."""
+    from vera_api.investigation import latest_run
+    from vera_api.runner import create_run
+
+    session.execute(text("truncate table workflow_runs cascade"))
+    session.commit()
+    at = datetime(2031, 1, 1, tzinfo=UTC)
+    create_run(session, case_id="CHG-1042", mode=ExecutionMode.REPLAY, now=at, run_id="run_zzz")
+    create_run(session, case_id="CHG-1042", mode=ExecutionMode.REPLAY, now=at, run_id="run_aaa")
+    run = latest_run(session, "CHG-1042")
+    assert run is not None and run.id == "run_aaa"

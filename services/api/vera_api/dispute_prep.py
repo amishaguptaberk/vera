@@ -57,7 +57,7 @@ def latest_step(session: Session, case_id: str) -> WorkflowStep | None:
         select(WorkflowStep)
         .join(WorkflowRun, WorkflowRun.id == WorkflowStep.run_id)
         .where(WorkflowRun.case_id == case_id, WorkflowStep.step_key == dom.PREPARER)
-        .order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
+        .order_by(WorkflowRun.seq.desc())
     ).first()
 
 
@@ -149,13 +149,8 @@ def _retry_effect(
 ) -> dict[str, Any]:
     """Explicit recovery: rerun the failed preparer step live or from the recording."""
     row = packet(session, case.id)
-    step = latest_step(session, case.id)
-    if (
-        row is None
-        or row.narrative is not None
-        or step is None
-        or step.status != StepStatus.FAILED.value
-    ):
+    step = _failed_preparer(session, case)
+    if row is None or step is None:
         raise _wrong("The dispute narrative has no failed preparation to retry.")
     job_id = enqueue(
         session,
@@ -176,7 +171,8 @@ def enqueue_preparer(session: Session, case_id: str, now: datetime) -> None:
     """Called by money's prepare_dispute_packet after-effect, inside its transaction."""
     row = packet(session, case_id)
     assert row is not None
-    enqueue(session, JOB_KIND, {"case_id": case_id, "packet_id": row.id}, now=now)
+    run_id, _created = _inv().run_for_step(session, case_id, now)
+    enqueue(session, JOB_KIND, {"case_id": case_id, "packet_id": row.id, "run_id": run_id}, now=now)
 
 
 gateway.register_commands(
@@ -184,6 +180,35 @@ gateway.register_commands(
     human=dom.HUMAN,
     service=dom.SERVICE,
     effects={dom.RECORD.name: _record_effect, dom.RETRY.name: _retry_effect},
+)
+
+
+def _failed_preparer(session: Session, case: Case) -> WorkflowStep | None:
+    """The preparer step the retry would rerun: the packet has no narrative and it failed."""
+    row = packet(session, case.id)
+    step = latest_step(session, case.id)
+    if row is None or row.narrative is not None or step is None:
+        return None
+    return step if step.status == StepStatus.FAILED.value else None
+
+
+def _nothing_to_retry(session: Session, case: Case) -> CommandError | None:
+    if _failed_preparer(session, case) is None:
+        return _wrong("The dispute narrative has no failed preparation to retry.")
+    return None
+
+
+def _retry_defaults(session: Session, case: Case) -> dict[str, Any]:
+    step = _failed_preparer(session, case)
+    run = session.get(WorkflowRun, step.run_id) if step is not None else None
+    return {"mode": run.mode} if run is not None else {}
+
+
+gateway.register_actions(
+    __name__,
+    defaults={dom.RETRY.name: _retry_defaults},
+    guards={dom.RETRY.name: _nothing_to_retry},
+    hidden_when_refused=[dom.RETRY.name],
 )
 
 # ---- worker -------------------------------------------------------------------------------------
@@ -228,7 +253,9 @@ def run_preparer(session: Session, payload: dict[str, Any], touch: Touch) -> Non
 
         runner = SpecialistRunner(inv.client_for, read, inv._clock())
         outcome = runner.run_step(s, run_id, dom.PREPARER, spec, inputs, mode, apply, touch)
-    if outcome.status != StepStatus.SUCCEEDED.value:
+    succeeded = outcome.status == StepStatus.SUCCEEDED.value
+    inv.settle_step_run(factory, run_id, dom.PREPARER, succeeded)
+    if not succeeded:
         _failed(factory, case_id, run_id, outcome.failure_reason or "failed")
 
 
@@ -269,6 +296,7 @@ def on_job_failed(session: Session, payload: dict[str, Any], error: str) -> None
         step.error = error[:500]
         step.finished_at = _inv()._clock().now()
         s.commit()
+    _inv().settle_step_run(factory, run_id, dom.PREPARER, False)
     _failed(factory, case_id, run_id, FailureReason.APPLY_FAILED.value)
 
 

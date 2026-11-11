@@ -128,14 +128,21 @@ class Vera:
         self, names: Iterable[str] | str, payload: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         names = [names] if isinstance(names, str) else list(names)
-        view = self.view()
-        action = self.find(names, view)
-        body = {
-            "idempotency_key": action["idempotency_key"],  # server-supplied, echoed as given
-            "expected_case_version": view["case_version"],
-            "payload": {**action.get("payload_defaults", {}), **(payload or {})},
-        }
-        r = self.http.post(f"/api/cases/{CASE}/commands/{action['command']}", json=body)
+        # Background specialists (dispute narrative, prevention plan) may record results in
+        # between: reload and retry, as the UI does after its "case changed" notice.
+        for attempt in range(5):
+            if attempt:
+                time.sleep(1.0)
+            view = self.view()
+            action = self.find(names, view)
+            body = {
+                "idempotency_key": action["idempotency_key"],  # server-supplied, echoed as given
+                "expected_case_version": view["case_version"],
+                "payload": {**action.get("payload_defaults", {}), **(payload or {})},
+            }
+            r = self.http.post(f"/api/cases/{CASE}/commands/{action['command']}", json=body)
+            if r.status_code != 409 or r.json().get("code") != "stale_case_version":
+                break
         check(
             r.status_code == 200,
             f"{action['command']} as {self.role} -> {r.status_code} {r.text[:300]}",
@@ -336,13 +343,11 @@ def s8_identity(v: Vera, st: Stage) -> None:
     check(c["step"] == "verify", f"after OTP: {c['step']}")
 
 
-QUESTIONS = [{"id": "q1", "text": "Did you place the Bayline Industrial Supply order?"}]
-
-
 def s9_callback(v: Vera, st: Stage) -> None:
     v.as_role("analyst")
     before = len(v.events())
-    out = v.act("start_callback", {"questions": QUESTIONS, "consent_recorded": True})
+    # The approved questions are the server's default set (payload_defaults), as the UI offers.
+    out = v.act("start_callback", {"consent_recorded": True})
     cid = out["result"]["callback_id"]
     _at(v, "packet", "the verification call and the Live Verification Agent (worker)")
     call = v.get(f"/api/cases/{CASE}/callbacks/{cid}")

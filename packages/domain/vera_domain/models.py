@@ -71,6 +71,10 @@ class ActionView(BaseModel):
     confirm: str | None = None
     idempotency_key: str  # always fully resolved: the client echoes it as given
     payload_defaults: dict[str, Any] = {}  # server-allocated payload fields; merge under the input
+    # Record ids the command may be posted for, one per post (e.g. the related charges awaiting
+    # review). The client offers exactly these as `record_id`; it never types one. None = the
+    # command takes no record target.
+    targets: list[str] | None = None
     key_template: str | None = None  # informational only: never something the client fills in
 
 

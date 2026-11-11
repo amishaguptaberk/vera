@@ -53,3 +53,22 @@ describe('CardholderRequestCard', () => {
     expect(container.textContent).not.toMatch(/MSG-|CASE-|RSP-|Sam Rivera/);
   });
 });
+
+describe('Cardholder home', () => {
+  it('shows the verification step the server offers on their case, with the demo code box, before the answered request', async () => {
+    const { mockFetch, renderWithProviders, session } = await import('./helpers');
+    const { act, caseWith } = await import('../fixtures/verify/fixtures');
+    const { CardholderHome } = await import('@/features/pages/CardholderHome');
+    mockFetch((c) => {
+      if (c.url === '/api/session') return session('cardholder');
+      if (c.url.startsWith('/api/requests/')) return { request_id: 'MSG-2201', case_id: 'CHG-1042', status: 'answered', subject: 'Q', questions: [], due_at: null, responded: true };
+      if (c.url.startsWith('/api/requests')) return { requests: [{ request_id: 'MSG-2201', case_id: 'CHG-1042', status: 'answered', subject: 'Q', questions: [], due_at: null, responded: true }] };
+      if (c.url === '/api/cases/CHG-1042') return caseWith([act('submit_otp', { payload_defaults: { verification_id: 'IDV-1' } })]);
+      if (c.url === '/api/verifications/IDV-1/outbox') return { synthetic: true, label: 'Synthetic demo: simulated message', verification_id: 'IDV-1', channel: 'otp', code: '123456', attempts_left: 3, next_attempt_no: 1 };
+      return new Response('{}', { status: 404 });
+    });
+    renderWithProviders(<CardholderHome />);
+    expect(await screen.findByText('Verify your identity')).toBeTruthy();
+    expect((await screen.findByTestId('cardholder-demo-outbox')).textContent).toContain('123456');
+  });
+});

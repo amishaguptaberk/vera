@@ -213,6 +213,48 @@ describe("Verification call", () => {
     expect(screen.getByText("Not started.")).toBeTruthy();
   });
 
+  it("the analyst edits the server's default questions, records consent and starts the call with exactly those", async () => {
+    const calls = mockFetch((c) => {
+      if (c.url === "/api/session") return session("analyst");
+      if (c.url === "/api/cases/CHG-1042/callbacks") return [];
+      if (c.method === "POST") return { status: "recorded", result: {}, case: caseWith([]) };
+      if (c.url === "/api/cases/CHG-1042")
+        return caseWith([
+          act("start_callback", {
+            label: "Approve and start call",
+            payload_defaults: {
+              questions: [
+                { id: "q1", text: "Did you place the order?" },
+                { id: "q2", text: "Did you authorize this charge of $2,840.00?" },
+              ],
+              target_record_id: "PRF-4418",
+            },
+          }),
+        ]);
+      return notFound();
+    });
+    renderWithProviders(<CallPanel caseId="CHG-1042" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit questions" }));
+    const q2 = screen.getByLabelText("Question 2");
+    await user.clear(q2);
+    await user.type(q2, "Did you approve this charge?");
+    const start = screen.getByRole("button", { name: "Approve and start call" });
+    expect((start as HTMLButtonElement).disabled).toBe(true); // consent first
+    await user.click(screen.getByLabelText("Cardholder consented to this verification call"));
+    await user.click(start);
+    const post = calls.find((c) => c.method === "POST")!;
+    expect(post.url).toBe("/api/cases/CHG-1042/commands/start_callback");
+    expect(JSON.parse(post.body!).payload).toEqual({
+      target_record_id: "PRF-4418",
+      consent_recorded: true,
+      questions: [
+        { id: "q1", text: "Did you place the order?" },
+        { id: "q2", text: "Did you approve this charge?" },
+      ],
+    });
+  });
+
   it("appends transcript lines in place without re-mounting the panel", async () => {
     let cur = call({
       transcript: [{ seq: 1, speaker: "agent", text: "Hi, this is Vera." }],

@@ -25,6 +25,10 @@ function IdentityTab({ caseId, onSelectRecord }: CaseSlotProps) {
 function CallTab({ caseId, onSelectRecord }: CaseSlotProps) {
   return <CallPanel caseId={caseId} onOpenSource={onSelectRecord} showActions={false} hideEmpty />;
 }
+// Task card while the server offers start_callback: approve (and edit) the questions, record consent, start the call.
+function CallTaskBlock({ caseId, onSelectRecord }: CaseSlotProps) {
+  return <CallPanel caseId={caseId} onOpenSource={onSelectRecord} />;
+}
 function CardholderVerifyBlock({ caseId }: CaseSlotProps) {
   return <CardholderVerifyPanel caseId={caseId} />;
 }
@@ -71,6 +75,8 @@ export const caseRegistry: CaseRegistry = {
     },
     // Cardholder "Verify it's you" (step idv): the panel renders the code entry / push approve itself.
     { key: 'verify-cardholder', match: (c, role) => role === 'cardholder' && c.step === 'idv', Block: CardholderVerifyBlock, ownsActions: true },
+    // Verification call preparation / retry (analyst): the call panel owns start_callback and its consent box.
+    { key: 'call', match: (c, role) => role === 'analyst' && c.available_actions.some((a) => a.command === 'start_callback'), Block: CallTaskBlock, ownsActions: true },
     // Money steps (credit, tracks, dispute, card controls, closure): MoneyTask renders the server's actions itself.
     { key: 'money', match: (c) => MONEY_STEPS.has(c.step), Block: MoneyBlock, ownsActions: true },
     // Follow-up steps (draft → waiting → no response → response): actions stay in the generic ActionBar.

@@ -1,8 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { evidenceQuery, evidenceRecordQuery, type EvidenceRegister, type FindingView } from '@/api';
-import { Skeleton } from '@/design-system/primitives';
+import { useState } from 'react';
+import { evidenceQuery, evidenceRecordQuery, type ActionView, type EvidenceRegister, type FindingView } from '@/api';
+import { Button, Field, Skeleton } from '@/design-system/primitives';
 import styles from './CaseWorkspace.module.css';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -109,7 +110,38 @@ function Findings({ findings, onSelect }: { findings: readonly FindingView[]; on
   );
 }
 
-export function EvidenceRegisterView({ ev, onSelect }: { ev: EvidenceRegister; onSelect: (id: string) => void }) {
+/** The server's review_related_charge action (its `targets` are the records awaiting review) and how to post it. */
+export type RelatedReview = { action: ActionView; busy: boolean; error: string | null; onSubmit: (payload: Record<string, string>) => void };
+type Decision = 'related' | 'not_related';
+
+function ReviewForm({ recordId, decision, review, onCancel }: { recordId: string; decision: Decision; review: RelatedReview; onCancel: () => void }) {
+  const [reason, setReason] = useState('');
+  const verb = decision === 'related' ? 'Mark related' : 'Mark not related';
+  return (
+    <form
+      aria-label={`Review ${recordId}`}
+      className={styles.form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        review.onSubmit({ record_id: recordId, decision, reason });
+      }}
+    >
+      <Field multiline label="Reason" rows={2} value={reason} required error={review.error ?? undefined} onChange={(e) => setReason(e.target.value)} />
+      <div className={styles.acts}>
+        <Button type="submit" variant={['sm', 'go']} disabled={review.busy || !reason.trim()}>
+          {verb}
+        </Button>
+        <Button type="button" variant={['sm', 'ghost']} onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function EvidenceRegisterView({ ev, onSelect, review }: { ev: EvidenceRegister; onSelect: (id: string) => void; review?: RelatedReview | null }) {
+  const [open, setOpen] = useState<{ id: string; decision: Decision } | null>(null);
+  const reviewable = new Set(review?.action.targets ?? []);
   const placed = new Set<string>();
   const groups = GROUPS.map(([label, match]) => {
     const rows = ev.records.filter((r) => match(r.kind));
@@ -145,6 +177,19 @@ export function EvidenceRegisterView({ ev, onSelect }: { ev: EvidenceRegister; o
                     <td className={styles.num}>v{r.current_version}</td>
                     <td>
                       <span className={`${styles.est} ${styles[`est_${r.status}`] ?? ''}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
+                      {review && reviewable.has(r.record_id) ? (
+                        <div className={styles.acts} data-testid={`review-${r.record_id}`}>
+                          <Button variant={['sm', 'ghost']} onClick={() => setOpen({ id: r.record_id, decision: 'related' })}>
+                            Mark related
+                          </Button>
+                          <Button variant={['sm', 'ghost']} onClick={() => setOpen({ id: r.record_id, decision: 'not_related' })}>
+                            Not related
+                          </Button>
+                        </div>
+                      ) : null}
+                      {review && open?.id === r.record_id && reviewable.has(r.record_id) ? (
+                        <ReviewForm key={open.decision} recordId={r.record_id} decision={open.decision} review={review} onCancel={() => setOpen(null)} />
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -187,9 +232,9 @@ export function EvidenceRegisterView({ ev, onSelect }: { ev: EvidenceRegister; o
   );
 }
 
-export function EvidencePanel({ caseId, sel, onSelect }: { caseId: string; sel: string | null; onSelect: (id: string | null) => void }) {
+export function EvidencePanel({ caseId, sel, onSelect, review }: { caseId: string; sel: string | null; onSelect: (id: string | null) => void; review?: RelatedReview | null }) {
   const q = useQuery(evidenceQuery(caseId));
   if (sel) return <RecordView caseId={caseId} recordId={sel} onBack={() => onSelect(null)} onSelect={onSelect} />;
   if (!q.data) return <div className={styles.inspBody}>{q.isError ? <p className={styles.rd}>{q.error.message}</p> : <Skeleton height={120} />}</div>;
-  return <EvidenceRegisterView ev={q.data} onSelect={onSelect} />;
+  return <EvidenceRegisterView ev={q.data} onSelect={onSelect} review={review} />;
 }

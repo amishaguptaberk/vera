@@ -39,6 +39,7 @@ from vera_domain.callbacks import (
     StartCallbackPayload,
     StructuredResult,
     build_agent_spec,
+    default_questions,
     reduce_note,
     reduce_record,
     reduce_retry,
@@ -64,7 +65,7 @@ from vera_api.model_client import (
     RecordedModelClient,
     default_mode,
 )
-from vera_api.models import Case
+from vera_api.models import CardTransaction, Case, Merchant, User
 from vera_api.models_callbacks import Callback, CallbackLine, CallbackNote
 from vera_api.models_evidence import EvidenceRecord, EvidenceVersion
 from vera_api.models_runs import WorkflowRun, WorkflowStep
@@ -154,8 +155,10 @@ class SimulatedTelephony:
     def call(self, operation: str, request: dict[str, Any]) -> AdapterResult:
         outcome = self.next_outcome
         lines = [{"speaker": "agent", "text": f"Calling {request['target']['record_id']}."}]
-        for q in request["questions"]:
-            lines.append({"speaker": "agent", "text": q["text"]})
+        # The agent asks the approved questions in one turn; the contact then answers.
+        lines.append(
+            {"speaker": "agent", "text": " ".join(q["text"] for q in request["questions"])}
+        )
         lines += [{"speaker": s, "text": t} for s, t in _SCRIPTS[outcome]]
         return AdapterResult(
             status="succeeded",
@@ -586,7 +589,7 @@ def agent_step(session: Session, case_id: str) -> WorkflowStep | None:
         select(WorkflowStep)
         .join(WorkflowRun, WorkflowRun.id == WorkflowStep.run_id)
         .where(WorkflowRun.case_id == case_id, WorkflowStep.step_key == AGENT)
-        .order_by(WorkflowRun.created_at.desc())
+        .order_by(WorkflowRun.seq.desc())
     ).first()
 
 
@@ -635,6 +638,23 @@ def _no_call(session: Session, case: Case) -> CommandError | None:
     return None
 
 
+def _start_defaults(session: Session, case: Case) -> dict[str, Any]:
+    """The default question set (QUESTION_SET_VERSION) filled from the case's charge (merchant,
+    amount, card last four), and the call target. The analyst edits and approves the questions
+    before the call starts."""
+    txn = session.get(CardTransaction, case.transaction_id)
+    merchant = session.get(Merchant, txn.merchant_id) if txn is not None else None
+    if txn is None or merchant is None:
+        return {"target_record_id": TARGET_RECORD}
+    questions = default_questions(
+        merchant=merchant.name,
+        amount_cents=txn.amount_cents,
+        currency=txn.currency,
+        card_last4=txn.card_last4,
+    )
+    return {"questions": questions, "target_record_id": TARGET_RECORD}
+
+
 def _note_defaults(session: Session, case: Case) -> dict[str, Any]:
     row = latest_callback(session, case.id)
     return {"callback_id": row.id} if row is not None else {}
@@ -659,7 +679,7 @@ def _retry_defaults(session: Session, case: Case) -> dict[str, Any]:
 
 gateway.register_actions(
     __name__,
-    defaults={NOTE.name: _note_defaults, RETRY.name: _retry_defaults},
+    defaults={START.name: _start_defaults, NOTE.name: _note_defaults, RETRY.name: _retry_defaults},
     guards={START.name: _limit_reached, NOTE.name: _no_call, RETRY.name: _agent_not_failed},
 )
 
@@ -709,6 +729,7 @@ class CallbackView(BaseModel):
 
 
 class CallbackDetail(CallbackView):
+    approved_by_name: str | None = None  # display name of the approving analyst
     transcript: list[LineView]
     notes: list[NoteView]
     voice: dict[str, Any] | None = None
@@ -760,6 +781,7 @@ def get_callback(
         transcript=[LineView(seq=x.seq, speaker=x.speaker, text=x.text) for x in lines],
         notes=[NoteView(author=n.author, text=n.text, created_at=n.created_at) for n in notes],
         voice=_voice_view(session, row.id),
+        approved_by_name=user.name if (user := session.get(User, row.approved_by)) else None,
     )
 
 

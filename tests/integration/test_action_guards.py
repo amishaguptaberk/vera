@@ -120,3 +120,19 @@ def test_feature_keys_and_defaults_are_resolved_on_the_offered_action(
         assert "{" not in action["idempotency_key"], action
     resp = act(client, "cardholder", "submit_cardholder_response", {"text": "Receipt attached."})
     assert resp.status_code == 200, resp.text
+
+
+RETRIES = {"retry_follow_up_draft", "retry_decision_packet", "retry_dispute_narrative"}
+
+
+def test_a_retry_is_listed_only_when_something_failed(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    investigated(client, factory)
+    assert act(client, "analyst", "draft_follow_up").status_code == 200
+    drain(factory)
+    view = as_role(client, "analyst")
+    listed = {a["command"] for a in view["available_actions"]}
+    listed |= {b["command"] for b in view["blocked_actions"]}
+    listed |= {a["command"] for a in view["recovery_actions"]}
+    assert listed.isdisjoint(RETRIES), listed & RETRIES

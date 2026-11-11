@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionBar } from '@/components/case';
@@ -78,6 +78,40 @@ describe('CaseWorkspace', () => {
     const post = calls.find((c) => c.method === 'POST')!;
     expect(post.url).toBe('/api/cases/CHG-1042/commands/hold_case');
     expect(JSON.parse(post.body!)).toEqual({ expected_case_version: 1, idempotency_key: 'hold:CHG-1042:1', payload: { reason: 'x', next_owner: 'usr-dana-okafor' } });
+  });
+
+  it('review related charge picks the record from the server targets, never a typed id', async () => {
+    const review = { ...actions[0]!, command: 'review_related_charge', label: 'Review related charge', style: 'secondary', idempotency_key: 'related:CHG-1042:1', payload_defaults: {}, targets: ['CHG-1048', 'CHG-1051'] };
+    const withReview = { ...intake, available_actions: [...actions, review] };
+    const calls = mockFetch((c) => (c.method === 'POST' ? json({ status: 'recorded', result: {}, case: withReview }, 200) : withReview));
+    renderWithProviders(<CaseWorkspace caseId="CHG-1042" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Review related charge' }));
+    const form = within(screen.getByRole('form', { name: 'Review related charge' }));
+    const record = form.getByLabelText('Related charge') as HTMLSelectElement;
+    expect([...record.options].map((o) => o.value)).toEqual(['CHG-1048', 'CHG-1051']);
+    await user.selectOptions(record, 'CHG-1051');
+    await user.selectOptions(form.getByLabelText('Decision'), 'not_related');
+    await user.type(form.getByLabelText('Reason'), 'Separate order.');
+    await user.click(screen.getByRole('form', { name: 'Review related charge' }).querySelector('button[type="submit"]')!);
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect(post.url).toBe('/api/cases/CHG-1042/commands/review_related_charge');
+    expect(JSON.parse(post.body!).payload).toEqual({ record_id: 'CHG-1051', decision: 'not_related', reason: 'Separate order.' });
+  });
+
+  it('review response picks an outcome and can accept the attached receipt (a boolean, not text)', async () => {
+    const review = { ...actions[0]!, command: 'review_cardholder_response', label: 'Review response', style: 'primary', idempotency_key: 'review:CHG-1042:1', payload_defaults: {} };
+    const withReview = { ...intake, available_actions: [review] };
+    const calls = mockFetch((c) => (c.method === 'POST' ? json({ status: 'recorded', result: {}, case: withReview }, 200) : withReview));
+    renderWithProviders(<CaseWorkspace caseId="CHG-1042" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Review response' }));
+    const form = within(screen.getByRole('form', { name: 'Review response' }));
+    await user.selectOptions(form.getByLabelText('Outcome'), 'conflicting');
+    await user.click(form.getByLabelText('Accept the attached receipt as evidence'));
+    await user.click(form.getByRole('button', { name: 'Review response' }));
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect(JSON.parse(post.body!).payload).toEqual({ outcome: 'conflicting', receipt_accepted: true });
   });
 
   it('a 409 stale_case_version refetches, tells the user, and does not retry', async () => {

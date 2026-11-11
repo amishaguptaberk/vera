@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CommsPanel, RequestPage } from '@/features/comms';
-import { caseDraft, cardholderRequest, draftDetail, draftItem, respondedDetail, saveAction, sendAction } from '../fixtures/comms';
+import { CommsPanel, FollowupTask, RequestPage } from '@/features/comms';
+import { caseDraft, cardholderRequest, draftDetail, draftItem, respondedDetail, reviewAction, saveAction, sendAction } from '../fixtures/comms';
 import { mockFetch, renderWithProviders } from './helpers';
 
 const json = (body: unknown, status: number) => new Response(JSON.stringify(body), { status });
@@ -99,5 +99,32 @@ describe('RequestPage', () => {
     const post = calls.find((c) => c.method === 'POST')!;
     expect(post.url).toBe('/api/requests/MSG-2201/responses');
     expect(JSON.parse(post.body!)).toEqual({ text: 'I did\n\nOrdered for the plant.' });
+  });
+});
+
+describe('FollowupTask · response step review suggestion', () => {
+  const responseCase = () => ({ ...caseDraft([reviewAction]), step: 'response', state: 'response_received' });
+  const serve = (suggestion: unknown) =>
+    mockFetch((c) => {
+      if (c.url === '/api/cases/CHG-1042/communications') return [{ ...draftItem, status: 'responded' }];
+      if (c.url === '/api/cases/CHG-1042/communications/MSG-2201') return { ...respondedDetail, review_suggestion: suggestion };
+      return responseCase();
+    });
+
+  it('an unavailable suggestion reads as a calm note and the review stays the analyst’s', async () => {
+    serve({ status: 'unavailable', classification: null, citations: [], reason: 'ungrounded' });
+    renderWithProviders(<FollowupTask caseId="CHG-1042" />);
+    const note = await screen.findByTestId('review-suggestion');
+    expect(note.textContent).toBe('Review suggestion unavailable — review the reply yourself.');
+    expect(note.getAttribute('role')).toBe('status');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a ready suggestion names the classification and says the analyst decides', async () => {
+    serve({ status: 'ready', classification: 'conflicting', citations: [{ record_id: 'RSP-2201', version: 1, field: 'text', statement: 'The reply says the cardholder placed the order.' }], reason: null });
+    renderWithProviders(<FollowupTask caseId="CHG-1042" />);
+    const note = await screen.findByTestId('review-suggestion');
+    expect(note.textContent).toContain('Suggested review: Conflicting');
+    expect(note.textContent).toContain('The reply says the cardholder placed the order.');
   });
 });

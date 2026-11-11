@@ -766,7 +766,8 @@ def ingest_dispute_outcome(session: Session, payload: dict[str, Any], touch: Any
 class DisputeOutcomeRequest(BaseModel):
     case_id: str = Field(min_length=1)
     outcome: str = Field(min_length=1)
-    reference: str = Field(min_length=1, max_length=100)
+    # The simulated network's reference; defaults to one derived from the case.
+    reference: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 demo_router = APIRouter(prefix="/api/demo")
@@ -776,7 +777,8 @@ demo_router = APIRouter(prefix="/api/demo")
 def post_dispute_outcome(body: DisputeOutcomeRequest, session: DbSession) -> dict[str, Any]:
     """Synthetic only: queue the network's dispute outcome; a worker applies it."""
     _case(session, body.case_id)
-    job_id = worker.enqueue(session, DISPUTE_OUTCOME_JOB, body.model_dump())
+    payload = {**body.model_dump(), "reference": body.reference or f"NET-{body.case_id}"}
+    job_id = worker.enqueue(session, DISPUTE_OUTCOME_JOB, payload)
     session.commit()
     return {"job_id": job_id, "kind": DISPUTE_OUTCOME_JOB}
 

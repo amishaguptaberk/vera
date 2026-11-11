@@ -593,6 +593,7 @@ gateway.register_actions(
         "request_reviewer_approval": _approval_not_ready,
         "approve_decision": _not_approvable,
     },
+    hidden_when_refused=["retry_decision_packet"],
 )
 gateway.register_fact_provider(_facts)
 gateway.set_approval_provider(_approval_provider)

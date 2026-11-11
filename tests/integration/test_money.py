@@ -599,6 +599,40 @@ def test_prevention_planner_replay_recommends_grounded_controls_after_credit(
     assert tuple(row) == ("reference-recording", "succeeded")
 
 
+def _runs(db: Session) -> list[tuple[str, int, int, str]]:
+    db.rollback()
+    rows = db.execute(
+        text("select status, workflow_version, policy_version, mode from workflow_runs")
+    ).all()
+    return [tuple(r) for r in rows]  # type: ignore[misc]
+
+
+def _pins(db: Session) -> tuple[int, int]:
+    db.rollback()
+    row = db.execute(
+        text("select workflow_version, policy_version from cases where id = :c"), {"c": CASE}
+    ).one()
+    return int(row[0]), int(row[1])
+
+
+def test_planner_without_a_workflow_run_gets_one_pinned_to_the_case(
+    client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_api import investigation
+
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", Path("evals/recordings"))
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "replay")
+    db.execute(text("delete from jobs"))
+    db.commit()
+    assert _runs(db) == []
+    issue(client)
+    wf, pol = _pins(db)
+    assert _runs(db) == [("running", wf, pol, "replay")]  # created on demand, never skipped
+    _drain(db)
+    _assert_recommended(client, db)
+    assert _runs(db) == [("succeeded", wf, pol, "replay")]
+
+
 def test_prevention_planner_live_over_mock_transport(
     client: TestClient,
     db: Session,
@@ -684,8 +718,14 @@ def test_dispute_preparer_replay_stores_a_grounded_narrative_on_the_packet(
     _dispute_run(db, ExecutionMode.REPLAY)
     _prepare(client, db)
     assert _dispute(client)["narrative_status"] == "pending"
+    listed = {a["command"] for a in view(client)["available_actions"]}
+    listed |= {b["command"] for b in view(client)["blocked_actions"]}
+    assert "retry_dispute_narrative" not in listed  # nothing failed: no retry, not even blocked
     _drain(db)
     _assert_narrative(client, db)
+    listed = {a["command"] for a in view(client)["available_actions"]}
+    listed |= {b["command"] for b in view(client)["blocked_actions"]}
+    assert "retry_dispute_narrative" not in listed
     row = db.execute(
         text(
             "select model_id, status, execution_mode from workflow_steps "
@@ -699,6 +739,44 @@ def test_dispute_preparer_replay_stores_a_grounded_narrative_on_the_packet(
     assert json.loads(dumped.read_text()) == json.loads(committed.read_text())
     prompt = json.loads(committed.read_text())["messages"][1]["content"]
     assert "284000" not in prompt and "Bayline" not in prompt and "PRF-4418" not in prompt
+
+
+def test_preparer_without_a_workflow_run_gets_one_and_the_narrative_is_not_stuck_pending(
+    client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_api import investigation
+
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", Path("evals/recordings"))
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "replay")
+    db.execute(text("delete from jobs"))
+    db.commit()
+    _prepare(client, db)
+    wf, pol = _pins(db)
+    assert ("running", wf, pol, "replay") in _runs(db)
+    _drain(db)
+    _assert_narrative(client, db)
+    assert all(status == "succeeded" for status, *_ in _runs(db))
+
+
+def test_without_a_run_or_an_execution_mode_the_planner_fails_explicitly(
+    client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_api import investigation
+
+    def unset() -> ExecutionMode:
+        raise RuntimeError("VERA_EXECUTION_MODE is not set")
+
+    monkeypatch.setattr(investigation, "default_mode", unset)
+    db.execute(text("delete from jobs"))
+    db.commit()
+    issue(client)
+    assert _runs(db) == []
+    _drain(db)
+    db.rollback()
+    failed = db.execute(
+        text("select detail from audit_events where type='specialist.failed'")
+    ).scalar_one()
+    assert failed["step_key"] == "prevention_planner" and failed["reason"] == "no_run"
 
 
 def _bad_recordings(root: Path) -> None:
@@ -742,7 +820,10 @@ def test_ungrounded_narrative_fails_the_step_and_the_dispute_track_still_advance
     assert failed["step_key"] == "dispute_packet_preparer" and failed["reason"] == "ungrounded"
     assert count(db, "select count(*) from dispute_packets where narrative is not null") == 0
     # The server offers the explicit retry; the track never waits for the narrative.
-    assert "retry_dispute_narrative" in offered(client)
+    retry = next(
+        a for a in view(client)["available_actions"] if a["command"] == "retry_dispute_narrative"
+    )
+    assert retry["payload_defaults"] == {"mode": "replay"}  # the failed step's run mode
     ok(client, "open_dispute_packet")
     ok(client, "review_dispute_packet")
     assert ok(client, "submit_dispute")["result"]["dispute_status"] == "submitted"
@@ -769,7 +850,8 @@ def test_retry_after_a_failed_narrative_replays_the_reference_and_stores_it(
     assert _dispute(client)["narrative_status"] == "failed"  # until the queued job runs
     _drain(db)
     _assert_narrative(client, db)
-    again = send(client, "retry_dispute_narrative", {"mode": "replay"})
+    assert "retry_dispute_narrative" not in offered(client)  # nothing failed any more
+    again = send(client, "retry_dispute_narrative", {"mode": "replay"}, key="dspnarr-retry:x")
     assert again.status_code == 409 and again.json()["code"] == "invalid_step"
 
 

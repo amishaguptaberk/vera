@@ -732,6 +732,21 @@ def resolve_open_conflicts(
 # ---- review_related_charge (analyst; registered with the gateway's built-in handlers) ------------
 
 
+def pending_related_charges(session: Session, case_id: str) -> list[str]:
+    """Related charges on the case still awaiting the analyst's review (the command's targets)."""
+    return list(
+        session.scalars(
+            select(EvidenceRecord.id)
+            .where(
+                EvidenceRecord.case_id == case_id,
+                EvidenceRecord.kind == "related_charge",
+                EvidenceRecord.status == EvidenceStatus.PENDING_REVIEW.value,
+            )
+            .order_by(EvidenceRecord.id)
+        )
+    )
+
+
 def related_effect(
     session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: "EffectContext"
 ) -> dict[str, Any]:

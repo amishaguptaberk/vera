@@ -30,11 +30,22 @@ export type CommunicationDetail = CommunicationItem & {
   delivery: Record<string, unknown> | null;
   draft_versions: number;
   response: ResponseView | null;
+  /** The Response Reviewer's suggestion for the reply (null before a reply). The analyst decides either way. */
+  review_suggestion?: ReviewSuggestion | null;
+};
+
+export type ReviewSuggestion = {
+  status: 'pending' | 'ready' | 'unavailable';
+  classification: string | null;
+  citations: Record<string, unknown>[];
+  reason: string | null;
 };
 
 /** GET /api/requests/{request_id} (cardholder role). Cardholder-facing: only this request's own data. */
 export type CardholderRequest = {
   request_id: string;
+  /** The cardholder's own case: its view offers them any verification step that is waiting. */
+  case_id?: string;
   status: 'awaiting_reply' | 'answered' | string;
   subject: string;
   questions: string[];

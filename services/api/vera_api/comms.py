@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import ModuleType
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from vera_domain import comms as dom
 from vera_domain.adapters import AdapterResult
 from vera_domain.clock import Clock
-from vera_domain.enums import CaseState, CaseStep, Role, StateKind
+from vera_domain.enums import CaseState, CaseStep, EventType, Role, StateKind
 from vera_domain.errors import CommandError
 from vera_domain.evidence import content_hash
 from vera_domain.labels import register_event_summaries, register_labels
@@ -35,7 +35,7 @@ from vera_api.models_evidence import (
     Finding,
     FindingLink,
 )
-from vera_api.models_runs import WorkflowRun
+from vera_api.models_runs import WorkflowRun, WorkflowStep
 from vera_api.runner import SpecialistRunner, create_run
 from vera_api.worker import FAILURE_HOOKS, Touch, enqueue, register, run_once
 
@@ -592,6 +592,7 @@ gateway.register_actions(
         "update_communication_draft": _no_draft,
         "send_communication": _no_draft,
     },
+    hidden_when_refused=["retry_follow_up_draft"],
 )
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(["communication_responses", "communication_drafts", "communications"])
@@ -640,6 +641,16 @@ class ResponseView(BaseModel):
     submitted_at: datetime
 
 
+class ReviewSuggestion(BaseModel):
+    """The Response Reviewer's suggestion for the reply. `unavailable` = no grounded suggestion
+    (the step failed, or no execution mode): the analyst reviews the reply alone."""
+
+    status: Literal["pending", "ready", "unavailable"]
+    classification: str | None = None
+    citations: list[dict[str, Any]] = []
+    reason: str | None = None
+
+
 class CommunicationDetail(CommunicationItem):
     subject: str
     body: str
@@ -648,12 +659,14 @@ class CommunicationDetail(CommunicationItem):
     delivery: dict[str, Any] | None
     draft_versions: int
     response: ResponseView | None
+    review_suggestion: ReviewSuggestion | None = None
 
 
 class CardholderRequest(BaseModel):
     """Cardholder-facing: only this request's question text and status."""
 
     request_id: str
+    case_id: str  # the cardholder's own case (its view offers them their verification step)
     status: str
     subject: str
     questions: list[str]
@@ -735,7 +748,24 @@ def get_communication(
         )
         if rsp
         else None,
+        review_suggestion=_suggestion(session, row, rsp.id) if rsp else None,
     )
+
+
+def _suggestion(session: Session, row: Communication, response_id: str) -> ReviewSuggestion:
+    rec = row.review_recommendation
+    if rec is not None and rec.get("response_id") == response_id:
+        return ReviewSuggestion(
+            status="ready", classification=rec["classification"], citations=rec["citations"]
+        )
+    run = session.get(WorkflowRun, f"{RR_PREFIX}{response_id}")
+    if run is None:
+        return ReviewSuggestion(status="unavailable", reason="no_execution_mode")
+    if run.status == "running":
+        return ReviewSuggestion(status="pending")
+    step = session.get(WorkflowStep, (run.id, dom.RESPONSE_REVIEWER))
+    reason = step.failure_reason if step is not None else None
+    return ReviewSuggestion(status="unavailable", reason=reason or "failed")
 
 
 def _cardholder_rows(session: Session, actor: Actor) -> list[Communication]:
@@ -761,6 +791,7 @@ def _cardholder_rows(session: Session, actor: Actor) -> list[Communication]:
 def _public(row: Communication) -> CardholderRequest:
     return CardholderRequest(
         request_id=row.id,
+        case_id=row.case_id,
         status="answered" if row.status == "responded" else "awaiting_reply",
         subject=row.subject,
         questions=row.questions,
@@ -868,8 +899,24 @@ def _run_specialist(
     outcome = SpecialistRunner(_inv().client_for, read, _inv()._clock()).run_step(
         session, run_id, step_key, spec, inputs, mode, apply, touch
     )
-    if outcome.status != StepStatus.SUCCEEDED.value:
+    if outcome.status == StepStatus.SUCCEEDED.value:
+        return
+    if step_key != dom.RESPONSE_REVIEWER:
         _inv()._fail_run(factory, run_id, case_id)  # explicit; recovery is retry_follow_up_draft
+        return
+    # The reviewer only suggests: without a grounded suggestion the analyst reviews the reply
+    # alone. The step and run fail explicitly; nothing blocks the review.
+    reason = outcome.failure_reason or "failed"
+    _inv()._finish(factory, run_id, "failed")
+    _inv()._emit_once(
+        factory,
+        case_id,
+        EventType.SPECIALIST_FAILED,
+        run_id,
+        step_key,
+        f"Review suggestion unavailable ({reason}). Review the reply yourself.",
+        {"reason": reason},
+    )
 
 
 def _build_follow_up(

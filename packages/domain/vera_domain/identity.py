@@ -16,9 +16,9 @@ from vera_domain.commands import (
     Reduction,
     StepSet,
 )
-from vera_domain.enums import CaseState, CaseStep, Role, register_event_types
+from vera_domain.enums import CaseState, CaseStep, Role, StateKind, register_event_types
 from vera_domain.facts import CaseFacts
-from vera_domain.labels import register_event_summaries
+from vera_domain.labels import register_event_summaries, register_labels
 
 MAX_ATTEMPTS = 3
 RESEND_COOLDOWN_SECONDS = 60
@@ -164,3 +164,13 @@ ANSWER_PUSH = CommandSpec(
 
 HUMAN = {s.name: s for s in (SEND, RESEND, CANCEL, SUBMIT_OTP, ANSWER_PUSH)}
 SERVICE = {EXPIRE.name: EXPIRE}
+
+register_labels(
+    {
+        (CaseState.CALLBACK_PENDING, CaseStep.IDV): (
+            "Identity check needed",
+            StateKind.BLOCKED,
+            "Verify the cardholder's identity",
+        ),
+    }
+)

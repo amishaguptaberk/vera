@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Identity, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,6 +24,8 @@ class WorkflowRun(Base):
     mode: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
+    # Creation order (migration 0019): runs created at the same instant still have a latest.
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(always=True))
 
 
 class WorkflowStep(Base):

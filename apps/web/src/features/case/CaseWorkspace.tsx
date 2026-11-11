@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { activityQuery, ApiError, evidenceQuery, useCaseView, useMaterialChange, useRunCommand, useSession, usersQuery, type ActionView, type CaseView } from '@/api';
 import { ActionBar } from '@/components/case';
-import { Banner, Button, Field, Skeleton, StatusSlot } from '@/design-system/primitives';
+import { Banner, Button, Field, SelectField, Skeleton, StatusSlot } from '@/design-system/primitives';
 import { actorLabel, dayLabel, formatMoney, roleLabel, sentence } from '@/lib';
 import { caseSteps, recoveryActions, slotFor, taskLabel } from './adapters';
 import { viewForRole } from '@/features/shell/role-view';
@@ -22,7 +22,8 @@ const DEFAULT_TAB: TabId = 'decision';
 const parseTab = (v: string | null): TabId => (CASE_TABS.some((t) => t.id === v) ? (v as TabId) : DEFAULT_TAB);
 
 // A command blocked only because the case is at another step says nothing useful; real blocks (policy, roles) stay.
-const wrongStep = (b: { label: string; blocked_reason: string }, c: CaseView) => b.blocked_reason === `${b.label} is not available while the case is '${c.state_label}'.`;
+// A closed case lists every command as refused for that one reason; the Closed state already says it.
+const wrongStep = (b: { label: string; blocked_reason: string }, c: CaseView) => c.state === 'closed' || b.blocked_reason === `${b.label} is not available while the case is '${c.state_label}'.`;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -181,14 +182,24 @@ function Activity({ caseId }: { caseId: string }) {
   );
 }
 
-function CommandForm({ action, error, busy, onSubmit, onCancel }: { action: ActionView; error: string | null; busy: boolean; onSubmit: (p: Record<string, string>) => void; onCancel: () => void }) {
+function CommandForm({ action, error, busy, onSubmit, onCancel }: { action: ActionView; error: string | null; busy: boolean; onSubmit: (p: Record<string, unknown>) => void; onCancel: () => void }) {
   const fields = caseRegistry.commandForms[action.command] ?? [];
   const users = useQuery({ ...usersQuery, enabled: fields.some((f) => f.users) });
-  const [values, setValues] = useState<Record<string, string>>({});
+  const options = (f: (typeof fields)[number]) => (f.targets ? (action.targets ?? []).map((t) => ({ value: t, label: t })) : f.choices);
+  // Selects start on the server's payload_default when it is one of the options, else the first option; what the
+  // user sees is what is sent.
+  const initial = (f: (typeof fields)[number]): [string, string][] => {
+    const o = options(f);
+    if (!o?.length) return [];
+    const d = action.payload_defaults[f.name];
+    return [[f.name, o.some((x) => x.value === d) ? String(d) : o[0]!.value]];
+  };
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.flatMap(initial)));
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(fields.filter((f) => f.checkbox).map((f) => [f.name, false])));
   const submit = (e: FormEvent) => {
     e.preventDefault();
     // Empty inputs are not sent, so the server's payload_defaults (e.g. mode) apply.
-    onSubmit(Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== '')));
+    onSubmit({ ...Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== '')), ...checked });
   };
   const set = (name: string, v: string) => setValues((x) => ({ ...x, [name]: v }));
   return (
@@ -204,7 +215,14 @@ function CommandForm({ action, error, busy, onSubmit, onCancel }: { action: Acti
         </datalist>
       ) : null}
       {fields.map((f, i) =>
-        f.multiline ? (
+        f.checkbox ? (
+          <label key={f.name} className={styles.fP} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="checkbox" name={f.name} checked={checked[f.name] ?? false} onChange={(e) => setChecked((x) => ({ ...x, [f.name]: e.target.checked }))} />
+            {f.label}
+          </label>
+        ) : options(f) ? (
+          <SelectField key={f.name} label={f.label} name={f.name} options={options(f)!} value={values[f.name] ?? ''} error={i === 0 && error ? error : undefined} onChange={(e) => set(f.name, e.target.value)} />
+        ) : f.multiline ? (
           <Field key={f.name} multiline label={f.label} name={f.name} rows={2} value={values[f.name] ?? ''} error={i === 0 && error ? error : undefined} onChange={(e) => set(f.name, e.target.value)} />
         ) : (
           <Field key={f.name} label={f.label} name={f.name} placeholder={f.placeholder} list={f.users && users.data?.users?.length ? 'vera-users' : undefined} value={values[f.name] ?? ''} error={i === 0 && error ? error : undefined} onChange={(e) => set(f.name, e.target.value)} />
@@ -240,7 +258,13 @@ function Progress({ c }: { c: CaseView }) {
     <section className={styles.progWrap} aria-label="Workflow progress" data-parity="progress">
       <div className={styles.prog}>
         <span>
-          Step {curIdx + 1} of {steps.length} · <b style={{ color: '#0c0a08', fontWeight: 550 }}>{cur?.label ?? ''}</b>
+          {cur ? (
+            <>
+              Step {curIdx + 1} of {steps.length} · <b style={{ color: '#0c0a08', fontWeight: 550 }}>{cur.label}</b>
+            </>
+          ) : (
+            `All ${steps.length} steps complete`
+          )}
         </span>
         <div className={styles.progBar} aria-hidden="true">
           {steps.map((s) => (
@@ -339,7 +363,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
     );
   }
 
-  const execute = (action: ActionView, payload?: Record<string, string>) => {
+  const execute = (action: ActionView, payload?: Record<string, unknown>) => {
     setNotice(null);
     setFormError(null);
     run.mutate(
@@ -363,6 +387,15 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
     } else execute(a);
   };
   const selectRecord = (id: string | null) => setParams({ tab: 'evidence', sel: id });
+  const reviewAction = c.available_actions.find((a) => a.command === 'review_related_charge') ?? null;
+  const relatedReview = reviewAction
+    ? {
+        action: reviewAction,
+        busy: run.isPending,
+        error: null,
+        onSubmit: (p: Record<string, unknown>) => execute(reviewAction, p),
+      }
+    : null;
 
   const cur = c.transaction.currency;
   const recovery = recoveryActions(c);
@@ -482,7 +515,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               ))}
             </div>
             <div role="tabpanel" aria-label={CASE_TABS.find((t) => t.id === tab)!.label}>
-              {tab === 'evidence' ? <EvidencePanel caseId={caseId} sel={sel} onSelect={selectRecord} /> : null}
+              {tab === 'evidence' ? <EvidencePanel caseId={caseId} sel={sel} onSelect={selectRecord} review={relatedReview} /> : null}
               {tab === 'comms' && !mounted.length ? (
                 <div className={styles.inspBody} data-testid="slot-empty-comms">
                   <div className={styles.lbl}>Messages and calls</div>

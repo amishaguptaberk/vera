@@ -771,6 +771,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/webhooks/voice/elevenlabs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elevenlabs Webhook */
+        post: operations["elevenlabs_webhook_api_webhooks_voice_elevenlabs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session/role": {
         parameters: {
             query?: never;
@@ -877,6 +894,8 @@ export interface components {
             payload_defaults: {
                 [key: string]: unknown;
             };
+            /** Targets */
+            targets?: string[] | null;
             /** Key Template */
             key_template?: string | null;
         };
@@ -1069,10 +1088,16 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Approved By Name */
+            approved_by_name?: string | null;
             /** Transcript */
             transcript: components["schemas"]["LineView"][];
             /** Notes */
             notes: components["schemas"]["NoteView"][];
+            /** Voice */
+            voice?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** CallbackView */
         CallbackView: {
@@ -1111,6 +1136,8 @@ export interface components {
         CardholderRequest: {
             /** Request Id */
             request_id: string;
+            /** Case Id */
+            case_id: string;
             /** Status */
             status: string;
             /** Subject */
@@ -1347,6 +1374,7 @@ export interface components {
             /** Draft Versions */
             draft_versions: number;
             response: components["schemas"]["ResponseView"] | null;
+            review_suggestion?: components["schemas"]["ReviewSuggestion"] | null;
         };
         /** CommunicationItem */
         CommunicationItem: {
@@ -1491,7 +1519,7 @@ export interface components {
             /** Outcome */
             outcome: string;
             /** Reference */
-            reference: string;
+            reference?: string | null;
         };
         /** DisputeSummary */
         DisputeSummary: {
@@ -1508,6 +1536,15 @@ export interface components {
              * @default true
              */
             simulated: boolean;
+            /** Reason Code */
+            reason_code?: string | null;
+            /**
+             * Narrative
+             * @default []
+             */
+            narrative: components["schemas"]["NarrativeStatement"][];
+            /** Narrative Status */
+            narrative_status?: ("pending" | "ready" | "failed") | null;
         };
         /** DraftOut */
         DraftOut: {
@@ -1790,6 +1827,17 @@ export interface components {
             credit: components["schemas"]["CreditSummary"];
             dispute: components["schemas"]["DisputeSummary"];
             controls: components["schemas"]["ControlsSummary"];
+        };
+        /** NarrativeStatement */
+        NarrativeStatement: {
+            /** Text */
+            text: string;
+            /** Record Id */
+            record_id: string;
+            /** Version */
+            version: number;
+            /** Field */
+            field: string;
         };
         /** Node */
         Node: {
@@ -2131,6 +2179,29 @@ export interface components {
             submitted_at: string;
         };
         /**
+         * ReviewSuggestion
+         * @description The Response Reviewer's suggestion for the reply. `unavailable` = no grounded suggestion
+         *     (the step failed, or no execution mode): the analyst reviews the reply alone.
+         */
+        ReviewSuggestion: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "ready" | "unavailable";
+            /** Classification */
+            classification?: string | null;
+            /**
+             * Citations
+             * @default []
+             */
+            citations: {
+                [key: string]: unknown;
+            }[];
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
          * Role
          * @enum {string}
          */
@@ -2392,6 +2463,8 @@ export interface components {
         };
         /** WatcherOut */
         WatcherOut: {
+            /** Job Id */
+            job_id: number;
             /** Marked Overdue */
             marked_overdue: string[];
         };
@@ -3862,6 +3935,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AutomationEventOut"][];
+                };
+            };
+        };
+    };
+    elevenlabs_webhook_api_webhooks_voice_elevenlabs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

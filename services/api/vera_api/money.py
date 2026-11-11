@@ -223,7 +223,7 @@ def _credit_after(event: str, summary: str):  # type: ignore[no-untyped-def]
         if ctx.extra.get("credit_status") == "issued":
             from vera_api import prevention  # the planner recommends controls; humans decide
 
-            worker.enqueue(session, prevention.JOB_KIND, {"case_id": case.id}, now=now)
+            prevention.enqueue_planner(session, case.id, now)
             ref = ctx.extra["credit_id"]
             _emit(
                 session,
@@ -636,6 +636,21 @@ gateway.register_actions(
             "The control plan is {current}; controls can be applied only once approved.",
         ),
     },
+    # Each of these acts on one record in one status: it is listed only when it can run, so
+    # the task shows the next step of each track, not every later step as blocked.
+    hidden_when_refused=[
+        "issue_provisional_credit",
+        "lookup_execution_result",
+        "prepare_dispute_packet",
+        "open_dispute_packet",
+        "review_dispute_packet",
+        "submit_dispute",
+        "propose_card_controls",
+        "skip_card_controls",
+        "approve_card_controls",
+        "decline_card_controls",
+        "apply_card_controls",
+    ],
 )
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(

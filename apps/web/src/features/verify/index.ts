@@ -20,7 +20,14 @@ export const tabs = [
  */
 export const commandForms: Readonly<Record<string, readonly FormField[]>> = {
   send_verification_request: [
-    { name: "channel", label: "Channel (otp or push)", placeholder: "otp" },
+    {
+      name: "channel",
+      label: "Channel",
+      choices: [
+        { value: "otp", label: "One-time code" },
+        { value: "push", label: "Push approval in the app" },
+      ],
+    },
   ],
   add_callback_note: [
     { name: "text", label: "Reviewer note", multiline: true },

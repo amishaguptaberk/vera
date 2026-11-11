@@ -33,7 +33,9 @@ export const myRequestsQuery = queryOptions({
 });
 
 export const useCommunications = (caseId: string) => useQuery(communicationsQuery(caseId));
-export const useCommunication = (caseId: string, itemId: string | null) => useQuery({ ...communicationQuery(caseId, itemId ?? ''), enabled: !!itemId });
+// Polls while the Response Reviewer is still working on the reply.
+export const useCommunication = (caseId: string, itemId: string | null) =>
+  useQuery({ ...communicationQuery(caseId, itemId ?? ''), enabled: !!itemId, refetchInterval: (q) => (q.state.data?.review_suggestion?.status === 'pending' ? 2000 : false) });
 export const useCardholderRequest = (requestId: string) => useQuery(cardholderRequestQuery(requestId));
 export const useMyRequests = () => useQuery(myRequestsQuery);
 

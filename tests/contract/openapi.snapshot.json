@@ -87,6 +87,20 @@
             ],
             "title": "Style",
             "type": "string"
+          },
+          "targets": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targets"
           }
         },
         "required": [
@@ -552,6 +566,17 @@
             "title": "Approved By",
             "type": "string"
           },
+          "approved_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By Name"
+          },
           "attempt": {
             "title": "Attempt",
             "type": "integer"
@@ -719,6 +744,10 @@
       "CardholderRequest": {
         "description": "Cardholder-facing: only this request's question text and status.",
         "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
           "due_at": {
             "anyOf": [
               {
@@ -757,6 +786,7 @@
         },
         "required": [
           "request_id",
+          "case_id",
           "status",
           "subject",
           "questions",
@@ -1408,6 +1438,16 @@
             "title": "Response Review",
             "type": "string"
           },
+          "review_suggestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewSuggestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1868,16 +1908,22 @@
             "type": "string"
           },
           "reference": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Reference",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
           }
         },
         "required": [
           "case_id",
-          "outcome",
-          "reference"
+          "outcome"
         ],
         "title": "DisputeOutcomeRequest",
         "type": "object"
@@ -3628,6 +3674,56 @@
           "submitted_at"
         ],
         "title": "ResponseView",
+        "type": "object"
+      },
+      "ReviewSuggestion": {
+        "description": "The Response Reviewer's suggestion for the reply. `unavailable` = no grounded suggestion\n(the step failed, or no execution mode): the analyst reviews the reply alone.",
+        "properties": {
+          "citations": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "ready",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReviewSuggestion",
         "type": "object"
       },
       "Role": {

@@ -5,7 +5,7 @@ APPROVAL_PROVIDER; they never edit the gate sequence in _execute."""
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -94,6 +94,12 @@ AFTER_EFFECTS: dict[str, AfterEffect] = {}
 KEY_CONTEXTS: dict[str, KeyContext] = {}
 ACTION_DEFAULTS: dict[str, ActionDefaults] = {}
 ACTION_GUARDS: dict[str, ActionGuard] = {}
+# Commands listed only when their guard accepts them, never as blocked actions: a retry is
+# offered exactly when something failed, a per-record review only while a record awaits it.
+HIDDEN_WHEN_REFUSED: set[str] = set()
+# action_targets(session, case) -> the record ids the action may be posted for (ActionView.targets).
+ActionTargets = Callable[[Session, Case], list[str]]
+ACTION_TARGETS: dict[str, ActionTargets] = {}
 # Each provider returns CaseFacts fields read from stored rows. Two providers may not return
 # the same field.
 FACT_PROVIDERS: list[FactProvider] = []
@@ -149,15 +155,28 @@ def register_actions(
     *,
     defaults: Mapping[str, ActionDefaults] | None = None,
     guards: Mapping[str, ActionGuard] | None = None,
+    targets: Mapping[str, ActionTargets] | None = None,
+    hidden_when_refused: Iterable[str] = (),
 ) -> None:
-    """Payload defaults and record guards for a feature's own (already registered) commands."""
-    for table, handlers in ((ACTION_DEFAULTS, defaults or {}), (ACTION_GUARDS, guards or {})):
+    """Payload defaults, record guards and record targets for a feature's own (already
+    registered) commands. `hidden_when_refused` names guarded commands that are left out of the
+    case view, not listed as blocked, while their guard refuses."""
+    tables: tuple[tuple[dict[str, Any], Mapping[str, Any]], ...] = (
+        (ACTION_DEFAULTS, defaults or {}),
+        (ACTION_GUARDS, guards or {}),
+        (ACTION_TARGETS, targets or {}),
+    )
+    for table, handlers in tables:
         for name, handler in handlers.items():
             if find_spec(name) is None:
                 raise ValueError(f"{module_name}: '{name}' is not a registered command")
             if name in table:
                 raise ValueError(f"{module_name}: '{name}' already has one")
-            table[name] = handler  # type: ignore[assignment]
+            table[name] = handler
+    for name in hidden_when_refused:
+        if name not in ACTION_GUARDS:
+            raise ValueError(f"{module_name}: '{name}' is hidden when refused but has no guard")
+        HIDDEN_WHEN_REFUSED.add(name)
 
 
 def resolve_actions(
@@ -170,10 +189,12 @@ def resolve_actions(
     """The case view's actions as the gateway will judge them: record guards move an action to
     blocked, and feature defaults and key contexts resolve its payload_defaults and key."""
     out: list[ActionView] = []
-    refused = list(blocked)
+    refused = [b for b in blocked if b.command not in HIDDEN_WHEN_REFUSED]
     for action in enabled:
         guard = ACTION_GUARDS.get(action.command)
         refusal = guard(session, case) if guard is not None else None
+        if refusal is not None and action.command in HIDDEN_WHEN_REFUSED:
+            continue
         if refusal is not None:
             reason = refusal.blocked_reason or refusal.message
             refused.append(
@@ -185,6 +206,9 @@ def resolve_actions(
                 )
             )
             continue
+        listing = ACTION_TARGETS.get(action.command)
+        if listing is not None:
+            action = action.model_copy(update={"targets": listing(session, case)})
         provider = ACTION_DEFAULTS.get(action.command)
         keys = KEY_CONTEXTS.get(action.command)
         if provider is None and keys is None:
@@ -752,6 +776,26 @@ _register_handlers(
     },
 )
 KEY_CONTEXTS["evaluate_policy"] = _policy_keys
+
+
+def _related_pending(session: Session, case: Case) -> list[str]:
+    from vera_api import evidence
+
+    return evidence.pending_related_charges(session, case.id)
+
+
+def _no_related_pending(session: Session, case: Case) -> CommandError | None:
+    if not _related_pending(session, case):
+        return blocked("related_charge_reviewed", "No related charge is waiting for review.")
+    return None
+
+
+register_actions(
+    __name__,
+    guards={"review_related_charge": _no_related_pending},
+    targets={"review_related_charge": _related_pending},
+    hidden_when_refused=["review_related_charge"],
+)
 KEY_CONTEXTS["retry_specialist_step"] = _investigation_keys
 register_fact_provider(_investigation_facts)
 

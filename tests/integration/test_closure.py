@@ -441,3 +441,17 @@ def test_monitoring_exemption_applies_only_to_the_outcome_command() -> None:
     for human in REGISTRY.values():
         gate = blocked_reason(human, CaseState.MONITORING, CaseStep.MONITORING)
         assert gate is not None and gate.code == "case_closed", human.name
+
+
+def test_simulated_dispute_outcome_needs_no_typed_reference(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch, messaging: Messaging
+) -> None:
+    reach_monitoring(client, db, monkeypatch, messaging)
+    resp = client.post("/api/demo/dispute-outcome", json={"case_id": CASE, "outcome": "won"})
+    assert resp.status_code == 200, resp.text
+    drain(db)
+    assert view(client)["state"] == "closed"
+    detail = db.execute(
+        text("select detail from audit_events where type = 'dispute.outcome_recorded'")
+    ).scalar_one()
+    assert detail["reference"] == f"NET-{CASE}"

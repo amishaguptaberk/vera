@@ -71,6 +71,16 @@ describe('MoneyTask · card controls by role', () => {
   });
 });
 
+describe('MoneyTask · card admin approval payload', () => {
+  it('approve controls posts no control list (the command approves the proposed plan as is)', async () => {
+    const calls = api((c) => (c.method === 'POST' ? json({ status: 'recorded', result: {}, case: waitctlAdmin }) : undefined));
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={asCase(waitctlAdmin)} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Approve controls' }));
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect((JSON.parse(post.body!) as { payload: unknown }).payload).toEqual({});
+  });
+});
+
 describe('MoneyTask · credit', () => {
   it('the checking state offers only the lookup action', () => {
     api();
@@ -116,7 +126,7 @@ describe('MoneyTask · served remediation and closure', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Close case — monitoring active' }));
     expect(calls.some((c) => c.method === 'POST')).toBe(false);
     await userEvent.type(screen.getByLabelText('Reason'), 'Credit issued, dispute submitted');
-    await userEvent.type(screen.getByLabelText('Outcome (resolved, no_action or unresolved)'), 'resolved');
+    expect((screen.getByLabelText('Outcome') as HTMLSelectElement).value).toBe('resolved');
     await userEvent.click(screen.getByRole('button', { name: 'Close case — monitoring active' }));
     const post = calls.find((c) => c.method === 'POST')!;
     expect(post.url).toBe('/api/cases/CHG-1042/commands/close_case');
@@ -225,15 +235,30 @@ describe('MoneyTask · dispute narrative', () => {
 
   it('a failed narrative shows an honest line with the server retry; the dispute track still offers review', async () => {
     const calls = serve({ narrative_status: 'failed', reason_code: null, narrative: [] });
-    renderWithProviders(<MoneyTask caseId="CHG-1042" c={reviewCase} />);
+    const retry = { ...action('retry_dispute_narrative', 'Retry dispute narrative', 'dsp_review'), payload_defaults: { mode: 'replay' } };
+    const failedCase = asCase({ ...reviewCase, available_actions: [reviewCase.available_actions[0], retry] });
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={failedCase} />);
     expect(await screen.findByText(/The dispute narrative could not be prepared/)).toBeTruthy();
     const bar = screen.getByRole('group', { name: 'Case actions' });
     expect(within(bar).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mark reviewed']);
     await userEvent.click(screen.getByRole('button', { name: 'Retry dispute narrative' }));
-    await userEvent.type(screen.getByLabelText('Mode (live or replay)'), 'replay');
+    // The form starts from the server's default (the failed step's run mode); nothing is typed.
+    expect((screen.getByLabelText('Mode') as HTMLSelectElement).value).toBe('replay');
     await userEvent.click(within(screen.getByRole('form', { name: 'Retry dispute narrative' })).getByRole('button', { name: 'Retry dispute narrative' }));
     const post = calls.find((c) => c.method === 'POST')!;
     expect(post.url).toBe('/api/cases/CHG-1042/commands/retry_dispute_narrative');
     expect((JSON.parse(post.body!) as { payload: unknown }).payload).toEqual({ mode: 'replay' });
+  });
+});
+
+describe('MoneyTask · monitoring demo control', () => {
+  it('reports a simulated dispute outcome to the demo route (synthetic only); nothing is typed', async () => {
+    const calls = api((c) => (c.url === '/api/session' ? json({ user: { id: 'u', name: 'U' }, active_role: 'analyst', roles: ['analyst'], environment: 'synthetic' }) : c.url === '/api/demo/dispute-outcome' ? json({ job_id: 1, kind: 'dispute_outcome_ingest' }) : undefined));
+    renderWithProviders(<MoneyTask caseId="CHG-1042" c={asCase(monitoring)} />);
+    await userEvent.click(await screen.findByText('Demo controls · dispute outcome'));
+    await userEvent.click(screen.getByRole('button', { name: 'Dispute won' }));
+    const post = calls.find((c) => c.url === '/api/demo/dispute-outcome')!;
+    expect(JSON.parse(post.body!)).toEqual({ case_id: 'CHG-1042', outcome: 'won' });
+    expect(await screen.findByRole('status')).toBeTruthy();
   });
 });

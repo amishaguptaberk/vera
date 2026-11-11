@@ -48,9 +48,7 @@ def list_runs(case_id: str, request: Request) -> list[RunOut]:
         if session.get(Case, case_id) is None:
             raise CommandError("case_not_found", 404, "No such case.")
         runs = session.scalars(
-            select(WorkflowRun)
-            .where(WorkflowRun.case_id == case_id)
-            .order_by(WorkflowRun.created_at)
+            select(WorkflowRun).where(WorkflowRun.case_id == case_id).order_by(WorkflowRun.seq)
         ).all()
         out: list[RunOut] = []
         for run in runs:

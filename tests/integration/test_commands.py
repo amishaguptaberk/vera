@@ -7,6 +7,7 @@ import pytest
 from command_payloads import TEST_PAYLOADS, TEST_USER_INPUTS
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from vera_api import gateway
 from vera_domain.commands import RECOVERY_ONLY, REGISTRY, SERVICE_COMMANDS
 from vera_domain.enums import Role
 
@@ -273,9 +274,10 @@ def test_enabled_actions_are_accepted_and_blocked_ones_rejected_with_same_reason
     held_by_role = {
         n for n, s in REGISTRY.items() if role in s.roles and n not in RECOVERY_ONLY
     }  # recovery-only commands are listed in recovery_actions, never here
-    assert {a["command"] for a in listed} | {
-        b["command"] for b in view["blocked_actions"]
-    } == held_by_role
+    shown = {a["command"] for a in listed} | {b["command"] for b in view["blocked_actions"]}
+    # Commands registered hidden_when_refused (retries, per-record steps) are listed only when
+    # they can run; every other held command is listed as enabled or blocked.
+    assert held_by_role - gateway.HIDDEN_WHEN_REFUSED <= shown <= held_by_role
     assert all(a["enabled"] and a["role"] == role.value for a in listed)
 
     for action in listed:

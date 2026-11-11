@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Button, RefChip } from "@/design-system/primitives";
+import { Button, Field, RefChip } from "@/design-system/primitives";
 import { KVRow, type KV } from "./IdentityDetail";
 import styles from "./Verify.module.css";
 
@@ -60,6 +60,8 @@ export type CallDetailProps = {
   elapsed?: string | null;
   /** Required consent checkbox (preparation / retry). */
   consent?: { checked: boolean; onChange: (v: boolean) => void } | null;
+  /** Preparation only: the analyst may edit the proposed questions before approving them. */
+  editQuestions?: { onChange: (index: number, text: string) => void } | null;
 };
 
 /** Communications → verification call (prototype `cm.isCall`: proposed / in progress / complete / call failed). */
@@ -67,6 +69,7 @@ export function CallDetail(p: CallDetailProps) {
   const open = (id: string) =>
     p.onOpenSource ? () => p.onOpenSource!(id) : undefined;
   const [hl, setHl] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const cite = (n: number) => () => {
     const key = String(n);
     setHl(key);
@@ -123,11 +126,24 @@ export function CallDetail(p: CallDetailProps) {
         ))}
       </dl>
       <div className={styles.sub}>{p.questionsLabel}</div>
-      <ol className={styles.ql}>
-        {p.questions.map((t, i) => (
-          <li key={i}>{t}</li>
-        ))}
-      </ol>
+      {p.editQuestions && editing ? (
+        <div data-testid="question-editor">
+          {p.questions.map((t, i) => (
+            <Field key={i} multiline rows={2} label={`Question ${i + 1}`} value={t} onChange={(e) => p.editQuestions!.onChange(i, e.target.value)} />
+          ))}
+        </div>
+      ) : (
+        <ol className={styles.ql}>
+          {p.questions.map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ol>
+      )}
+      {p.editQuestions && !editing ? (
+        <Button variant={["sm", "ghost"]} onClick={() => setEditing(true)}>
+          Edit questions
+        </Button>
+      ) : null}
       <div className={styles.sub}>Transcript</div>
       {p.transcript && p.transcript.length ? (
         <div className={styles.tr} aria-live="polite" data-testid="transcript">

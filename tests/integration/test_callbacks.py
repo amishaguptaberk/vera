@@ -259,6 +259,7 @@ def test_replay_agent_produces_grounded_structured_result(
     detail = verified.get(f"/api/cases/{CASE}/callbacks/{done['id']}").json()
     assert detail["result"]["answers"] == [{"question_id": "q1", "answer": "no", "line_seq": 4}]
     assert detail["transcript"][3]["text"] == YES
+    assert detail["approved_by_name"] == "Sam Rivera"  # shown as a name, never a user id
 
 
 @pytest.mark.parametrize(

@@ -52,6 +52,38 @@ describe('Evidence register', () => {
   });
 });
 
+describe('Related charge review in the evidence register', () => {
+  const pending: EvidenceRegister = {
+    ...ev,
+    records: [
+      ...ev.records.filter((r) => r.kind !== 'related_charge'),
+      { ...ev.records[0]!, record_id: 'CHG-1051', kind: 'related_charge', status: 'pending_review' },
+      { ...ev.records[0]!, record_id: 'CHG-1048', kind: 'related_charge', status: 'not_relevant' },
+    ],
+  };
+  const review = { ...(intake.available_actions[0] as ActionView), command: 'review_related_charge', label: 'Review related charge', idempotency_key: 'related:CHG-1042:7', payload_defaults: {}, targets: ['CHG-1051'] };
+
+  it('offers Mark related / Not related only on the records the server lists, and posts the record id with the reason', async () => {
+    const onSubmit = vi.fn();
+    render(<EvidenceRegisterView ev={pending} onSelect={() => {}} review={{ action: review, busy: false, error: null, onSubmit }} />);
+    const row = screen.getByRole('button', { name: 'CHG-1051' }).closest('tr')!;
+    expect(within(row).getByRole('button', { name: 'Mark related' })).toBeTruthy();
+    const other = screen.getByRole('button', { name: 'CHG-1048' }).closest('tr')!;
+    expect(within(other).queryByRole('button', { name: 'Mark related' })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(within(row).getByRole('button', { name: 'Not related' }));
+    const form = screen.getByRole('form', { name: 'Review CHG-1051' });
+    await user.type(within(form).getByLabelText('Reason'), 'Separate order on its own PO.');
+    await user.click(within(form).getByRole('button', { name: 'Mark not related' }));
+    expect(onSubmit).toHaveBeenCalledWith({ record_id: 'CHG-1051', decision: 'not_related', reason: 'Separate order on its own PO.' });
+  });
+
+  it('without the server action there is nothing to click', () => {
+    render(<EvidenceRegisterView ev={pending} onSelect={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Mark related' })).toBeNull();
+  });
+});
+
 const step = (o: Partial<StepOut>): StepOut => ({ step_key: 'read', specialist: 'Records reader', status: 'succeeded', execution_mode: 'live', model_id: 'model-x', prompt_version: 'p1', usage: { input_tokens: 10 }, attempts: 1, failure_reason: null, started_at: null, finished_at: null, replayed: false, ...o });
 const runOf = (steps: StepOut[]): RunOut => ({ id: 'RUN-1', case_id: 'CHG-1042', workflow_version: 3, policy_version: 1, status: 'completed', mode: 'live', created_at: '2026-11-10T00:00:00Z', steps });
 

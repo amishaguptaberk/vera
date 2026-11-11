@@ -2,7 +2,7 @@ export { Banner, type BannerProps } from './Banner';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { Drawer, type DrawerProps } from './Drawer';
 export { EnvironmentPill } from './EnvironmentPill';
-export { Field, type FieldProps } from './Field';
+export { Field, SelectField, type FieldOption, type FieldProps, type SelectFieldProps } from './Field';
 export { FilterTabs, type FilterItem, type FilterTabsProps } from './FilterTabs';
 export { Menu, type MenuItem, type MenuProps } from './Menu';
 export { RefChip, type RefChipProps } from './RefChip';

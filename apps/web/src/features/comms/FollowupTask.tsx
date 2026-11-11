@@ -6,6 +6,7 @@ import { useCaseView } from '@/api/queries';
 import { Button } from '@/design-system/primitives';
 import { FollowupTaskBlock, type FollowupStep } from '@/components/comms';
 import { CommsDraft } from './CommsPanel';
+import type { ReviewSuggestion } from './contract';
 import { useCommunication, useCommunications } from './queries';
 
 export const FOLLOWUP_STEPS: readonly FollowupStep[] = ['draft', 'waiting', 'noresp1', 'noresp2', 'response'];
@@ -54,7 +55,40 @@ export function FollowupTask({ caseId }: { caseId: string }) {
           {error ? <span role="alert" style={{ color: 'var(--bad)', fontSize: 12.5 }}>{error}</span> : null}
         </div>
       ) : null}
+      {view.data.step === 'response' && c?.review_suggestion ? <Suggestion s={c.review_suggestion} /> : null}
       {view.data.step === 'draft' && c && c.status === 'drafted' ? <CommsDraft caseId={caseId} item={c} view={view.data} /> : null}
     </FollowupTaskBlock>
+  );
+}
+
+const CLASS_LABEL: Record<string, string> = { complete: 'Complete', incomplete: 'Incomplete', conflicting: 'Conflicting' };
+
+/** The Response Reviewer's suggestion, as a quiet note: the analyst's review decides in every case. */
+function Suggestion({ s }: { s: ReviewSuggestion }) {
+  const note = { margin: '8px 0 0', fontSize: 13, color: 'var(--ink2)' } as const;
+  if (s.status === 'pending')
+    return (
+      <p data-testid="review-suggestion" role="status" style={note}>
+        Vera is reviewing the reply…
+      </p>
+    );
+  if (s.status === 'unavailable')
+    return (
+      <p data-testid="review-suggestion" role="status" style={note}>
+        Review suggestion unavailable — review the reply yourself.
+      </p>
+    );
+  const statements = s.citations.map((x) => (typeof x.statement === 'string' ? x.statement : '')).filter(Boolean);
+  return (
+    <div data-testid="review-suggestion" role="status" style={note}>
+      <b style={{ fontWeight: 550 }}>Suggested review: {CLASS_LABEL[s.classification ?? ''] ?? s.classification}</b> · you decide.
+      {statements.length ? (
+        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+          {statements.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

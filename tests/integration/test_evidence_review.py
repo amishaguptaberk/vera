@@ -246,6 +246,12 @@ def test_confirmed_callback_resolves_open_conflicts_with_the_callback_id(
 # ---- 3. related charges -------------------------------------------------------------------------
 
 
+def targets(client: TestClient) -> list[str]:
+    v = view(client)
+    action = next(a for a in v["available_actions"] if a["command"] == "review_related_charge")
+    return list(action["targets"])
+
+
 def test_review_related_charge_sets_the_status_through_the_register(
     client: TestClient, factory: sessionmaker[Session]
 ) -> None:
@@ -255,12 +261,20 @@ def test_review_related_charge_sets_the_status_through_the_register(
     ok(client, "evaluate_policy")
     assert "no_pending_review" in latest_policy(factory)[1]
     evaluated = len(q(factory, "select id from policy_evaluations"))
+    assert targets(client) == ["CHG-1048", "CHG-1051"]  # from the register, never typed
+    wrong = act(
+        client,
+        "review_related_charge",
+        {"record_id": "PO-219", "decision": "related", "reason": "x"},
+    )
+    assert wrong.status_code == 404
     reason = "Same merchant, separate order"
     ok(
         client,
         "review_related_charge",
         {"record_id": "CHG-1051", "decision": "related", "reason": reason},
     )
+    assert targets(client) == ["CHG-1048"]
     ok(
         client,
         "review_related_charge",
@@ -268,18 +282,19 @@ def test_review_related_charge_sets_the_status_through_the_register(
     )
     recs = records(client)
     assert (recs["CHG-1051"], recs["CHG-1048"]) == ("supporting", "not_relevant")
-    again = act(
-        client,
-        "review_related_charge",
-        {"record_id": "CHG-1048", "decision": "related", "reason": "Changed my mind"},
+    # Nothing left to review: the action is not listed at all, and a direct post is refused.
+    v = view(client)
+    listed = [a["command"] for a in v["available_actions"] + v["blocked_actions"]]
+    assert "review_related_charge" not in listed
+    again = client.post(
+        f"/api/cases/{CASE}/commands/review_related_charge",
+        json={
+            "idempotency_key": f"related:{CASE}:{v['case_version']}",
+            "expected_case_version": v["case_version"],
+            "payload": {"record_id": "CHG-1048", "decision": "related", "reason": "Changed"},
+        },
     )
-    assert again.status_code == 409 and "related_charge_reviewed" in again.text
-    wrong = act(
-        client,
-        "review_related_charge",
-        {"record_id": "PO-219", "decision": "related", "reason": "x"},
-    )
-    assert wrong.status_code == 404
+    assert again.status_code == 409 and "related_charge" in again.text
     # REP-1042 is still pending (no response review yet), so the rule still fails, but the
     # case re-evaluated after each decision.
     assert len(q(factory, "select id from policy_evaluations")) == evaluated + 2
@@ -302,6 +317,37 @@ def test_review_related_charge_is_analyst_only(
         },
     )
     assert r.status_code == 403
+
+
+def test_start_callback_offers_the_default_question_set_and_the_contact_on_file(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_response(client, factory)
+    ok(client, "review_cardholder_response", {"outcome": "conflicting", "receipt_accepted": True})
+    verify_identity(client)
+    start = next(a for a in view(client)["available_actions"] if a["command"] == "start_callback")
+    assert start["payload_defaults"] == {
+        "target_record_id": "PRF-4418",
+        "questions": [
+            {
+                "id": "q1",
+                "text": (
+                    "Did you place the order with Bayline Industrial Supply"
+                    " on the card ending 4418?"
+                ),
+            },
+            {"id": "q2", "text": "Did you authorize this charge of $2,840.00?"},
+            {"id": "q3", "text": "Did anyone else have access to your card?"},
+        ],
+    }
+    # Posted as offered (the UI merges its edits over the defaults), the replayed call grounds.
+    cid = ok(client, "start_callback", {"consent_recorded": True})["result"]["callback_id"]
+    drain(factory)
+    role(client, "analyst")
+    detail = client.get(f"/api/cases/{CASE}/callbacks/{cid}").json()
+    assert [x["id"] for x in detail["questions"]] == ["q1", "q2", "q3"]
+    assert detail["result"]["result"] == "confirmed"
+    assert step(client) == ("decision_pending", "packet")
 
 
 # ---- 5. the real path to an eligible result -----------------------------------------------------

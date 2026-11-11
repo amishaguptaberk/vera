@@ -26,6 +26,43 @@ class Question(Payload):
 class StartCallbackPayload(Payload):
     questions: list[Question] = Field(min_length=1, max_length=10)
     consent_recorded: bool = False  # required (true) when a real voice provider places the call
+    # Echo of the offered target (payload_defaults). The call target is always read from the
+    # register; any other record is refused, never dialled.
+    target_record_id: str | None = None
+
+    @model_validator(mode="after")
+    def _contact_on_file(self) -> "StartCallbackPayload":
+        if self.target_record_id not in (None, TARGET_RECORD):
+            raise ValueError(f"target_record_id must be {TARGET_RECORD} (the contact on file)")
+        return self
+
+
+# Default verification questions (versioned), offered on start_callback for the analyst to edit
+# and approve. Values come from the case's charge record; no other cardholder data is used.
+QUESTION_SET_VERSION = "v1"
+_CURRENCY_SIGN = {"USD": "$"}
+
+
+def _amount(amount_cents: int, currency: str) -> str:
+    sign = _CURRENCY_SIGN.get(currency)
+    value = f"{amount_cents // 100:,}.{amount_cents % 100:02d}"
+    return f"{sign}{value}" if sign else f"{value} {currency}"
+
+
+def default_questions(
+    *, merchant: str, amount_cents: int, currency: str, card_last4: str
+) -> list[dict[str, str]]:
+    return [
+        {
+            "id": "q1",
+            "text": f"Did you place the order with {merchant} on the card ending {card_last4}?",
+        },
+        {
+            "id": "q2",
+            "text": f"Did you authorize this charge of {_amount(amount_cents, currency)}?",
+        },
+        {"id": "q3", "text": "Did anyone else have access to your card?"},
+    ]
 
 
 class Line(Payload):

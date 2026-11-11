@@ -452,6 +452,13 @@ gateway.register_actions(
         dom.SUBMIT_OTP.name: _not_active("otp"),
         dom.ANSWER_PUSH.name: _not_active("push"),
     },
+    # Per-request actions: listed only while a request they apply to is active.
+    hidden_when_refused=[
+        dom.RESEND.name,
+        dom.CANCEL.name,
+        dom.SUBMIT_OTP.name,
+        dom.ANSWER_PUSH.name,
+    ],
 )
 gateway.register_fact_provider(_facts)
 plugins.register_reset_tables(

@@ -13,6 +13,7 @@ import json
 import os
 import time
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -91,9 +92,7 @@ def specialist_actor(name: str) -> Actor:
 
 def latest_run(session: Session, case_id: str) -> WorkflowRun | None:
     return session.scalars(
-        select(WorkflowRun)
-        .where(WorkflowRun.case_id == case_id)
-        .order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
+        select(WorkflowRun).where(WorkflowRun.case_id == case_id).order_by(WorkflowRun.seq.desc())
     ).first()
 
 
@@ -120,19 +119,52 @@ def key_context(session: Session, case: Case, step_key: str) -> dict[str, object
     return {"run_id": run_id, "attempt_no": _retries(session, run_id, step_key) + 1}
 
 
+GRAPH_STEPS = frozenset(n["key"] for n in INVESTIGATION_V3["nodes"])
+
+
 def failed_steps(session: Session, case_id: str) -> list[FailedStep]:
+    """Failed investigation-graph steps (retry_specialist_step reruns the graph). Steps with
+    their own retry command (dispute narrative, decision packet) are not listed here."""
     run = latest_run(session, case_id)
     if run is None or run.status != "failed":
         return []
     rows = session.scalars(
         select(WorkflowStep)
-        .where(WorkflowStep.run_id == run.id, WorkflowStep.status == StepStatus.FAILED.value)
+        .where(
+            WorkflowStep.run_id == run.id,
+            WorkflowStep.status == StepStatus.FAILED.value,
+            WorkflowStep.step_key.in_(GRAPH_STEPS),
+        )
         .order_by(WorkflowStep.step_key)
     ).all()
     return [
         FailedStep(run.id, s.step_key, _retries(session, run.id, s.step_key) + 1, run.mode)
         for s in rows
     ]
+
+
+def run_for_step(session: Session, case_id: str, now: datetime) -> tuple[str, bool]:
+    """The run a follow-on specialist step (dispute narrative, prevention plan) runs on: the
+    case's latest run, or a new one created now, pinned to the case's versions with the same
+    mode policy as start_investigation (503 when the mode is unset). Returns (run_id, created).
+    Called inside the command's transaction."""
+    run = latest_run(session, case_id)
+    if run is not None:
+        return run.id, False
+    try:
+        mode = default_mode()
+    except (RuntimeError, ValueError) as exc:
+        raise CommandError("execution_mode_unset", 503, str(exc)) from None
+    return create_run(session, case_id=case_id, mode=mode, now=now, commit=False), True
+
+
+def settle_step_run(factory: sessionmaker[Session], run_id: str, step_key: str, ok: bool) -> None:
+    """A run that hosts only this step (created for it) ends with the step's outcome, so it is
+    never left `running`. Runs that host other steps keep their own status."""
+    with factory() as s:
+        keys = set(s.scalars(select(WorkflowStep.step_key).where(WorkflowStep.run_id == run_id)))
+    if keys == {step_key}:
+        _finish(factory, run_id, "succeeded" if ok else "failed")
 
 
 # ---- command effects (run by the gateway inside its transaction) -------------------------------

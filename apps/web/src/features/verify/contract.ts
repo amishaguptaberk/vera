@@ -87,6 +87,8 @@ export type CallbackView = {
   questions: CallQuestion[];
   result: StructuredResult | null;
   approved_by: string;
+  /** Display name of the approving analyst (server-resolved). */
+  approved_by_name?: string | null;
   created_at: string;
   /** Server-masked destination; the full number is never sent to or shown by this screen. */
   masked_number?: string | null;

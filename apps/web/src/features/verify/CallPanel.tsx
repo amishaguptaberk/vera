@@ -92,7 +92,7 @@ export function callView(k: CallbackDetail) {
   const startedAt = v?.started_at ?? k.started_at ?? k.created_at;
   const qText = new Map(k.questions.map((q) => [q.id, q.text]));
   const rows: KV[] = [
-    { k: "Authorized by", v: `${k.approved_by} · ${time(k.created_at)}` },
+    { k: "Authorized by", v: `${k.approved_by_name ?? k.approved_by} · ${time(k.created_at)}` },
     { k: "Attempt", v: String(k.attempt) },
     {
       k: "Status",
@@ -248,6 +248,8 @@ export function CallPanel({
   const qc = useQueryClient();
   const [note, setNote] = useState("");
   const [consent, setConsent] = useState(false);
+  // The analyst's edits to the server's proposed questions, by index (ids stay the server's).
+  const [edits, setEdits] = useState<Record<number, string>>({});
   const [now, setNow] = useState(() => Date.now());
   const active =
     !!detail.data &&
@@ -265,6 +267,9 @@ export function CallPanel({
   const phoneRaw = c?.cardholder.contact_on_file.phone_masked;
   const startAction =
     c?.available_actions.find((a) => a.command === "start_callback") ?? null;
+  const approved = (
+    (startAction?.payload_defaults.questions as CallQuestion[] | undefined) ?? []
+  ).map((q, i) => ({ ...q, text: edits[i] ?? q.text }));
 
   if (list.isPending || (id && detail.isPending))
     return (
@@ -285,9 +290,7 @@ export function CallPanel({
       a.command === "start_callback"
         ? {
             ...a.payload_defaults,
-            questions:
-              (a.payload_defaults.questions as CallQuestion[] | undefined) ??
-              [],
+            questions: approved,
             consent_recorded: consent,
           }
         : a.command === "end_callback" || a.command === "escalate_callback"
@@ -297,7 +300,10 @@ export function CallPanel({
       { action: a, caseVersion: c.case_version, payload },
       {
         onSuccess: () => {
-          if (a.command === "start_callback") setConsent(false);
+          if (a.command === "start_callback") {
+            setConsent(false);
+            setEdits({});
+          }
         },
       },
     );
@@ -335,10 +341,7 @@ export function CallPanel({
 
   // Preparation: no call yet (or a retry is offered and no call selected) — approve the exact questions.
   if (!id && startAction) {
-    const qs = (
-      (startAction.payload_defaults.questions as CallQuestion[] | undefined) ??
-      []
-    ).map((q) => q.text);
+    const qs = approved.map((q) => q.text);
     const d = startAction.payload_defaults;
     const masked = (d.masked_number as string | undefined) ?? phoneRaw;
     const prepRows: KV[] = [];
@@ -371,6 +374,11 @@ export function CallPanel({
           rows={prepRows}
           provider={prov}
           consent={consentBox}
+          editQuestions={
+            showActions
+              ? { onChange: (i, text) => setEdits((e) => ({ ...e, [i]: text })) }
+              : null
+          }
           questionsLabel="Questions the call will ask"
           questions={qs}
           transcript={null}

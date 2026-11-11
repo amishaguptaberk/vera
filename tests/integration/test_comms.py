@@ -146,7 +146,7 @@ def test_double_send_delivers_once_then_response_stores_evidence_and_keeps_polic
 
     role(client, "cardholder")
     mine = client.get("/api/requests?mine=true").json()["requests"]
-    assert [m["request_id"] for m in mine] == ["MSG-2201"]
+    assert [(m["request_id"], m["case_id"]) for m in mine] == [("MSG-2201", CASE)]
     r = client.post(
         "/api/requests/MSG-2201/responses",
         json={
@@ -195,7 +195,16 @@ def test_cardholder_view_has_no_internal_data(
     drafted_and_sent(client, factory)
     role(client, "cardholder")
     body = client.get("/api/requests/MSG-2201").json()
-    assert set(body) == {"request_id", "status", "subject", "questions", "due_at", "responded"}
+    # case_id names the cardholder's own case (whose view offers them their verification step).
+    assert set(body) == {
+        "request_id",
+        "case_id",
+        "status",
+        "subject",
+        "questions",
+        "due_at",
+        "responded",
+    }
     dumped = str(body).lower()
     for word in ("policy", "specialist", "trace", "fnd-", "usr-", "rep-", "finding"):
         assert word not in dumped
@@ -409,3 +418,100 @@ def test_response_reviewer_recommends_conflicting_but_analyst_decides(
     assert r.status_code == 200, r.text
     rec = q(factory, "select review_recommendation, response_review from communications")
     assert (rec[0][0]["classification"], rec[0][1]) == ("conflicting", "complete")
+
+
+OTHER_REPLY = "Yes, that was me. I ordered two units; the receipt is attached."
+
+
+def _suggestion(client: TestClient) -> dict[str, Any]:
+    role(client, "analyst")
+    detail = client.get(f"/api/cases/{CASE}/communications/MSG-2201").json()
+    return detail["review_suggestion"]  # type: ignore[no-any-return]
+
+
+def test_reviewer_that_cannot_ground_another_reply_leaves_an_honest_unavailable_suggestion(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    """REPLAY has a recording for the canonical reply only: other text fails the step. Nothing
+    is faked: the suggestion is unavailable, no retry is offered, and the analyst reviews."""
+    drafted_and_sent(client, factory)
+    role(client, "cardholder")
+    r = client.post("/api/requests/MSG-2201/responses", json={"text": OTHER_REPLY})
+    assert r.status_code == 200
+    assert _suggestion(client)["status"] == "pending"
+    drain(factory)
+    s = _suggestion(client)
+    assert s["status"] == "unavailable" and s["classification"] is None
+    assert step(client) == ("response_received", "response")
+    role(client, "analyst")
+    case = client.get(f"/api/cases/{CASE}").json()
+    assert case["recovery_actions"] == []  # no generic graph retry for this step
+    assert "review_cardholder_response" in [a["command"] for a in case["available_actions"]]
+    summary = q(factory, "select summary from audit_events where type='specialist.failed'")
+    assert [x[0] for x in summary] == [
+        f"Review suggestion unavailable ({s['reason']}). Review the reply yourself."
+    ]
+    v = version(client)
+    r = command(client, "review_cardholder_response", f"review:{CASE}:{v}", {"outcome": "complete"})
+    assert r.status_code == 200, r.text
+
+
+def test_live_reviewer_classifies_any_reply_through_mock_transport(
+    client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[list[dict[str, Any]]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        seen.append(body["messages"])
+        if len(seen) == 1:
+            message: dict[str, Any] = {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "c0",
+                        "type": "function",
+                        "function": {
+                            "name": "read_field",
+                            "arguments": json.dumps({"record_id": "RSP-2201", "field": "text"}),
+                        },
+                    }
+                ],
+            }
+        else:  # the model saw the stored reply as tool data and cites it verbatim
+            read = [json.loads(m["content"]) for m in body["messages"] if m["role"] == "tool"]
+            assert read[0]["value"] == OTHER_REPLY
+            out = {
+                "classification": "complete",
+                "citations": [
+                    {
+                        "record_id": "RSP-2201",
+                        "version": 1,
+                        "field": "text",
+                        "value": OTHER_REPLY,
+                        "statement": "The cardholder confirms the order and attaches the receipt.",
+                    }
+                ],
+            }
+            message = {"role": "assistant", "content": json.dumps(out)}
+        return httpx.Response(
+            200, json={"model": "stub-live-1", "choices": [{"message": message}], "usage": {}}
+        )
+
+    drafted_and_sent(client, factory)
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", httpx.MockTransport(handle))
+    role(client, "cardholder")
+    r = client.post("/api/requests/MSG-2201/responses", json={"text": OTHER_REPLY})
+    assert r.status_code == 200
+    drain(factory)
+    s = _suggestion(client)
+    assert (s["status"], s["classification"]) == ("ready", "complete")
+    assert s["citations"][0]["record_id"] == "RSP-2201"
+    rows = q(
+        factory,
+        "select execution_mode, model_id from workflow_steps where step_key='response_reviewer'",
+    )
+    assert rows == [("live", "stub-live-1")]

@@ -19,9 +19,9 @@ from vera_domain.commands import (
     Reduction,
     StepSet,
 )
-from vera_domain.enums import CaseState, CaseStep, Role, register_event_types
+from vera_domain.enums import CaseState, CaseStep, Role, StateKind, register_event_types
 from vera_domain.facts import CaseFacts
-from vera_domain.labels import register_event_summaries
+from vera_domain.labels import register_event_summaries, register_labels
 
 ControlName = Literal["lock", "replace", "virtual", "block", "monitor"]
 SIMULATED = "simulated"
@@ -286,3 +286,66 @@ HUMAN = {
     for s in (ISSUE, LOOKUP, PREPARE, OPEN, REVIEW, SUBMIT, PROPOSE, SKIP, APPROVE, DECLINE, APPLY)
 }
 SERVICE = {RECONCILE.name: RECONCILE, RECOMMEND.name: RECOMMEND}
+
+# State labels and next actions for the credit check and the two tracks (prototype PHASE / NEXT).
+_CONTROL_LABELS = {
+    CaseStep.CONTROLS: (
+        "Card controls recommended",
+        StateKind.REVIEW,
+        "Send the control plan to the card admin, or record that none are needed",
+    ),
+    CaseStep.CTL_PREP: (
+        "Preparing card controls",
+        StateKind.REVIEW,
+        "Propose card controls, or record that none are needed",
+    ),
+    CaseStep.WAITCTL: (
+        "Waiting on card admin",
+        StateKind.WAITING,
+        "The card admin approves or declines the control plan",
+    ),
+    CaseStep.CTL_APPLY: (
+        "Controls approved",
+        StateKind.WAITING,
+        "The card admin applies the approved controls",
+    ),
+}
+register_labels(
+    {
+        (CaseState.CREDIT_APPROVED, CaseStep.CREDIT_CHECK): (
+            "Checking credit result",
+            StateKind.BLOCKED,
+            "Look up the existing credit result",
+        ),
+        **{
+            (state, step): label
+            for state in (CaseState.CREDIT_ISSUED, CaseState.DISPUTE_PREPARED)
+            for step, label in _CONTROL_LABELS.items()
+        },
+        (CaseState.DISPUTE_PREPARED, CaseStep.DSP_PREPARE): (
+            "Dispute not prepared",
+            StateKind.REVIEW,
+            "Prepare the dispute packet",
+        ),
+        (CaseState.DISPUTE_PREPARED, CaseStep.DSP_OPEN): (
+            "Dispute packet prepared",
+            StateKind.REVIEW,
+            "Open the dispute packet",
+        ),
+        (CaseState.DISPUTE_PREPARED, CaseStep.DSP_REVIEW): (
+            "Dispute ready for review",
+            StateKind.REVIEW,
+            "Review the dispute packet",
+        ),
+        (CaseState.DISPUTE_PREPARED, CaseStep.DSP_SUBMIT): (
+            "Dispute ready to submit",
+            StateKind.REVIEW,
+            "Record the dispute submission",
+        ),
+        (CaseState.DISPUTE_PREPARED, CaseStep.DSP_FAILED): (
+            "Dispute submission failed",
+            StateKind.BLOCKED,
+            "Retry the dispute submission",
+        ),
+    }
+)
