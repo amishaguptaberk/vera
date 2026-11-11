@@ -20,6 +20,7 @@ from vera_api.models import (
     StateTransition,
     User,
 )
+from vera_api.versions import active_versions
 
 DEFAULT_OWNER_ID = "usr-sam-rivera"
 WORKFLOW_VERSION = 3
@@ -127,6 +128,7 @@ def _create(
     due_at: datetime | None,
 ) -> IntakeResult:
     actor_id, _ = _intake_actor(session, txn.cardholder_id)
+    workflow_version, policy_version = active_versions(session)
     state, step = derive_step(
         CaseFacts(opened_at=None, closed=False, hold=None, owner_id=DEFAULT_OWNER_ID, due_at=due_at)
     )
@@ -138,8 +140,8 @@ def _create(
         case_version=1,
         owner_id=DEFAULT_OWNER_ID,
         due_at=due_at,
-        workflow_version=WORKFLOW_VERSION,
-        policy_version=POLICY_VERSION,
+        workflow_version=workflow_version,
+        policy_version=policy_version,
         evidence_snapshot=EMPTY_SNAPSHOT,
         live=True,
     )
