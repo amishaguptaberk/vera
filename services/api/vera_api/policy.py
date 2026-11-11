@@ -69,6 +69,13 @@ def _evidence_summary(session: Session, case_id: str) -> EvidenceSummary:
     return evidence_service.get_evidence_summary(session, case_id)
 
 
+def _identity_verified(session: Session, case_id: str) -> bool:
+    """A completed one-time-code or push verification authenticates the cardholder."""
+    from vera_api import identity
+
+    return identity.identity_verified(session, case_id)
+
+
 def load_policy_input(session: Session, case_id: str) -> PolicyInput:
     """THE seam for evidence. Case/transaction facts come from this tree; records, conflicts,
     missing kinds and the snapshot hash come from the evidence summary."""
@@ -90,7 +97,8 @@ def load_policy_input(session: Session, case_id: str) -> PolicyInput:
         "transaction_id": txn.id,
         "amount_cents": txn.amount_cents,
         "currency": txn.currency,
-        "cardholder_authenticated": holder is not None and holder.contact_verified_at is not None,
+        "cardholder_authenticated": (holder is not None and holder.contact_verified_at is not None)
+        or _identity_verified(session, case_id),
         "duplicates_ruled_out": twins is None,
     }
     return policy_input_from(
