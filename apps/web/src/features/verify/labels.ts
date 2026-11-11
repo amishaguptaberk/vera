@@ -36,6 +36,12 @@ export const CHANNEL: Record<"otp" | "push", { label: string; sub: string }> = {
 };
 
 export const CALL_STATUS: Record<CallStatus, string> = {
+  queued: "Queued",
+  ringing: "Ringing",
+  completed: "Completed",
+  failed: "Call failed",
+  busy: "Line busy",
+  timed_out: "Timed out",
   in_progress: "In progress",
   confirmed: "Completed · confirmed",
   contradicted: "Completed · not confirmed",
@@ -71,3 +77,23 @@ export const CALL_EFFECT: Record<CallOutcome, string> = {
 };
 
 export const isOutcome = (s: string): s is CallOutcome => s in CALL_HEADLINE;
+
+/** Provider label: always say plainly when a call is simulated. */
+export const providerLabel = (p: string | null | undefined): string | null =>
+  p === "simulated"
+    ? "Simulated call"
+    : p === "elevenlabs"
+      ? "Voice call via ElevenLabs"
+      : null;
+
+/** Defensive: keep only the last 4 digits of anything that looks like a phone number. */
+export const maskNumber = (n: string): string => {
+  const digits = n.replace(/\D/g, "");
+  if (digits.length <= 4) return n;
+  return `•••• ${digits.slice(-4)}`;
+};
+
+export const elapsed = (from: string, now: number): string => {
+  const s = Math.max(0, Math.floor((now - Date.parse(from)) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
