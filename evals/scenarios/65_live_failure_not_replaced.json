@@ -1,0 +1,70 @@
+{
+  "title": "A LIVE failure stays failed until an explicit replay retry",
+  "steps": [
+    {
+      "service": "live",
+      "transport": "fail500"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "runs": {
+          "mode": "live",
+          "status": "failed",
+          "failure_reasons": {
+            "charge_investigator": "provider_error",
+            "related_transaction_investigator": "provider_error"
+          },
+          "execution_modes": {
+            "charge_investigator": "live"
+          }
+        },
+        "findings": {
+          "count": 0
+        },
+        "step": "working"
+      }
+    },
+    {
+      "service": "replay_recordings"
+    },
+    {
+      "as": "analyst",
+      "command": "retry_specialist_step",
+      "payload": {
+        "step_key": "charge_investigator",
+        "mode": "replay"
+      }
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "runs": {
+          "execution_modes": {
+            "charge_investigator": "replay",
+            "related_transaction_investigator": "live"
+          }
+        },
+        "events": {
+          "mode": "subsequence",
+          "types": [
+            "specialist.failed",
+            "specialist.replayed"
+          ]
+        }
+      }
+    }
+  ]
+}

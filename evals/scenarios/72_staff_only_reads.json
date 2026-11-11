@@ -1,0 +1,33 @@
+{
+  "title": "Queue, summary, evidence and users are staff-only",
+  "steps": [
+    {
+      "get": "/api/cases",
+      "as": "cardholder",
+      "expect": {
+        "http": 403,
+        "code": "role_forbidden"
+      }
+    },
+    {
+      "get": "/api/cases/summary",
+      "as": "cardholder",
+      "expect": {
+        "http": 403,
+        "code": "role_forbidden"
+      }
+    },
+    {
+      "get": "/api/cases/CHG-1042/evidence",
+      "as": "cardholder",
+      "expect": {
+        "http": 403
+      }
+    },
+    {
+      "get": "/api/cases/CHG-1042/evidence",
+      "as": "reviewer",
+      "json": {}
+    }
+  ]
+}

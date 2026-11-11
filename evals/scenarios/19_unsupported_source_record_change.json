@@ -1,0 +1,27 @@
+{
+  "fixture": 19,
+  "title": "A change to a record the case does not hold is rejected and changes nothing",
+  "steps": [
+    {
+      "service": "snapshot",
+      "name": "s"
+    },
+    {
+      "service": "demo",
+      "demo": "material-change",
+      "body": {
+        "record_id": "NOPE-1",
+        "fields": {
+          "x": 1
+        }
+      },
+      "expect": {
+        "http": 404,
+        "code": "evidence_not_found"
+      },
+      "assert": {
+        "unchanged_since": "s"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-005",
+  "fixture": 3,
+  "title": "Cardholder no response",
+  "description": "Fixture 3: Cardholder no response. ToSpec 15.3"
+}

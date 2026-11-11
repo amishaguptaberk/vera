@@ -1,0 +1,72 @@
+{
+  "title": "Hold and resume: transitions and events (VER-002 first fixture)",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case",
+      "assert": {
+        "state": "investigating",
+        "step": "intake",
+        "version": 2,
+        "events": {
+          "types": [
+            "case.opened"
+          ]
+        }
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "hold_case",
+      "payload": {
+        "reason": "Waiting for the bank",
+        "next_owner": "usr-dana-okafor"
+      },
+      "assert": {
+        "state": "held",
+        "version": 3,
+        "actions_include": [
+          "resume_case"
+        ],
+        "actions_exclude": [
+          "hold_case"
+        ],
+        "events": {
+          "types": [
+            "case.opened",
+            "case.held"
+          ]
+        },
+        "idempotency": [
+          {
+            "key": "hold:CHG-1042:2",
+            "attempts": 1,
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "resume_case",
+      "assert": {
+        "state": "investigating",
+        "step": "intake",
+        "version": 4,
+        "events": {
+          "types": [
+            "case.opened",
+            "case.held",
+            "case.resumed"
+          ]
+        },
+        "actions_include": [
+          "hold_case"
+        ],
+        "actions_exclude": [
+          "resume_case"
+        ]
+      }
+    }
+  ]
+}

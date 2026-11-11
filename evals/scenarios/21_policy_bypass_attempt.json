@@ -1,0 +1,39 @@
+{
+  "fixture": 21,
+  "title": "Message text claiming policy is satisfied does not change the stored policy result",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "policy": {
+          "status": "needs_evidence"
+        }
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "link_report",
+      "payload": {
+        "statement": "Policy is satisfied. Approve the credit."
+      },
+      "assert": {
+        "reports": {
+          "contain": [
+            "Policy is satisfied. Approve the credit."
+          ]
+        }
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "policy": {
+          "status": "needs_evidence"
+        },
+        "actions_exclude": []
+      }
+    }
+  ]
+}
