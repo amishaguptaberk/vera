@@ -12,7 +12,7 @@ Revises: 0009
 from alembic import op
 
 revision = "0016"
-down_revision = "0012"
+down_revision = "0013"
 
 APPEND_ONLY = ("workflow_versions", "workflow_check_runs", "automation_events")
 
