@@ -316,7 +316,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             Card ending {c.transaction.card_last4} · Posted {dateLabel(c.transaction.posted_at)} · {c.cardholder.name}
           </div>
           <div className={styles.chdW}>
-            {internalDenied ? null : (
+            {internalDenied || evidence.isPending ? null : (
               <button type="button" className={styles.linkb} onClick={() => setParams({ tab: 'trace', sel: null })}>
                 Workflow v{c.pins.workflow_version} · Run details
               </button>
@@ -402,6 +402,8 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           <Activity caseId={caseId} />
         </div>
         <div className={styles.colR}>
+          {/* Every tab reads internal data (evidence, messages, verification, runs); a server 403 drops the card. */}
+          {internalDenied || evidence.isPending ? null : (
           <section className={styles.card} aria-label="Case workspace">
             <div className={styles.tabs} role="tablist" aria-label="Case sections">
               {tabs.map((t) => (
@@ -428,6 +430,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               ))}
             </div>
           </section>
+          )}
         </div>
       </div>
       {rail ? <rail.Rail {...slot} open={railOpen} onClose={() => setRailOpen(false)} onNavigate={(t) => setParams({ tab: parseTab(t), sel: null })} /> : null}

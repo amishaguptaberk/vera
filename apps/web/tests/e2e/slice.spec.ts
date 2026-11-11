@@ -75,11 +75,11 @@ test('known-good journey: CHG-1042 investigation → evidence → run details �
   const r = await page.request.post('/api/session/role', { data: { role: 'cardholder' } });
   expect(r.ok()).toBe(true);
   await page.goto('/cases/CHG-1042');
-  await expect(page.getByRole('tab', { name: 'Communications' })).toBeVisible();
+  await expect(page.getByTestId('case-state')).toBeVisible();
   for (const name of ['Evaluate policy', 'Hold for more information', 'Start investigation', 'Reassign']) {
     await expect(page.getByRole('button', { name })).toHaveCount(0);
   }
-  for (const name of ['Evidence', 'Decision', 'Run details']) await expect(page.getByRole('tab', { name })).toHaveCount(0);
+  for (const name of ['Evidence', 'Communications', 'Decision', 'Run details']) await expect(page.getByRole('tab', { name })).toHaveCount(0);
   await expect(page.getByTestId('policy-block')).toHaveCount(0);
   // Leave the shared demo session as the analyst.
   await page.request.post('/api/session/role', { data: { role: 'analyst' } });
