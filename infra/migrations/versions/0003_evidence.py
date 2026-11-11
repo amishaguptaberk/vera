@@ -57,7 +57,7 @@ create table findings (
     case_id text not null references cases(id),
     kind text not null,
     statement text not null,
-    status text not null check (status in ('open', 'resolved', 'accepted_unresolved')),
+    status text not null check (status in ('open', 'resolved', 'accepted_unresolved', 'stale')),
     resolved_by text,
     conflict_field text,
     created_by text not null,

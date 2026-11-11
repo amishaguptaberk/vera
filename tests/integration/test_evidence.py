@@ -58,12 +58,42 @@ def snapshot(client: TestClient) -> str:
     return client.get(f"/api/cases/{CASE}/evidence").json()["snapshot_hash"]  # type: ignore[no-any-return]
 
 
-DLV_V2 = {"record_id": "DLV-882", "fields": {"received_quantity": 1, "delivered_to": "Dock 4"}}
+DLV_V2 = {"record_id": "DLV-882", "fields": {"received_quantity": 1}}
+
+QTY_CONFLICT = {
+    "finding_id": "FND-Q",
+    "kind": "conflict",
+    "statement": "The purchase order approves one unit but the delivery record shows two.",
+    "conflict_field": "quantity",
+    "links": [
+        {"record_id": "PO-219", "version": 1, "field": "approved_quantity"},
+        {"record_id": "DLV-882", "version": 1, "field": "received_quantity"},
+    ],
+}
+
+
+def test_fresh_seed_has_source_records_only_and_no_findings(
+    client: TestClient, db: Session
+) -> None:
+    assert db.execute(text("select count(*) from findings")).scalar() == 0
+    assert db.execute(text("select count(*) from finding_links")).scalar() == 0
+    body = client.get(f"/api/cases/{CASE}/evidence").json()
+    by_id = {r["record_id"]: r for r in body["records"]}
+    assert by_id["CHG-1051"]["status"] == "pending_review"
+    assert by_id["CHG-1048"]["status"] == "pending_review"
+    assert by_id["CHG-1051"]["fields"]["amount_cents"] == 120000
+    assert by_id["CHG-1048"]["fields"]["amount_cents"] == 62000
+    assert by_id["DLV-882"]["status"] == "supporting"
+    assert "delivered_to" not in by_id["DLV-882"]["fields"]
+    assert by_id["CHG-1042"]["fields"]["posted_at"].startswith("2026-11-08")
+    assert body["open_conflicts"] == [] and body["findings"] == []
+    assert len(body["checks"]) == 5
 
 
 def test_register_shows_seeded_records_missing_and_conflicting_as_distinct(
-    client: TestClient,
+    client: TestClient, db: Session
 ) -> None:
+    run(db, "record_finding", QTY_CONFLICT)
     body = client.get(f"/api/cases/{CASE}/evidence").json()
     by_id = {r["record_id"]: r for r in body["records"]}
     assert set(by_id) == {"CHG-1042", "PO-219", "DLV-882", "REP-1042", "PRF-4418",
@@ -72,12 +102,63 @@ def test_register_shows_seeded_records_missing_and_conflicting_as_distinct(
     assert by_id["PO-219"]["fields"]["approved_amount_cents"] == 240000
     assert by_id["DLV-882"]["fields"]["received_quantity"] == 2
     assert by_id["DLV-882"]["status"] == "conflicting"  # PO says 1 unit, delivery says 2
+    assert by_id["CHG-1042"]["status"] == "supporting"
     assert by_id["REP-1042"]["status"] == "pending_review"
     assert body["missing"] == ["receipt"]
+    assert "receipt" not in by_id  # missing is a kind with no record, not a record status
     assert body["open_conflicts"][0]["field"] == "quantity"
     assert {v["value"] for v in body["open_conflicts"][0]["values"]} == {1, 2}
     pin = client.get(f"/api/cases/{CASE}").json()["pins"]["evidence_snapshot"]
     assert pin == "sha256:" + body["snapshot_hash"]
+
+
+def test_material_change_marks_conflicts_on_the_superseded_version_stale(
+    client: TestClient, db: Session
+) -> None:
+    run(db, "record_finding", QTY_CONFLICT)
+    assert client.post("/api/demo/material-change", json={}).status_code == 200
+    body = client.get(f"/api/cases/{CASE}/evidence").json()
+    assert body["open_conflicts"] == []
+    dlv = next(r for r in body["records"] if r["record_id"] == "DLV-882")
+    assert dlv["status"] == "supporting" and dlv["current_version"] == 2
+    finding = next(f for f in body["findings"] if f["finding_id"] == "FND-Q")
+    assert finding["status"] == "stale"
+    db.rollback()
+    row = db.execute(
+        text("select record_ids from audit_events where type='finding.stale' and case_id=:c"),
+        {"c": CASE},
+    ).one()
+    assert row[0][0] == "FND-Q"
+
+
+def test_new_findings_and_links_cannot_cite_a_superseded_version(
+    client: TestClient, db: Session
+) -> None:
+    run(db, "record_finding", {**QTY_CONFLICT, "finding_id": "FND-OLD"})
+    run(db, "append_evidence_version", {**DLV_V2, "source": "delivery system"}, Role.SYSTEM)
+    with pytest.raises(CommandError) as err:
+        run(db, "record_finding", {**QTY_CONFLICT, "finding_id": "FND-NEW"})
+    assert (err.value.http_status, err.value.code) == (422, "schema_invalid")
+    with pytest.raises(CommandError) as err:
+        run(
+            db,
+            "link_evidence",
+            {
+                "finding_id": "FND-OLD",
+                "record_id": "DLV-882",
+                "version": 1,
+                "field": "received_quantity",
+            },  # fmt: skip
+        )
+    assert (err.value.http_status, err.value.code) == (422, "schema_invalid")
+
+
+def test_demo_material_change_needs_fields_for_records_other_than_dlv_882(
+    client: TestClient,
+) -> None:
+    resp = client.post("/api/demo/material-change", json={"record_id": "PO-219"})
+    assert resp.status_code == 422
+    assert client.get(f"/api/cases/{CASE}").json()["case_version"] == 1
 
 
 def test_material_change_appends_version_supersedes_old_and_stales_only_matching_check(
@@ -117,7 +198,7 @@ def test_non_material_change_keeps_hash_and_stales_nothing(client: TestClient, d
         "append_evidence_version",
         {
             "record_id": "DLV-882",
-            "fields": {"received_quantity": 2, "delivered_to": "Dock 4", "note": "left at dock"},
+            "fields": {"received_quantity": 2, "note": "left at dock"},
             "source": "delivery system",
         },
         Role.SYSTEM,
@@ -211,19 +292,18 @@ def test_resolved_conflict_is_no_longer_open(client: TestClient, db: Session) ->
 
 
 def test_link_evidence_and_record_claim(db: Session) -> None:
+    run(db, "record_finding", QTY_CONFLICT)
     run(
         db,
         "link_evidence",
         {
-            "finding_id": "FND-SEED-1",
+            "finding_id": "FND-Q",
             "record_id": "CHG-1051",
             "version": 1,
             "field": "amount_cents",
         },
     )
-    n = db.execute(
-        text("select count(*) from finding_links where finding_id='FND-SEED-1'")
-    ).scalar()
+    n = db.execute(text("select count(*) from finding_links where finding_id='FND-Q'")).scalar()
     assert n == 3
     run(
         db, "record_claim", {"claim_id": "CLM-1", "report_id": "REP-1042", "statement": "Not mine."}
@@ -232,6 +312,7 @@ def test_link_evidence_and_record_claim(db: Session) -> None:
 
 
 def test_evidence_versions_cannot_be_updated_or_deleted(client: TestClient, db: Session) -> None:
+    run(db, "record_finding", QTY_CONFLICT)  # the seed has no finding links to update
     for sql in (
         "update evidence_versions set source='x'",
         "delete from evidence_versions",

@@ -90,5 +90,6 @@ class EventType(StrEnum):
     EVIDENCE_VERSION_ADDED = "evidence.version_added"
     CLAIM_RECORDED = "claim.recorded"
     FINDING_RECORDED = "finding.recorded"
+    FINDING_STALE = "finding.stale"
     APPROVAL_STALE = "approval.stale"
     POLICY_EVALUATED = "policy.evaluated"

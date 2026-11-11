@@ -107,7 +107,8 @@ MATRIX: list[tuple[str, PolicyInput, str, str, list[str]]] = [
         ),
         "blocked",
         "EVIDENCE_CONFLICT",
-        ["purchase_records_agree"],
+        # a conflicting receipt is not a present receipt (allowlist: supporting only)
+        ["purchase_records_agree", "receipt_required_above_threshold"],
     ),
     (
         "authorized charge",
@@ -312,3 +313,36 @@ def test_evaluator_imports_no_model_network_or_database_code() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             roots.add(node.module.split(".")[0])
     assert roots <= allowed_roots, roots - allowed_roots
+
+
+@pytest.mark.parametrize("status", ["pending_review", "conflicting", "missing", "superseded"])
+def test_only_a_supporting_receipt_counts_as_present(status: str) -> None:
+    receipt = {"record_id": "RCT-1", "kind": "receipt", "status": status, "current_version": 1}
+    result = evaluate(POLICY_V1, good(records=[receipt]))
+    assert "receipt_required_above_threshold" in result.rules_failed
+
+
+def test_policy_input_from_reads_the_real_evidence_summary() -> None:
+    from vera_domain.evidence import EvidenceSummary, RecordKind
+
+    assert {RecordKind.RECEIPT.value, RecordKind.CALLBACK.value} == {"receipt", "callback"}
+    summary = EvidenceSummary.model_validate(
+        {
+            "snapshot_hash": "ccc",
+            "records": [
+                {"record_id": "RCT-1", "kind": "receipt", "status": "supporting",
+                 "current_version": 1, "fields": {}},
+                {"record_id": "CALL-1042", "kind": "callback", "status": "supporting",
+                 "current_version": 1,
+                 "fields": {"result": "confirmed", "authorization_answer": "unauthorized"}},
+            ],
+            "open_conflicts": [],
+            "missing": ["purchase_order"],
+        }
+    )  # fmt: skip
+    facts = {"transaction_id": "TXN-1042", "amount_cents": CHG_1042,
+             "cardholder_authenticated": True, "duplicates_ruled_out": True}  # fmt: skip
+    inp = policy_input_from(facts, summary)
+    assert (inp.snapshot_hash, inp.missing) == ("ccc", ["purchase_order"])
+    assert (inp.verification, inp.outcome) == ("confirmed", "unauthorized")
+    assert evaluate(POLICY_V1, inp).status == "eligible"
