@@ -15,6 +15,7 @@ from vera_domain.errors import CommandError
 from vera_domain.models import ActionView, CaseView, Person, QueueRow, Summary
 
 from vera_api import auth, queries
+from vera_api import evidence as evidence_api
 from vera_api.auth import Actor
 from vera_api.config import Settings
 from vera_api.db import make_engine
@@ -281,7 +282,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
     app.include_router(cases)
     app.include_router(session_router)
+    app.include_router(evidence_api.router)
     if settings.synthetic:
         app.include_router(role_router)
         app.include_router(demo)
+        app.include_router(evidence_api.demo_router)
     return app

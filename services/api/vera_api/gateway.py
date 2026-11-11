@@ -21,6 +21,7 @@ from vera_domain.commands import (
 )
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.errors import CommandError
+from vera_domain.evidence import SERVICE_REGISTRY
 from vera_domain.facts import CaseFacts, Hold, derive_step
 
 from vera_api.auth import HUMAN_ROLES, STAFF_ROLES, Actor
@@ -237,7 +238,7 @@ def _execute(
     actor: Actor,
     request_id: str,
 ) -> Outcome:
-    spec = REGISTRY.get(command)
+    spec = REGISTRY.get(command) or SERVICE_REGISTRY.get(command)
     if spec is None:
         raise CommandError("unknown_command", 404, f"Unknown command '{command}'.")
     # 1 role
@@ -318,6 +319,13 @@ def write_command(
     first_report = _first_report(session, case.id)
     if spec.name == "link_report":
         _record_linked_report(session, case, model, first_report, now)
+    extra: dict[str, Any] = {}
+    if spec.name in SERVICE_REGISTRY:  # evidence side effects run inside this transaction
+        from vera_api.evidence import run_effect
+
+        extra = run_effect(
+            session, case, spec.name, model, now=now, actor_id=actor_id, actor_role=actor_role
+        )
     ctx = ReduceContext(
         case_id=case.id,
         actor_id=actor_id,
@@ -326,6 +334,7 @@ def write_command(
         now=now,
         resolve_user=_resolver(session),
         first_report_id=first_report.id if first_report else None,
+        extra=extra,
     )
     red = spec.reducer(facts_of(case), model, ctx)
     return apply_reduction(
