@@ -60,7 +60,7 @@ NVIDIA_API_KEY=$NVIDIA_API_KEY infra/demo.sh live
 
 ### Voice verification
 
-The verification call uses an ElevenLabs voice agent over Twilio or SIP. In the synthetic environment a simulated provider drives the same webhook path. For real calls set `VERA_VOICE_PROVIDER=elevenlabs`, `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `ELEVENLABS_AGENT_PHONE_NUMBER_ID`, `ELEVENLABS_WEBHOOK_SECRET` and `VERA_PUBLIC_BASE_URL`, configure one data-collection item per approved question on the agent, and point its post-call webhook at `$VERA_PUBLIC_BASE_URL/api/webhooks/voice/elevenlabs`.
+The verification call uses an ElevenLabs voice agent over Twilio or SIP. In the synthetic environment a simulated provider drives the same webhook path. For real calls set `VERA_VOICE_PROVIDER=elevenlabs`, `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `ELEVENLABS_AGENT_PHONE_NUMBER_ID`, `ELEVENLABS_WEBHOOK_SECRET` (and `ELEVENLABS_TELEPHONY=sip` for SIP trunks; Twilio is the default), configure one data-collection item per approved question on the agent, and point its post-call webhook at `<public API origin>/api/webhooks/voice/elevenlabs`.
 
 ## Configuration
 
