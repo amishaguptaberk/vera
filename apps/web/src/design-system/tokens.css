@@ -45,12 +45,34 @@
   --radius-input: 8px;
   --radius-panel: 12px;
 
+  /* §8.1 shell geometry */
+  --sidebar-width: 220px;
+  --sidebar-width-max: 320px;
+  --sidebar-width-collapsed: 64px;
+  --sidebar-width-drawer: 248px;
+
+  /* §9.4 control sizes. --control-h-sm-proto is the 34px the prototype's cascade actually applies to
+     .btn.sm (Main.dc.html:873); Handoff §9.4 says 30px (--control-h-sm). See tests/parity/ACCEPTED.md. */
+  --control-h-min: 36px;
+  --control-h-max: 40px;
+  --control-h-sm: 30px;
+  --control-h-sm-proto: 34px;
+  --control-h-ref: 26px;
+  --slot-size: 20px;
+  --selection-bar: 3px;
+  --nav-bar: 2px;
+  --tab-underline: 2px;
+  --focus-ring-width: 2px;
+  --focus-ring-color: var(--cobalt);
+  --opacity-disabled: 0.45;
+
   /* §9.5 motion */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration-local: 220ms;
   --duration-icon: 200ms;
   --duration-drawer: 220ms;
   --duration-connector: 600ms;
+  --spinner-duration: 1.1s;
 }
 
 @media (max-width: 1279px) {

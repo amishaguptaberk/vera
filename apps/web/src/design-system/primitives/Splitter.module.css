@@ -1,0 +1,22 @@
+/* Prototype .nsplit (1437-1438, 1450-1451). Placement is the caller's (className); this owns the look. */
+.split {
+  cursor: col-resize;
+  touch-action: none;
+}
+.horizontal {
+  cursor: row-resize;
+}
+.split:hover,
+.split:focus-visible,
+.dragging {
+  background: linear-gradient(90deg, transparent 3px, rgba(36, 70, 199, 0.35) 3px, rgba(36, 70, 199, 0.35) 5px, transparent 5px);
+}
+.horizontal:hover,
+.horizontal:focus-visible,
+.horizontal.dragging {
+  background: linear-gradient(180deg, transparent 3px, rgba(36, 70, 199, 0.35) 3px, rgba(36, 70, 199, 0.35) 5px, transparent 5px);
+}
+.split:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -2px;
+}

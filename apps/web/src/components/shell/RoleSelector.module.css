@@ -1,0 +1,42 @@
+/* Prototype .rsel (Main.dc.html:1228-1233, 1242). The menu itself is the Menu primitive. */
+.rsel {
+  position: relative;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  border-radius: 7px;
+  padding: 0 10px;
+  min-height: 32px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: #d7d4cf;
+}
+.btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  cursor: progress;
+}
+.key {
+  color: var(--mute);
+}
+.value {
+  font-weight: 560;
+}
+.btn svg {
+  color: var(--mute);
+}
+@media (max-width: 760px) {
+  .key {
+    display: none;
+  }
+}
