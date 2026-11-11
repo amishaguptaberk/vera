@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from vera_domain.enums import CaseState, CaseStep, Role, StateKind
 from vera_domain.exposure import Basis
 from vera_domain.facts import Hold
+from vera_domain.labels import WaitKind
+from vera_domain.progress import ProgressStep
 
 
 class Person(BaseModel):
@@ -99,6 +101,7 @@ class CaseView(BaseModel):
     recovery_actions: list[str] = []
     hold: Hold | None = None
     policy: "PolicyView | None" = None
+    steps: list[ProgressStep] = []  # display only (VER-016)
 
 
 class QueueRow(BaseModel):
@@ -113,6 +116,11 @@ class QueueRow(BaseModel):
     due: Due | None
     credit_cents: int
     live: bool
+    next_action: str | None = None
+    waiting_on: str | None = None  # person or party the case waits on, display name
+    blocker: str | None = None  # "What's blocking it" column
+    wait_kind: WaitKind | None = None  # queue filter chips
+    due_today: bool = False  # due later today (demo clock, demo timezone), not overdue
 
 
 class SummaryMetric(BaseModel):
@@ -142,6 +150,41 @@ class PolicyView(BaseModel):
     snapshot: str
     policy_version: int
     evaluated_at: datetime
+
+
+class FilterCounts(BaseModel):
+    """Counts for the queue filter chips (prototype `FL`), computed with the demo clock."""
+
+    all: int
+    due_today: int
+    overdue: int
+    mine: int  # "Waiting on me": the session user, nobody else waited on, open
+    cardholder: int
+    reviewer: int
+
+
+class ActivityEvent(BaseModel):
+    id: int
+    type: str
+    at: datetime
+    actor_name: str
+    actor_role: str
+    summary: str
+    record_ids: list[str]
+
+
+class ActivityFeed(BaseModel):
+    events: list[ActivityEvent]
+
+
+class AssignableUser(BaseModel):
+    id: str
+    name: str
+    roles: list[Role]
+
+
+class AssignableUsers(BaseModel):
+    users: list[AssignableUser]
 
 
 CaseView.model_rebuild()

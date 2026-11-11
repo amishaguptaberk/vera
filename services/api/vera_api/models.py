@@ -77,6 +77,10 @@ class Case(Base):
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     hold: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = _ts()
+    # Display-only rows: queue strings from the spec fixture (migration 0008).
+    display_next_action: Mapped[str | None] = mapped_column(String)
+    display_waiting_on: Mapped[str | None] = mapped_column(String)
+    display_blocker: Mapped[str | None] = mapped_column(String)
 
 
 class CaseAssignment(Base):
