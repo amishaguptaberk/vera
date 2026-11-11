@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-014",
+  "fixture": 41,
+  "title": "Workflow publish gates",
+  "description": "Fixture 41: Workflow publish gates. blocked without checks on this draft; blocked on any failing scenario"
+}

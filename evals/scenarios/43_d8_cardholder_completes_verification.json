@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-006",
+  "fixture": 43,
+  "title": "D8 cardholder completes verification",
+  "description": "Fixture 43: D8 cardholder completes verification. code entered in the cardholder view -> `Identity verified`; event who=cardholder"
+}

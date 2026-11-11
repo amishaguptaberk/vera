@@ -1,0 +1,28 @@
+{
+  "fixture": 22,
+  "title": "The run and the case stay pinned to workflow v3 / policy v1",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "pins": {
+          "workflow_version": 3,
+          "policy_version": 1
+        },
+        "runs": {
+          "workflow_version": 3
+        }
+      }
+    }
+  ]
+}

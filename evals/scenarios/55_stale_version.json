@@ -1,0 +1,30 @@
+{
+  "title": "A stale expected_case_version is rejected and nothing is written",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "service": "snapshot",
+      "name": "s"
+    },
+    {
+      "as": "analyst",
+      "command": "hold_case",
+      "payload": {
+        "reason": "Waiting for the bank",
+        "next_owner": "usr-dana-okafor"
+      },
+      "version_offset": -1,
+      "expect": {
+        "http": 409,
+        "code": "stale_case_version"
+      },
+      "assert": {
+        "unchanged_since": "s",
+        "state": "investigating"
+      }
+    }
+  ]
+}

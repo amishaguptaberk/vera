@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-007",
+  "fixture": 8,
+  "title": "Callback confirmed",
+  "description": "Fixture 8: Callback confirmed. ToSpec 15.8"
+}
