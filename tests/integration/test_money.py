@@ -442,14 +442,10 @@ def test_work_on_chg_1042_creates_nothing_on_chg_1051(
     for table in ("provisional_credits", "dispute_packets", "control_plans", "adapter_executions"):
         assert count(db, f"select count(*) from {table} where case_id='CHG-1051'") == 0
     assert count(db, sql) == before
+    mine = "type like 'credit.%' or type like 'controls.%' or type like 'dispute.%'"
+    events = f"select count(*) from audit_events where case_id='CHG-1051' and ({mine})"
+    assert count(db, events) == 0
     assert count(db, "select credit_cents from cases where id='CHG-1051'") == 0
-    assert (
-        count(
-            db,
-            "select count(*) from audit_events where case_id='CHG-1051' and (type like 'credit.%' or type like 'controls.%' or type like 'dispute.%')",
-        )
-        == 0
-    )
     assert money.credit_summary(db, "CHG-1051").status == "none"
 
 
