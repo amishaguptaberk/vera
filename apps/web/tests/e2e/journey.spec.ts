@@ -83,6 +83,14 @@ test('journey: follow-up → cardholder reply with attachment → analyst review
       await expect.poll(async () => (await caseView(request)).case_version, { timeout: 15_000 }).toBeGreaterThan(v0);
     }
     expect((await caseView(request)).step).toBe('ctl_prep');
+    // No card controls (reason required) → the final communication step.
+    await money.getByRole('button', { name: 'No controls needed' }).click();
+    const skip = page.getByRole('form', { name: 'No controls needed' });
+    await skip.getByLabel('Reason').fill('No further exposure on this card.');
+    await skip.getByRole('button', { name: 'No controls needed' }).click();
+    await expect(page.getByTestId('case-state')).toHaveText('Final update not sent');
+    await page.reload();
+    await expect(page.getByTestId('case-state')).toHaveText('Final update not sent');
   }
   test.info().annotations.push({ type: 'reached', description: `${decided.state} / ${decided.step}: ${decided.available_actions.map((a: { command: string }) => a.command).join(', ')}` });
 });
