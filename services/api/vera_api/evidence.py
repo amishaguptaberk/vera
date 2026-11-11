@@ -27,12 +27,12 @@ from vera_domain.evidence import (
     content_hash,
 )
 
-from vera_api import auth
+from vera_api import auth, gateway
+from vera_api import policy as policy_service
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
-from vera_api.gateway import execute_command
 from vera_api.intake import _emit
-from vera_api.models import Case, Claim, Report
+from vera_api.models import CardTransaction, Case, Claim, Report
 from vera_api.models_evidence import (
     Attachment,
     EvidenceCheck,
@@ -124,11 +124,14 @@ def _open_conflicts(session: Session, case_id: str) -> list[OpenConflict]:
         )
         .order_by(Finding.created_at, Finding.id)
     ).all()
+    current = {r.id: v.version for r, v in _current(session, case_id)}
     out: list[OpenConflict] = []
     for f in findings:
         links = session.scalars(
             select(FindingLink).where(FindingLink.finding_id == f.id).order_by(FindingLink.id)
         ).all()
+        if any(current.get(link.record_id) != link.version for link in links):
+            continue  # cites a superseded version: not an open conflict on current evidence
         values = []
         for link in links:
             ver = _version(session, link.record_id, link.version)
@@ -328,6 +331,13 @@ def _check_ref(session: Session, case_id: str, record_id: str, version: int, fie
     ver = _version(session, record_id, version)
     if ver is None:
         raise CommandError("schema_invalid", 422, f"links: {record_id} has no version {version}.")
+    latest = session.scalars(
+        select(func.max(EvidenceVersion.version)).where(EvidenceVersion.record_id == record_id)
+    ).one()
+    if version != latest:
+        raise CommandError(
+            "schema_invalid", 422, f"links: {record_id} v{version} is superseded by v{latest}."
+        )
     if field not in ver.fields:
         raise CommandError(
             "schema_invalid", 422, f"links: {record_id} v{version} has no '{field}'."
@@ -453,6 +463,7 @@ def _effect_version(
         )
     stale_checks: list[str] = []
     stale_approvals: list[str] = []
+    stale_findings: list[str] = []
     snapshot = prior_hash
     if material:
         for check in session.scalars(select(EvidenceCheck).where(EvidenceCheck.case_id == case.id)):
@@ -462,21 +473,10 @@ def _effect_version(
                     check.status = "stale"
                     check.stale_reason = f"{rec.id} v{version} changed"
                     check.stale_at = now
+        stale_findings = _stale_findings(session, case, rec.id, version)
         snapshot = recompute_snapshot(session, case)
         for hook in STALE_APPROVAL_HOOKS:
             stale_approvals.extend(hook(session, case, snapshot))
-        for approval_id in stale_approvals:
-            _emit(
-                session,
-                EventType.APPROVAL_STALE,
-                case,
-                actor_id,
-                actor_role,
-                now,
-                [approval_id],
-                f"Approval {approval_id} is out of date: {rec.id} changed",
-                {"record_id": rec.id, "version": version, "snapshot_hash": snapshot},
-            )
     session.flush()
     return {
         "result": {
@@ -487,8 +487,74 @@ def _effect_version(
             "prior_snapshot_hash": prior_hash,
             "stale_checks": stale_checks,
             "stale_approvals": stale_approvals,
+            "stale_findings": stale_findings,
         }
     }
+
+
+def _stale_findings(session: Session, case: Case, record_id: str, version: int) -> list[str]:
+    """Open findings citing an older version of the record go stale with the material change."""
+    stale = session.scalars(
+        select(Finding)
+        .join(FindingLink, FindingLink.finding_id == Finding.id)
+        .where(
+            Finding.case_id == case.id,
+            Finding.status == FindingStatus.OPEN.value,
+            FindingLink.record_id == record_id,
+            FindingLink.version < version,
+        )
+        .distinct()
+        .order_by(Finding.id)
+    ).all()
+    for finding in stale:
+        finding.status = FindingStatus.STALE.value
+    return [f.id for f in stale]
+
+
+def after_effect(
+    session: Session,
+    case: Case,
+    command: str,
+    extra: dict[str, Any],
+    *,
+    now: datetime,
+    actor_id: str,
+    actor_role: Role,
+) -> None:
+    """Runs after the command's own event (evidence.version_added), same transaction, so the
+    audit order is version_added -> finding.stale -> approval.stale -> policy.evaluated."""
+    if command != "append_evidence_version" or not extra["result"]["material"]:
+        return
+    res = extra["result"]
+    detail = {"record_id": res["record_id"], "version": res["version"]}
+    for finding_id in res["stale_findings"]:
+        _emit(
+            session,
+            EventType.FINDING_STALE,
+            case,
+            actor_id,
+            actor_role,
+            now,
+            [finding_id, res["record_id"]],
+            f"Finding {finding_id} is out of date: {res['record_id']} v{res['version']} changed",
+            detail,
+        )
+    for approval_id in res["stale_approvals"]:
+        _emit(
+            session,
+            EventType.APPROVAL_STALE,
+            case,
+            actor_id,
+            actor_role,
+            now,
+            [approval_id],
+            f"Approval {approval_id} is out of date: {res['record_id']} changed",
+            {**detail, "snapshot_hash": res["snapshot_hash"]},
+        )
+    # Re-evaluate only a case that has been evaluated before: a material change never creates
+    # the first evaluation implicitly (that is the analyst's evaluate_policy command).
+    if policy_service.has_evaluation(session, case.id):
+        policy_service.reevaluate_on_evidence_change(session, case.id, now)
 
 
 def run_effect(
@@ -513,6 +579,7 @@ def run_effect(
 
 # ---- seed ---------------------------------------------------------------------------------------
 
+# Source records only (ToSpec s4). No finding is pre-written: conclusions come from a run.
 _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "CHG-1042",
@@ -536,12 +603,7 @@ _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
             "merchant": "Northstar Equipment",
         },
     ),
-    (
-        "DLV-882",
-        "delivery_record",
-        "supporting",
-        {"received_quantity": 2, "delivered_to": "Dock 4"},
-    ),
+    ("DLV-882", "delivery_record", "supporting", {"received_quantity": 2}),
     (
         "REP-1042",
         "initial_report",
@@ -557,22 +619,22 @@ _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "CHG-1051",
         "related_charge",
-        "not_relevant",
+        "pending_review",
         {"merchant": "Northstar Equipment", "amount_cents": 120000},
     ),
-    (
-        "CHG-1048",
-        "related_charge",
-        "not_relevant",
-        {"merchant": "Northstar Equipment", "amount_cents": 62000},
-    ),
+    ("CHG-1048", "related_charge", "pending_review", {"amount_cents": 62000}),
 )
 
 
 def seed_evidence(session: Session, now: datetime) -> None:
     case = session.get(Case, SEED_CASE)
     assert case is not None
-    for rid, kind, status, fields in _SEED_RECORDS:
+    txn = session.get(CardTransaction, case.transaction_id)
+    assert txn is not None
+    for rid, kind, status, seed_fields in _SEED_RECORDS:
+        fields = dict(seed_fields)
+        if rid == SEED_CASE:
+            fields["posted_at"] = txn.posted_at.isoformat()
         session.add(EvidenceRecord(id=rid, case_id=SEED_CASE, kind=kind, status=status))
         session.flush()
         session.add(
@@ -589,21 +651,6 @@ def seed_evidence(session: Session, now: datetime) -> None:
         )
     for key, label, kinds in CHECKS:
         session.add(EvidenceCheck(case_id=SEED_CASE, key=key, label=label, kinds=list(kinds)))
-    session.add(
-        Finding(
-            id="FND-SEED-1",
-            case_id=SEED_CASE,
-            kind="conflict",
-            statement="The purchase order approves one unit but the delivery record shows two.",
-            status=FindingStatus.OPEN.value,
-            conflict_field="quantity",
-            created_by="seed",
-            created_at=now,
-        )
-    )
-    session.flush()
-    for rid, fld in (("PO-219", "approved_quantity"), ("DLV-882", "received_quantity")):
-        session.add(FindingLink(finding_id="FND-SEED-1", record_id=rid, version=1, field=fld))
     session.flush()
     recompute_snapshot(session, case)
 
@@ -653,7 +700,7 @@ def get_evidence_record(
 class MaterialChangeIn(BaseModel):
     case_id: str = SEED_CASE
     record_id: str = "DLV-882"
-    fields: dict[str, Any] | None = None  # default: the record's fields with received_quantity 1
+    fields: dict[str, Any] | None = None  # required unless record_id is DLV-882 (default qty 1)
     source: str = "delivery system (demo)"
 
 
@@ -675,6 +722,8 @@ def material_change(
     current = next((r for r in before.records if r.record_id == body.record_id), None)
     if current is None:
         raise CommandError("evidence_not_found", 404, f"No evidence record '{body.record_id}'.")
+    if body.fields is None and body.record_id != "DLV-882":
+        raise CommandError("schema_invalid", 422, "fields: required for this record.")
     fields = body.fields or {**current.fields, "received_quantity": 1}
     case = _case(session, body.case_id)
     spec = SERVICE_REGISTRY["append_evidence_version"]
@@ -684,7 +733,7 @@ def material_change(
     )
     version = case.case_version
     session.rollback()
-    out = execute_command(
+    out = gateway.execute_command(
         session,
         now=clock.now(),
         case_id=body.case_id,

@@ -40,6 +40,7 @@ class FindingStatus(StrEnum):
     OPEN = "open"
     RESOLVED = "resolved"
     ACCEPTED_UNRESOLVED = "accepted_unresolved"
+    STALE = "stale"  # a cited version was superseded by a material change
 
 
 class RecordKind(StrEnum):
@@ -50,6 +51,7 @@ class RecordKind(StrEnum):
     INITIAL_REPORT = "initial_report"
     CARDHOLDER_PROFILE = "cardholder_profile"
     RELATED_CHARGE = "related_charge"
+    CALLBACK = "callback"  # structured verification result read by the Policy Controller
 
 
 # Kinds a case must hold before evidence is sufficient; a kind with no record is "missing".
@@ -65,11 +67,12 @@ REQUIRED_KINDS = (
 MATERIAL_FIELDS: dict[str, tuple[str, ...]] = {
     "charge": ("amount_cents", "merchant", "card_last4", "cardholder_id"),
     "purchase_order": ("approved_quantity", "approved_amount_cents", "merchant"),
-    "delivery_record": ("received_quantity", "delivered_to"),
+    "delivery_record": ("received_quantity",),
     "receipt": ("amount_cents", "version_label"),
     "initial_report": ("statement",),
     "cardholder_profile": ("phone", "verification_target"),
     "related_charge": ("amount_cents", "merchant"),
+    "callback": ("result", "authorization_answer"),  # facts used by a policy rule
 }
 
 # plan s10: rule -> evidence kinds map. (key, label, kinds)
@@ -173,6 +176,8 @@ class RecordFindingPayload(Payload):
     def _shape(self) -> Self:
         if self.kind == "conflict" and (not self.conflict_field or len(self.links) < 2):
             raise ValueError("a conflict needs conflict_field and at least two links")
+        if self.status == FindingStatus.STALE:
+            raise ValueError("stale is set by a material change, not recorded")
         if self.status == FindingStatus.RESOLVED and not self.resolved_by:
             raise ValueError("a resolved finding needs resolved_by")
         return self

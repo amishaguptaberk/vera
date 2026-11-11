@@ -368,6 +368,12 @@ def write_command(
         request_id=request_id,
         now=now,
     )
+    if spec.name in SERVICE_REGISTRY:  # follow-on events after the command's own event
+        from vera_api.evidence import after_effect
+
+        after_effect(
+            session, case, spec.name, extra, now=now, actor_id=actor_id, actor_role=actor_role
+        )
     if spec.name == "evaluate_policy":
         policy_service.store(
             session,
