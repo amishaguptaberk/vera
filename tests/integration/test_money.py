@@ -4,10 +4,14 @@ Approval (VER-009) is not in this tree: the approved state is reached with a TES
 provider and fact provider, as in test_seams.py. The gateway's stage 8 does the enforcing.
 """
 
+import json
 import threading
 from collections.abc import Iterator
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from command_payloads import register_test_payloads
 from fastapi.testclient import TestClient
@@ -20,6 +24,7 @@ from vera_api import policy as policy_service
 from vera_api.models import Case
 from vera_domain.commands import REGISTRY, SERVICE_COMMANDS
 from vera_domain.enums import Role
+from vera_domain.specialists import ExecutionMode
 
 register_test_payloads(
     {
@@ -528,3 +533,102 @@ def test_planner_recommendation_is_a_service_command_and_the_analyst_decides(
     ok(client, "skip_card_controls", {"reason": "Card already replaced"})
     assert money.controls_summary(db, CASE).status == "skipped"
     assert step(client) == ("dispute_prepared", "dsp_open")
+
+
+# --- prevention planner specialist ---
+
+PLAN_REC = Path("evals/recordings/prevention_planner/v1")
+
+
+def _plan_run(db: Session, mode: ExecutionMode) -> str:
+    from vera_api.runner import create_run
+
+    db.execute(text("delete from jobs where kind <> 'prevention_planner'"))
+    run_id = create_run(db, case_id=CASE, mode=mode, now=datetime(2031, 1, 1, tzinfo=UTC))
+    db.commit()
+    return run_id
+
+
+def _drain(db: Session) -> None:
+    n = 0
+    while worker.run_once(db, worker_id="t") is not None:
+        n += 1
+        assert n < 10
+
+
+def _planner_stub() -> httpx.MockTransport:
+    turns = [json.loads((PLAN_REC / f).read_text()) for f in (f"{CASE}.json", f"{CASE}.1.json")]
+    seen = [0]
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        turn = turns[min(seen[0], 1)]
+        seen[0] += 1
+        message: dict[str, Any] = {"role": "assistant", "content": json.dumps(turn["content"])}
+        if turn["tool_calls"]:
+            message = {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": json.dumps(tc["arguments"])},
+                    }
+                    for tc in turn["tool_calls"]
+                ],
+            }
+        return httpx.Response(
+            200, json={"model": "stub/live-model", "choices": [{"message": message}]}
+        )
+
+    return httpx.MockTransport(handle)
+
+
+def _assert_recommended(client: TestClient, db: Session) -> None:
+    plan = money.controls_summary(db, CASE)
+    assert plan.status == "recommended" and plan.controls == ["block", "lock"]
+    assert step(client)[1] == "controls"  # humans decide: propose or skip
+    assert "propose_card_controls" in offered(client)
+    actor = db.execute(
+        text("select actor_id from audit_events where type='controls.recommended'")
+    ).scalar_one()
+    assert actor == "specialist:prevention_planner"
+
+
+def test_prevention_planner_replay_recommends_grounded_controls_after_credit(
+    client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_api import investigation
+
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", Path("evals/recordings"))
+    _plan_run(db, ExecutionMode.REPLAY)
+    issue(client)
+    assert count(db, "select count(*) from jobs where kind='prevention_planner'") == 1
+    _drain(db)
+    _assert_recommended(client, db)
+    row = db.execute(
+        text("select model_id, status from workflow_steps where step_key='prevention_planner'")
+    ).one()
+    assert tuple(row) == ("reference-recording", "succeeded")
+
+
+def test_prevention_planner_live_over_mock_transport(
+    client: TestClient,
+    db: Session,
+    approved: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from vera_api import investigation
+
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(investigation, "RECORDINGS_ROOT", tmp_path / "empty")
+    monkeypatch.setattr(investigation, "LIVE_TRANSPORT", _planner_stub())
+    _plan_run(db, ExecutionMode.LIVE)
+    issue(client)
+    _drain(db)
+    _assert_recommended(client, db)
+    row = db.execute(
+        text("select model_id from workflow_steps where step_key='prevention_planner'")
+    ).scalar_one()
+    assert row == "stub/live-model"
