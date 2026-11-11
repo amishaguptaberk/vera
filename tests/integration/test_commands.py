@@ -18,6 +18,7 @@ PAYLOADS: dict[str, dict[str, Any]] = {
     "resume_case": {},
     "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
     "link_report": {"report_id": "REP-1047", "statement": "Second call about the same charge."},
+    "evaluate_policy": {},
 }
 
 
@@ -27,6 +28,7 @@ USER_INPUTS: dict[str, dict[str, Any]] = {
     "resume_case": {},
     "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
     "link_report": {"statement": "Second call about the same charge."},
+    "evaluate_policy": {},
 }
 
 
