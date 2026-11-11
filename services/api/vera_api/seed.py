@@ -165,6 +165,7 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
                 policy_version=POLICY_VERSION,
                 evidence_snapshot=EMPTY_SNAPSHOT,
                 credit_cents=row.credit_cents,
+                credit_status="issued" if row.credit_cents else None,
                 live=False,
                 display_label=row.label,
             )

@@ -66,12 +66,17 @@ def test_queue_rows_and_non_openable_display_cases(client: TestClient) -> None:
 
 
 def test_summary_is_computed_from_rows(client: TestClient, db_url: str) -> None:
+    def pair(metric: dict[str, int]) -> tuple[int, int]:
+        return metric["amount_cents"], metric["count"]
+
     summary = client.get("/api/cases/summary").json()
-    # open exposure: 284000 + 118000 + 162000 + 120000 + (396000 - 396000) + 42000
-    assert summary["open_exposure"] == {"amount_cents": 726000, "cases": 6}
-    assert summary["due_today"] == {"amount_cents": 566000, "cases": 3}
-    assert summary["overdue"] == {"amount_cents": 118000, "cases": 1}
-    assert summary["temporary_credit"] == {"amount_cents": 396000, "cases": 1}
+    # gross (D-H): 284000 + 118000 + 162000 + 120000 + 396000 + 42000; credit not deducted
+    assert pair(summary["gross_exposure"]) == (1122000, 6)
+    assert pair(summary["net_exposure"]) == (1122000, 6)
+    assert pair(summary["due_today"]) == (566000, 3)
+    assert pair(summary["overdue"]) == (118000, 1)
+    assert pair(summary["temporary_credit"]) == (396000, 1)
+    assert pair(summary["confirmed_recoveries"]) == (0, 0)
 
     # Not a constant: closing a case in the database changes the metric.
     engine = create_engine(db_url)
@@ -79,7 +84,7 @@ def test_summary_is_computed_from_rows(client: TestClient, db_url: str) -> None:
         conn.execute(text("update cases set state='closed' where id='CHG-1033'"))
     engine.dispose()
     after = client.get("/api/cases/summary").json()
-    assert after["open_exposure"] == {"amount_cents": 684000, "cases": 5}
+    assert pair(after["gross_exposure"]) == (1080000, 5)
 
 
 def test_duplicate_report_links_to_existing_case(client: TestClient) -> None:
