@@ -1,0 +1,32 @@
+# Vera API + worker image. Build from the repo root: docker build -f Dockerfile.api -t vera-api .
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:/root/.local/bin:$PATH"
+
+RUN pip install --no-cache-dir uv
+
+WORKDIR /app
+
+# vera_api and vera_domain are setuptools packages (pyproject.toml, packages.find over
+# packages/domain and services/api), so the sources must be present when the project installs.
+COPY pyproject.toml uv.lock alembic.ini ./
+COPY packages/ packages/
+COPY services/ services/
+COPY infra/migrations/ infra/migrations/
+COPY infra/docker/entrypoint.sh /usr/local/bin/vera-entrypoint
+# Recordings are read from ./evals/recordings (relative to WORKDIR) in REPLAY mode.
+COPY evals/ evals/
+
+RUN uv sync --frozen --no-dev \
+    && chmod +x /usr/local/bin/vera-entrypoint \
+    && useradd --system --uid 10001 --home-dir /app vera \
+    && chown -R vera:vera /app
+
+USER vera
+EXPOSE 8000
+ENTRYPOINT ["vera-entrypoint"]
+CMD ["api"]
