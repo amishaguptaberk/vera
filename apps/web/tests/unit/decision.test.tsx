@@ -124,3 +124,19 @@ describe('Vera rail', () => {
     await waitFor(() => expect(input.disabled).toBe(false));
   });
 });
+
+describe('Vera drawer toggle', () => {
+  it('VeraButton reflects open state and controls the rail; scrim only when open', async () => {
+    const { VeraButton, VeraRail } = await import('@/components/decision');
+    const props = { messages: [], chips: [], input: '', placeholder: 'Ask about this case', sending: false, onInput: () => {}, onAsk: () => {}, onSelectRecord: () => {} };
+    const onToggle = vi.fn();
+    const { rerender } = render(<><VeraButton open={false} onToggle={onToggle} /><VeraRail open={false} onClose={onToggle} {...props} /></>);
+    expect(screen.getByRole('button', { name: 'Vera' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getAllByRole('button', { name: 'Close Vera' })).toHaveLength(1);
+    rerender(<><VeraButton open onToggle={onToggle} /><VeraRail open onClose={onToggle} {...props} /></>);
+    expect(screen.getByRole('button', { name: 'Vera' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getAllByRole('button', { name: 'Close Vera' })).toHaveLength(2);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Vera' }));
+    expect(onToggle).toHaveBeenCalled();
+  });
+});

@@ -5,7 +5,7 @@
 .eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .lbl { color: var(--ink); font-weight: 500; font-size: var(--font-size-label); }
 .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--chart); box-shadow: 0 0 0 1px var(--ink); }
-.title { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; margin: 0 0 6px; max-width: 46ch; }
+.title { font-size: 20px; font-weight: 550; letter-spacing: -0.015em; line-height: 1.3; margin: 0 0 6px; max-width: 720px; overflow-wrap: break-word; }
 .p { margin: 0 0 8px; color: var(--ink2); max-width: 68ch; font-size: 13.5px; }
 .pk { border-top: 1px solid #efede9; padding: 10px 0; }
 .pkK { font-size: 12px; color: var(--mute); margin-bottom: 2px; }
@@ -23,5 +23,5 @@
 .fail { font-weight: 510; color: var(--ink); }
 .hist { list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: var(--ink2); }
 .hist li { padding: 4px 0; }
-@media (max-width: 700px) { .focusIn { padding: 18px 16px; } }
+@media (max-width: 700px) { .focusIn { padding: 18px 16px; } .title { font-size: 18px; } }
 @media (prefers-reduced-motion: reduce) { .focus { transition: none; } }
