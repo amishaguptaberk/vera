@@ -5,6 +5,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import ModuleType
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -39,7 +40,7 @@ from vera_api.runner import SpecialistRunner, create_run
 from vera_api.worker import FAILURE_HOOKS, Touch, enqueue, register, run_once
 
 
-def _inv():  # type: ignore[no-untyped-def]
+def _inv() -> ModuleType:
     """vera_api.investigation, imported on use: it imports vera_api.evidence, which loads the
     gateway and with it this feature, so a top-level import is circular."""
     from vera_api import investigation

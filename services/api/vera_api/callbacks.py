@@ -11,6 +11,7 @@ import re
 from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
+from types import ModuleType
 from typing import Annotated, Any
 
 import httpx
@@ -132,7 +133,7 @@ _SCRIPTS: dict[str, list[tuple[str, str]]] = {
 }
 
 
-def _investigation():  # type: ignore[no-untyped-def]
+def _investigation() -> ModuleType:
     """vera_api.investigation, imported on use: it imports vera_api.evidence, which loads the
     gateway and with it this feature, so a top-level import is circular."""
     from vera_api import investigation

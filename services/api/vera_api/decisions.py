@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from datetime import datetime
+from types import ModuleType
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -36,7 +37,7 @@ from vera_api.worker import Touch, enqueue, register
 
 # vera_api.investigation and vera_api.evidence both import the gateway, which loads this feature:
 # import investigation on use and define the route dependencies here to avoid a circular import.
-def _inv():  # type: ignore[no-untyped-def]
+def _inv() -> ModuleType:
     from vera_api import investigation
 
     return investigation
