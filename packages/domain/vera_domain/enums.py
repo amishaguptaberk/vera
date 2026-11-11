@@ -87,3 +87,11 @@ class EventType(StrEnum):
     CASE_RESUMED = "case.resumed"
     CASE_REASSIGNED = "case.reassigned"
     POLICY_EVALUATED = "policy.evaluated"
+
+
+class RunEventType(StrEnum):
+    """Stream events for specialist steps (plan §8)."""
+
+    RUN_STEP_STARTED = "run.step_started"
+    RUN_STEP_SUCCEEDED = "run.step_succeeded"
+    RUN_STEP_FAILED = "run.step_failed"
