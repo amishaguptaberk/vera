@@ -1,7 +1,7 @@
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
 
-// Layer rules: docs/frontend-architecture.md §3.
+// Layer rules between design-system, components, features, api, state and app.
 // `@/api/schema` is deliberately not restricted: it is a generated .d.ts, so
 // only types can come from it.
 const layer = (message, ...groups) => ({
