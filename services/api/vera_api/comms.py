@@ -63,10 +63,13 @@ class SimulatedMessaging:
     """Synthetic delivery: never contacts anyone; the execution record is the delivery receipt."""
 
     def call(self, operation: str, request: dict[str, Any]) -> AdapterResult:
+        # The one `messaging` adapter: follow-ups send communication_id, closure's final
+        # update (send_final_message) sends message_id.
+        ref = request.get("communication_id") or request["message_id"]
         return AdapterResult(
             status="succeeded",
             result={
-                "delivery_id": f"DLV-{request['communication_id']}-{operation}",
+                "delivery_id": f"DLV-{ref}-{operation}",
                 "status": "delivered",
                 "channel": request["channel"],
                 "synthetic": True,
