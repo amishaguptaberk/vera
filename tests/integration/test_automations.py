@@ -332,7 +332,8 @@ def new_case_pins(client: TestClient, db_url: str) -> dict[str, Any]:
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "select id, workflow_version, policy_version from cases where id in (:a, 'CHG-1042')"
+                "select id, workflow_version, policy_version from cases "
+                "where id in (:a, 'CHG-1042')"
             ),
             {"a": r.json()["case_id"]},
         ).all()
