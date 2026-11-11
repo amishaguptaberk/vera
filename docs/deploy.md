@@ -83,8 +83,8 @@ the same environment. The API runs `alembic upgrade head` on start.
 `next build` and Next bakes the destination in. Changing the origin needs a web image rebuild:
 `docker build -f Dockerfile.web --build-arg VERA_API_ORIGIN=https://api.internal:8000 .`
 (the Dockerfile sets both `VERA_API_ORIGIN` and `VERA_API_URL`). The browser only talks to the
-web service; the web server must be able to reach the API origin. Health checks: the API has no
-dedicated health route, so `GET /api/session` is used.
+web service; the web server must be able to reach the API origin. Health checks: `GET /api/health`
+(no session; checks the database; 503 when it is unreachable).
 
 ## (d) Synthetic vs non-synthetic
 
