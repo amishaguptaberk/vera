@@ -1,0 +1,75 @@
+{
+  "content": {
+    "reasons": [
+      {
+        "citations": [
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1042",
+            "value": 284000,
+            "version": 1
+          },
+          {
+            "field": "approved_amount_cents",
+            "record_id": "PO-219",
+            "value": 240000,
+            "version": 1
+          }
+        ],
+        "statement": "The charged amount exceeds the approved amount, which supports the cardholder's report; credit remains subject to the stored policy result, the analyst's decision and reviewer approval."
+      }
+    ],
+    "recommendation": "credit",
+    "statements": [
+      {
+        "citations": [
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1042",
+            "value": 284000,
+            "version": 1
+          }
+        ],
+        "statement": "CHG-1042 was charged for $2,840.00."
+      },
+      {
+        "citations": [
+          {
+            "field": "approved_amount_cents",
+            "record_id": "PO-219",
+            "value": 240000,
+            "version": 1
+          },
+          {
+            "field": "approved_quantity",
+            "record_id": "PO-219",
+            "value": 1,
+            "version": 1
+          }
+        ],
+        "statement": "PO-219 approves $2,400.00 for 1 unit."
+      },
+      {
+        "citations": [
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1042",
+            "value": 284000,
+            "version": 1
+          },
+          {
+            "field": "approved_amount_cents",
+            "record_id": "PO-219",
+            "value": 240000,
+            "version": 1
+          }
+        ],
+        "statement": "The charge is $440.00 above the approved purchase order amount."
+      }
+    ]
+  },
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
+  "tool_calls": [],
+  "usage": {}
+}
