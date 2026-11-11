@@ -83,6 +83,7 @@ class ReduceContext:
     now: datetime
     resolve_user: Callable[[str], tuple[str, str] | None]  # ref -> (id, name)
     first_report_id: str | None
+    extra: dict[str, Any] = field(default_factory=dict)  # gateway-computed inputs (policy)
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,8 @@ class CommandSpec:
     events: tuple[EventType, ...]
     label: str
     style: Literal["primary", "secondary", "dark", "ghost"]
+    # Stage 7: policy statuses under which the command may run (None = ungated).
+    requires_policy: frozenset[str] | None = None
 
 
 def _user(ctx: ReduceContext, ref: str, field_name: str) -> tuple[str, str]:
@@ -195,6 +198,31 @@ def reduce_link(f: CaseFacts, p: LinkReportPayload, ctx: ReduceContext) -> Reduc
     )
 
 
+def reduce_evaluate_policy(f: CaseFacts, p: NoPayload, ctx: ReduceContext) -> Reduction:
+    result: dict[str, Any] = ctx.extra["policy"]
+    return Reduction(
+        facts=f,
+        reason="Policy evaluated",
+        events=[
+            EventDraft(
+                EventType.POLICY_EVALUATED,
+                f"Policy v{result['policy_version']}: {result['label']}",
+                list(result["evidence_used"]),
+                {
+                    "status": result["status"],
+                    "code": result["code"],
+                    "snapshot": result["snapshot_hash"],
+                    "policy_version": result["policy_version"],
+                    "rules_failed": result["rules_failed"],
+                },
+            )
+        ],
+        result={
+            k: result[k] for k in ("status", "code", "label", "snapshot_hash", "policy_version")
+        },
+    )
+
+
 _NOT_HELD = StepSet(exclude_states=frozenset({CaseState.HELD}))
 _ANY = StepSet()
 _A = frozenset({Role.ANALYST})
@@ -257,6 +285,17 @@ REGISTRY: dict[str, CommandSpec] = {
             "Link duplicate report",
             "ghost",
         ),
+        CommandSpec(
+            "evaluate_policy",
+            frozenset({Role.POLICY_CONTROLLER, Role.ANALYST}),
+            NoPayload,
+            _ANY,
+            "policy:{case_id}:{snapshot_hash}:{policy_version}",
+            reduce_evaluate_policy,
+            (EventType.POLICY_EVALUATED,),
+            "Evaluate policy",
+            "ghost",
+        ),
     )
 }
 
@@ -280,6 +319,28 @@ def blocked_reason(spec: CommandSpec, state: CaseState, step: CaseStep) -> Comma
     return None
 
 
+@dataclass(frozen=True)
+class PolicyState:
+    """Latest stored evaluation for the case's current snapshot (None = never evaluated)."""
+
+    status: str
+    label: str
+
+
+NOT_EVALUATED = "Policy has not been evaluated on the current evidence."
+
+
+def policy_gate(spec: CommandSpec, current: PolicyState | None) -> CommandError | None:
+    """Stage 7, pure: shared by the gateway and available_actions."""
+    if spec.requires_policy is None:
+        return None
+    if current is None:
+        return CommandError("policy_blocked", 422, NOT_EVALUATED, blocked_reason=NOT_EVALUATED)
+    if current.status not in spec.requires_policy:
+        return CommandError("policy_blocked", 422, current.label, blocked_reason=current.label)
+    return None
+
+
 def resolve_key(spec: CommandSpec, ctx: Mapping[str, object]) -> str:
     """Fill the key template. Unknown fields (payload) stay literal."""
 
@@ -299,14 +360,21 @@ def available_actions(
     case_version: int,
     user_id: str,
     next_report_id: str,
+    policy_state: PolicyState | None = None,
+    key_context: Mapping[str, object] | None = None,
 ) -> tuple[list[ActionView], list[BlockedAction]]:
     enabled: list[ActionView] = []
     blocked: list[BlockedAction] = []
-    base = {"case_id": case_id, "case_version": case_version, "user_id": user_id}
+    base = {
+        "case_id": case_id,
+        "case_version": case_version,
+        "user_id": user_id,
+        **(key_context or {}),
+    }
     for spec in REGISTRY.values():
         if role not in spec.roles:
             continue
-        err = blocked_reason(spec, state, step)
+        err = blocked_reason(spec, state, step) or policy_gate(spec, policy_state)
         if err is not None:
             reason = err.blocked_reason or err.message
             blocked.append(

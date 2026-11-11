@@ -17,12 +17,15 @@ from vera_domain.commands import (
     Reduction,
     blocked_reason,
     check_role,
+    policy_gate,
     resolve_key,
 )
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.errors import CommandError
 from vera_domain.facts import CaseFacts, Hold, derive_step
+from vera_domain.policy import PolicyResult
 
+from vera_api import policy as policy_service
 from vera_api.auth import HUMAN_ROLES, STAFF_ROLES, Actor
 from vera_api.intake import _emit
 from vera_api.models import (
@@ -271,10 +274,24 @@ def _execute(
     gate = blocked_reason(spec, CaseState(case.state), CaseStep(case.step))
     if gate is not None:
         raise gate
+    if spec.requires_policy is not None:  # stage 7
+        gate = policy_gate(spec, policy_service.current_state(session, case))
+        if gate is not None:
+            raise gate
     # The client key must equal the server-resolved template (case, actor, payload).
     expected_key = resolve_key(
         spec,
-        {"case_id": case.id, "case_version": case.case_version, "user_id": actor.user_id, **body},
+        {
+            "case_id": case.id,
+            "case_version": case.case_version,
+            "user_id": actor.user_id,
+            **(
+                policy_service.key_context(session, case)
+                if "{snapshot_hash}" in spec.key_template
+                else {}
+            ),
+            **body,
+        },
     )
     if key != expected_key:
         raise CommandError(
@@ -327,8 +344,10 @@ def write_command(
         resolve_user=_resolver(session),
         first_report_id=first_report.id if first_report else None,
     )
+    if spec.name == "evaluate_policy":
+        ctx.extra["policy"] = policy_service.compute(session, case).model_dump(mode="json")
     red = spec.reducer(facts_of(case), model, ctx)
-    return apply_reduction(
+    out = apply_reduction(
         session,
         case,
         spec,
@@ -340,6 +359,15 @@ def write_command(
         request_id=request_id,
         now=now,
     )
+    if spec.name == "evaluate_policy":
+        policy_service.store(
+            session,
+            case,
+            PolicyResult.model_validate(ctx.extra["policy"]),
+            int(out.event_ids[0][4:]),
+            now,
+        )
+    return out
 
 
 def _first_report(session: Session, case_id: str) -> Report | None:
