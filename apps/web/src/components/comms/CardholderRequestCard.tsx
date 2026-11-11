@@ -35,14 +35,16 @@ export type CardholderRequestCardProps = {
   submitting?: boolean;
   /** Server error from the last submit (kept beside the form; the draft stays). */
   submitError?: string | null;
+  /** Initial form state (preview of the validation states). */
+  initial?: { answer?: CardholderAnswer; note?: string; fileError?: string };
 };
 
 /** Port of the prototype's cardholder "Charge review" page (Main.dc.html:1797-1853). */
-export function CardholderRequestCard({ request, onSubmit, submitting = false, submitError = null }: CardholderRequestCardProps) {
-  const [answer, setAnswer] = useState<CardholderAnswer | null>(null);
-  const [note, setNote] = useState('');
+export function CardholderRequestCard({ request, onSubmit, submitting = false, submitError = null, initial }: CardholderRequestCardProps) {
+  const [answer, setAnswer] = useState<CardholderAnswer | null>(initial?.answer ?? null);
+  const [note, setNote] = useState(initial?.note ?? '');
   const [file, setFile] = useState<File | null>(null);
-  const [fileErr, setFileErr] = useState<string | null>(null);
+  const [fileErr, setFileErr] = useState<string | null>(initial?.fileError ?? null);
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files && e.target.files[0];
