@@ -48,3 +48,15 @@ export function useRunCommand(caseId: string) {
     retry: false,
   });
 }
+
+export type MaterialChangeOut = components['schemas']['MaterialChangeOut'];
+
+/** Demo only (synthetic env): the server applies a new version of a source record. Refreshes the case. */
+export function useMaterialChange(caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<MaterialChangeOut, ApiError, void>({
+    mutationFn: () => apiPost<MaterialChangeOut>('/demo/material-change', { case_id: caseId }),
+    retry: false,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: caseKey(caseId) }),
+  });
+}

@@ -1,7 +1,23 @@
 export { ApiError, apiGet, apiPost, apiRequest, type ApiErrorBody } from './client';
-export { runCommand, useRunCommand, type CommandOut, type RunCommandVars, type UserPayload } from './commands';
+export { runCommand, useMaterialChange, useRunCommand, type CommandOut, type MaterialChangeOut, type RunCommandVars, type UserPayload } from './commands';
 export {
+  activityQuery,
   availableActionsQuery,
+  evidenceQuery,
+  filterCountsQuery,
+  evidenceRecordQuery,
+  runsActive,
+  runsQuery,
+  RUNS_ACTIVE_POLL_MS,
+  usersQuery,
+  type ActivityBody,
+  type ActivityEvent,
+  type EvidenceRegister,
+  type FindingView,
+  type RecordDetail,
+  type RunOut,
+  type StepOut,
+  type UsersBody,
   CASE_POLL_MS,
   caseKey,
   casesKey,

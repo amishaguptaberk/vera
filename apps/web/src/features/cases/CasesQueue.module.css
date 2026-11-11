@@ -53,6 +53,7 @@
 .blk.none { color: var(--mute); }
 .nx { display: inline-flex; align-items: center; gap: 8px; }
 .due { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.due.today { color: var(--cobalt); font-weight: 550; }
 .due.over { color: var(--bad); font-weight: 550; }
 .tnote { margin: 0; padding: 10px 16px; border-top: 1px solid var(--rule2); font-size: 12.5px; color: var(--mute); }
 @media (max-width: 860px) { .ow { font-size: 12.5px; color: var(--mute); } }
