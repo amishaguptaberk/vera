@@ -2,6 +2,8 @@
 
 Vera is a post-report investigation workspace for corporate-card charges. When a cardholder reports a charge they do not recognise, Vera opens a case, gathers the source records, runs a team of LLM agents on NVIDIA-hosted models (Llama 3.3 70B through the NVIDIA API) that read the evidence and reason over it, asks the cardholder targeted questions, verifies identity, places an analyst-approved verification call, prepares a decision packet for a reviewer, and carries the approved outcome through provisional credit, dispute, card controls, the final message and closure.
 
+Each specialist is an LLM-powered, tool-constrained agent that reads scoped evidence, produces structured findings, and hands work to the next workflow step. The models interpret evidence and recommend actions; deterministic policy checks and human approvals control anything consequential.
+
 The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**.
 
 [![Vera launch video](media/vera-launch-poster.jpg)](media/vera-launch.mp4)
