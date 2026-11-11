@@ -1,6 +1,6 @@
 """Command registry: one CommandSpec per case write, plus the pure gate and action logic."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Annotated, Any, Literal
@@ -51,6 +51,15 @@ class ReassignPayload(Payload):
 class LinkReportPayload(Payload):
     report_id: ReportId
     statement: str = Field(min_length=1)
+
+
+class RetryStepPayload(Payload):
+    step_key: str = Field(min_length=1, max_length=64)
+    mode: Literal["live", "replay"]
+
+
+class CompleteInvestigationPayload(Payload):
+    run_id: str = Field(min_length=1, max_length=64)
 
 
 @dataclass(frozen=True)
@@ -223,9 +232,63 @@ def reduce_evaluate_policy(f: CaseFacts, p: NoPayload, ctx: ReduceContext) -> Re
     )
 
 
+def reduce_start_investigation(f: CaseFacts, p: NoPayload, ctx: ReduceContext) -> Reduction:
+    run: dict[str, Any] = ctx.extra["run"]
+    return Reduction(
+        facts=f.model_copy(update={"investigation_run_status": "running"}),
+        reason="Investigation started",
+        events=[
+            EventDraft(
+                EventType.INVESTIGATION_STARTED,
+                f"{ctx.actor_name} started the investigation ({run['mode']})",
+                [ctx.case_id],
+                dict(run),
+            )
+        ],
+        result=dict(run),
+    )
+
+
+def reduce_retry_step(f: CaseFacts, p: RetryStepPayload, ctx: ReduceContext) -> Reduction:
+    run: dict[str, Any] = ctx.extra["run"]
+    return Reduction(
+        facts=f.model_copy(update={"investigation_run_status": "running"}),
+        reason=f"Specialist step {p.step_key} retried ({p.mode})",
+        events=[
+            EventDraft(
+                EventType.SPECIALIST_RETRIED,
+                f"{ctx.actor_name} retried {p.step_key} in {p.mode} mode",
+                [ctx.case_id],
+                dict(run),
+            )
+        ],
+        result=dict(run),
+    )
+
+
+def reduce_complete_investigation(
+    f: CaseFacts, p: CompleteInvestigationPayload, ctx: ReduceContext
+) -> Reduction:
+    status: str = ctx.extra["run_status"]
+    return Reduction(
+        facts=f.model_copy(update={"investigation_run_status": status}),
+        reason="Investigation run completed",
+        events=[
+            EventDraft(
+                EventType.INVESTIGATION_COMPLETED,
+                "Investigation complete: specialists posted their findings",
+                [ctx.case_id],
+                {"run_id": p.run_id, "status": status},
+            )
+        ],
+        result={"run_id": p.run_id, "status": status},
+    )
+
+
 _NOT_HELD = StepSet(exclude_states=frozenset({CaseState.HELD}))
 _ANY = StepSet()
 _A = frozenset({Role.ANALYST})
+_WORKING = StepSet(include=frozenset({(CaseState.INVESTIGATING, CaseStep.WORKING)}))
 
 REGISTRY: dict[str, CommandSpec] = {
     s.name: s
@@ -296,8 +359,51 @@ REGISTRY: dict[str, CommandSpec] = {
             "Evaluate policy",
             "ghost",
         ),
+        CommandSpec(
+            "start_investigation",
+            _A,
+            NoPayload,
+            StepSet(include=frozenset({(CaseState.INVESTIGATING, CaseStep.INTAKE)})),
+            "inv:{case_id}",
+            reduce_start_investigation,
+            (EventType.INVESTIGATION_STARTED,),
+            "Start investigation",
+            "primary",
+        ),
+        CommandSpec(
+            "retry_specialist_step",
+            _A,
+            RetryStepPayload,
+            _WORKING,
+            "retry:{run_id}:{step_key}:{attempt_no}",
+            reduce_retry_step,
+            (EventType.SPECIALIST_RETRIED,),
+            "Retry specialist",
+            "secondary",
+        ),
     )
 }
+
+# Worker-only: recompute state/step after a run finishes. Never offered to a human role.
+INVESTIGATION_SERVICE_REGISTRY: dict[str, CommandSpec] = {
+    "complete_investigation": CommandSpec(
+        "complete_investigation",
+        frozenset({Role.SYSTEM}),
+        CompleteInvestigationPayload,
+        _WORKING,
+        "invdone:{run_id}",
+        reduce_complete_investigation,
+        (EventType.INVESTIGATION_COMPLETED,),
+        "Complete investigation",
+        "ghost",
+    )
+}
+
+RECOVERY_ONLY = frozenset({"retry_specialist_step"})
+RETRY_NOTE = (
+    "mode 'live' calls the model again; mode 'replay' uses the recorded reference output and "
+    "the step is labeled Replayed result"
+)
 
 
 def check_role(spec: CommandSpec, active_role: Role) -> None:
@@ -372,7 +478,7 @@ def available_actions(
         **(key_context or {}),
     }
     for spec in REGISTRY.values():
-        if role not in spec.roles:
+        if role not in spec.roles or spec.name in RECOVERY_ONLY:
             continue
         err = blocked_reason(spec, state, step) or policy_gate(spec, policy_state)
         if err is not None:
@@ -402,3 +508,69 @@ def available_actions(
             )
         )
     return enabled, blocked
+
+
+@dataclass(frozen=True)
+class FailedStep:
+    run_id: str
+    step_key: str
+    attempt_no: int  # the next retry attempt for this step
+    mode: str  # the run's pinned mode, offered as the default
+
+
+def recovery_actions(
+    role: Role,
+    state: CaseState,
+    step: CaseStep,
+    *,
+    case_id: str,
+    case_version: int,
+    failed_steps: Sequence[FailedStep],
+) -> list[ActionView]:
+    """Plan §18: a failed specialist step offers retry_specialist_step and hold_case."""
+    if not failed_steps or role is not Role.ANALYST:
+        return []
+    out: list[ActionView] = []
+    retry = REGISTRY["retry_specialist_step"]
+    if blocked_reason(retry, state, step) is None:
+        for fs in failed_steps:
+            defaults = {"step_key": fs.step_key, "mode": fs.mode}
+            out.append(
+                ActionView(
+                    command=retry.name,
+                    label=f"{retry.label}: {fs.step_key}",
+                    role=role,
+                    style=retry.style,
+                    enabled=True,
+                    expected_state=state,
+                    expected_step=step,
+                    safe_note=SAFE_NOTE,
+                    confirm=RETRY_NOTE,
+                    idempotency_key=resolve_key(
+                        retry,
+                        {"run_id": fs.run_id, "attempt_no": fs.attempt_no, **defaults},
+                    ),
+                    payload_defaults=defaults,
+                    key_template=retry.key_template,
+                )
+            )
+    hold = REGISTRY["hold_case"]
+    if blocked_reason(hold, state, step) is None:
+        out.append(
+            ActionView(
+                command=hold.name,
+                label=hold.label,
+                role=role,
+                style=hold.style,
+                enabled=True,
+                expected_state=state,
+                expected_step=step,
+                safe_note=SAFE_NOTE,
+                idempotency_key=resolve_key(
+                    hold, {"case_id": case_id, "case_version": case_version}
+                ),
+                payload_defaults={},
+                key_template=hold.key_template,
+            )
+        )
+    return out

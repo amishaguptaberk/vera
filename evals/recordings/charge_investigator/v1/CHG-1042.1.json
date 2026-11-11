@@ -1,0 +1,50 @@
+{
+  "content": {
+    "amount_matches_purchase_order": false,
+    "findings": [
+      {
+        "citations": [
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1042",
+            "value": 284000,
+            "version": 1
+          },
+          {
+            "field": "approved_amount_cents",
+            "record_id": "PO-219",
+            "value": 240000,
+            "version": 1
+          }
+        ],
+        "conflict_field": "amount",
+        "kind": "conflict",
+        "statement": "CHG-1042 charged $2,840.00 but PO-219 approves $2,400.00: the charge is $440.00 above the approved amount."
+      },
+      {
+        "citations": [
+          {
+            "field": "approved_quantity",
+            "record_id": "PO-219",
+            "value": 1,
+            "version": 1
+          },
+          {
+            "field": "received_quantity",
+            "record_id": "DLV-882",
+            "value": 2,
+            "version": 1
+          }
+        ],
+        "conflict_field": "quantity",
+        "kind": "conflict",
+        "statement": "PO-219 approves 1 unit but DLV-882 records 2 units received."
+      }
+    ],
+    "quantity_matches_delivery": false
+  },
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
+  "tool_calls": [],
+  "usage": {}
+}
