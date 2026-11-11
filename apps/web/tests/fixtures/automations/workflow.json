@@ -1,0 +1,420 @@
+{
+ "workflow_id": "card-dispute",
+ "name": "Card charge investigation",
+ "active_version": 3,
+ "versions": [
+  {
+   "version": 3,
+   "status": "published",
+   "revision": 0,
+   "based_on": 2,
+   "graph": {
+    "nodes": [
+     {
+      "key": "intake",
+      "kind": "trigger",
+      "label": "Report received",
+      "category": "trigger",
+      "outcomes": [
+       "received"
+      ],
+      "failure_outcomes": [],
+      "analyst_started": false,
+      "money_affecting": false,
+      "parallel": false,
+      "provides": [],
+      "specialist_id": null
+     },
+     {
+      "key": "pc1",
+      "kind": "policy_check",
+      "label": "Policy Controller \u00b7 evidence sufficiency",
+      "category": "policy",
+      "outcomes": [
+       "sufficient"
+      ],
+      "failure_outcomes": [],
+      "analyst_started": false,
+      "money_affecting": false,
+      "parallel": false,
+      "provides": [],
+      "specialist_id": null
+     },
+     {
+      "key": "analyst_decision",
+      "kind": "decision",
+      "label": "Analyst decision",
+      "category": "checkpoint",
+      "outcomes": [
+       "unauthorized"
+      ],
+      "failure_outcomes": [],
+      "analyst_started": true,
+      "money_affecting": false,
+      "parallel": false,
+      "provides": [
+       "human_decision",
+       "decision_record"
+      ],
+      "specialist_id": null
+     },
+     {
+      "key": "credit_executor",
+      "kind": "remediation",
+      "label": "Provisional credit",
+      "category": "action",
+      "outcomes": [
+       "issued"
+      ],
+      "failure_outcomes": [],
+      "analyst_started": false,
+      "money_affecting": true,
+      "parallel": false,
+      "provides": [
+       "idempotency_gate"
+      ],
+      "specialist_id": null
+     },
+     {
+      "key": "prevention_planner",
+      "kind": "finance_specialist",
+      "label": "Prevention Planner",
+      "category": "agent",
+      "outcomes": [
+       "planned"
+      ],
+      "failure_outcomes": [],
+      "analyst_started": false,
+      "money_affecting": false,
+      "parallel": false,
+      "provides": [],
+      "specialist_id": null
+     },
+     {
+      "key": "close_or_monitor",
+      "kind": "close_case",
+      "label": "Close or monitor",
+      "category": "checkpoint",
+      "outcomes": [],
+      "failure_outcomes": [],
+      "analyst_started": false,
+      "money_affecting": false,
+      "parallel": false,
+      "provides": [],
+      "specialist_id": null
+     }
+    ],
+    "edges": [
+     {
+      "source": "intake",
+      "target": "pc1",
+      "outcome": "received",
+      "max": null
+     },
+     {
+      "source": "pc1",
+      "target": "analyst_decision",
+      "outcome": "sufficient",
+      "max": null
+     },
+     {
+      "source": "analyst_decision",
+      "target": "credit_executor",
+      "outcome": "unauthorized",
+      "max": null
+     },
+     {
+      "source": "credit_executor",
+      "target": "prevention_planner",
+      "outcome": "issued",
+      "max": null
+     },
+     {
+      "source": "prevention_planner",
+      "target": "close_or_monitor",
+      "outcome": "planned",
+      "max": null
+     }
+    ]
+   },
+   "violations": [],
+   "checks": null,
+   "published_at": "2026-11-03T09:00:00Z"
+  }
+ ],
+ "draft": {
+  "version": 4,
+  "status": "draft",
+  "revision": 1,
+  "based_on": 3,
+  "graph": {
+   "nodes": [
+    {
+     "key": "intake",
+     "kind": "trigger",
+     "label": "Report received",
+     "category": "trigger",
+     "outcomes": [
+      "received"
+     ],
+     "failure_outcomes": [],
+     "analyst_started": false,
+     "money_affecting": false,
+     "parallel": false,
+     "provides": [],
+     "specialist_id": null
+    },
+    {
+     "key": "pc1",
+     "kind": "policy_check",
+     "label": "Policy Controller \u00b7 evidence sufficiency",
+     "category": "policy",
+     "outcomes": [
+      "sufficient"
+     ],
+     "failure_outcomes": [],
+     "analyst_started": false,
+     "money_affecting": false,
+     "parallel": false,
+     "provides": [],
+     "specialist_id": null
+    },
+    {
+     "key": "analyst_decision",
+     "kind": "decision",
+     "label": "Analyst decision",
+     "category": "checkpoint",
+     "outcomes": [
+      "unauthorized"
+     ],
+     "failure_outcomes": [],
+     "analyst_started": true,
+     "money_affecting": false,
+     "parallel": false,
+     "provides": [
+      "human_decision",
+      "decision_record"
+     ],
+     "specialist_id": null
+    },
+    {
+     "key": "credit_executor",
+     "kind": "remediation",
+     "label": "Provisional credit",
+     "category": "action",
+     "outcomes": [
+      "issued"
+     ],
+     "failure_outcomes": [],
+     "analyst_started": false,
+     "money_affecting": true,
+     "parallel": false,
+     "provides": [
+      "idempotency_gate"
+     ],
+     "specialist_id": null
+    },
+    {
+     "key": "prevention_planner",
+     "kind": "finance_specialist",
+     "label": "Prevention Planner",
+     "category": "agent",
+     "outcomes": [
+      "planned"
+     ],
+     "failure_outcomes": [],
+     "analyst_started": false,
+     "money_affecting": false,
+     "parallel": false,
+     "provides": [],
+     "specialist_id": null
+    },
+    {
+     "key": "close_or_monitor",
+     "kind": "close_case",
+     "label": "Close or monitor",
+     "category": "checkpoint",
+     "outcomes": [],
+     "failure_outcomes": [],
+     "analyst_started": false,
+     "money_affecting": false,
+     "parallel": false,
+     "provides": [],
+     "specialist_id": null
+    }
+   ],
+   "edges": [
+    {
+     "source": "intake",
+     "target": "pc1",
+     "outcome": "received",
+     "max": null
+    },
+    {
+     "source": "pc1",
+     "target": "analyst_decision",
+     "outcome": "sufficient",
+     "max": null
+    },
+    {
+     "source": "analyst_decision",
+     "target": "credit_executor",
+     "outcome": "unauthorized",
+     "max": null
+    },
+    {
+     "source": "credit_executor",
+     "target": "prevention_planner",
+     "outcome": "issued",
+     "max": null
+    },
+    {
+     "source": "prevention_planner",
+     "target": "close_or_monitor",
+     "outcome": "planned",
+     "max": null
+    }
+   ]
+  },
+  "violations": [
+   {
+    "rule": 6,
+    "rule_name": "Every analyst-started step and every action has a failure path",
+    "node_ids": [
+     "credit_executor"
+    ],
+    "message": "Provisional credit has no failure path."
+   }
+  ],
+  "checks": {
+   "run_id": "CHK-1",
+   "graph_hash": "abc",
+   "passed": false,
+   "results": [
+    {
+     "scenario": "Missing receipt \u00b7 confirmed by callback",
+     "passed": true,
+     "last_step": "close_or_monitor",
+     "steps": 6,
+     "reason": null,
+     "trace": [
+      {
+       "step": 1,
+       "node": "intake",
+       "kind": "trigger",
+       "outcome": "received"
+      },
+      {
+       "step": 2,
+       "node": "pc1",
+       "kind": "policy_check",
+       "outcome": "sufficient"
+      },
+      {
+       "step": 3,
+       "node": "analyst_decision",
+       "kind": "decision",
+       "outcome": "unauthorized"
+      },
+      {
+       "step": 4,
+       "node": "credit_executor",
+       "kind": "remediation",
+       "outcome": "issued"
+      },
+      {
+       "step": 5,
+       "node": "prevention_planner",
+       "kind": "finance_specialist",
+       "outcome": "planned"
+      },
+      {
+       "step": 6,
+       "node": "close_or_monitor",
+       "kind": "close_case",
+       "outcome": null
+      }
+     ]
+    },
+    {
+     "scenario": "Contradictory receipt",
+     "passed": false,
+     "last_step": "pc1",
+     "steps": 2,
+     "reason": "dead end at pc1 on 'contradictory'",
+     "trace": [
+      {
+       "step": 1,
+       "node": "intake",
+       "kind": "trigger",
+       "outcome": "received"
+      },
+      {
+       "step": 2,
+       "node": "pc1",
+       "kind": "policy_check",
+       "outcome": "sufficient"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "pinned_cases": [
+  {
+   "case_id": "CHG-1042",
+   "version": 3
+  }
+ ],
+ "rules": {
+  "1": "Exactly one trigger",
+  "6": "Every analyst-started step and every action has a failure path",
+  "9": "Money-affecting steps keep their required controls"
+ },
+ "available_actions": [
+  {
+   "command": "update_workflow_draft",
+   "label": "Update draft",
+   "enabled": true,
+   "blocked_reason": null,
+   "idempotency_key": "k-update_workflow_draft",
+   "payload_defaults": {
+    "workflow_id": "card-dispute",
+    "draft_version": 4
+   }
+  },
+  {
+   "command": "discard_workflow_draft",
+   "label": "Discard draft",
+   "enabled": true,
+   "blocked_reason": null,
+   "idempotency_key": "k-discard_workflow_draft",
+   "payload_defaults": {
+    "workflow_id": "card-dispute",
+    "draft_version": 4
+   }
+  },
+  {
+   "command": "run_workflow_checks",
+   "label": "Run workflow checks",
+   "enabled": true,
+   "blocked_reason": null,
+   "idempotency_key": "k-run_workflow_checks",
+   "payload_defaults": {
+    "workflow_id": "card-dispute",
+    "draft_version": 4
+   }
+  },
+  {
+   "command": "publish_workflow_version",
+   "label": "Publish v4",
+   "enabled": false,
+   "blocked_reason": "Validation and checks must pass before publishing.",
+   "idempotency_key": "k-publish_workflow_version",
+   "payload_defaults": {
+    "workflow_id": "card-dispute",
+    "draft_version": 4
+   }
+  }
+ ]
+}

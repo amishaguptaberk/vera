@@ -1,0 +1,373 @@
+{
+ "specialists": [
+  {
+   "specialist_id": "charge",
+   "name": "Charge Investigator",
+   "kind_label": "Finance specialist",
+   "purpose": "Compares the posted charge with purchase and card records.",
+   "records": [
+    "Card transaction",
+    "purchase order",
+    "receipt",
+    "delivery record",
+    "cardholder profile"
+   ],
+   "tools": [
+    "Transaction lookup",
+    "PO lookup",
+    "delivery lookup"
+   ],
+   "output_type": "Finding FND-1042 with evidence links",
+   "handoff": "Related-Transaction Investigator",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Clear the charge",
+    "issue credit",
+    "change records or close the case"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "related",
+   "name": "Related-Transaction Investigator",
+   "kind_label": "Finance specialist",
+   "purpose": "Finds related charges, merchant history and duplicate claims.",
+   "records": [
+    "Card transactions (same card and merchant)",
+    "open cases",
+    "prior disputes"
+   ],
+   "tools": [
+    "Transaction search",
+    "case search"
+   ],
+   "output_type": "Related-charge list on FND-1042",
+   "handoff": "Receipt and Document Reviewer",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Merge cases",
+    "open disputes or change transactions"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "docs",
+   "name": "Receipt and Document Reviewer",
+   "kind_label": "Finance specialist",
+   "purpose": "Checks receipts, delivery records and cardholder documents against the charge.",
+   "records": [
+    "Receipts",
+    "delivery records",
+    "cardholder messages and attachments",
+    "policy"
+   ],
+   "tools": [
+    "Document reader",
+    "policy lookup"
+   ],
+   "output_type": "Document findings on FND-1042",
+   "handoff": "Policy Controller",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Treat a cardholder document as proof of authorization",
+    "or change records"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "follow",
+   "name": "Cardholder Follow-up",
+   "kind_label": "Finance specialist",
+   "purpose": "Drafts targeted questions and final updates for the cardholder.",
+   "records": [
+    "Findings",
+    "open questions",
+    "recorded case state"
+   ],
+   "tools": [
+    "Message drafting"
+   ],
+   "output_type": "Draft message",
+   "handoff": "Finance analyst for approval",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Send without analyst approval",
+    "ask for facts already captured",
+    "claim unrecorded actions"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "verify",
+   "name": "Live Verification Agent",
+   "kind_label": "Finance specialist",
+   "purpose": "Runs a simulated callback that asks only unresolved, evidence-specific questions.",
+   "records": [
+    "Open questions",
+    "approved contact method",
+    "findings"
+   ],
+   "tools": [
+    "Telephony adapter (simulated)"
+   ],
+   "output_type": "Structured verification record (CALL-1042)",
+   "handoff": "Policy Controller",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Start without analyst approval",
+    "re-ask answered questions",
+    "issue credit",
+    "clear or close the case"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "packet",
+   "name": "Decision Packet Preparer",
+   "kind_label": "Finance specialist",
+   "purpose": "Assembles evidence, conflicts, gaps, policy result and a recommended action.",
+   "records": [
+    "All case records and the Policy Controller result"
+   ],
+   "tools": [
+    "Packet builder"
+   ],
+   "output_type": "Decision packet PKT-1042; dispute packet DSP-1042",
+   "handoff": "Finance analyst, then reviewer",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Decide",
+    "approve",
+    "or submit a dispute"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "prevent",
+   "name": "Prevention Planner",
+   "kind_label": "Finance specialist",
+   "purpose": "Recommends card controls that reduce recurrence.",
+   "records": [
+    "Findings",
+    "verification record",
+    "card and merchant history"
+   ],
+   "tools": [
+    "Control recommender"
+   ],
+   "output_type": "Control plan CTL-1042",
+   "handoff": "Card admin for approval",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": false,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Apply controls; lock",
+    "replace or restrict cards"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose",
+    "Permitted records",
+    "Permitted tools",
+    "Output record type",
+    "Handoff target",
+    "Execution mode"
+   ],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "pc",
+   "name": "Policy Controller",
+   "kind_label": "Required control",
+   "purpose": "Deterministic code that evaluates the case against the active policy. Not an agent.",
+   "records": [
+    "Case records",
+    "evidence versions",
+    "approvals",
+    "credit records"
+   ],
+   "tools": [],
+   "output_type": "Policy result",
+   "handoff": "Workflow",
+   "execution_mode": "replay",
+   "status": "published",
+   "required_control": true,
+   "used_in": [
+    "Card charge investigation v3"
+   ],
+   "prohibitions": [
+    "Be overridden by agent messages or chat"
+   ],
+   "can_configure": [],
+   "revision": 0,
+   "available_actions": []
+  },
+  {
+   "specialist_id": "vendor_match_reviewer",
+   "name": "Vendor Match Reviewer",
+   "kind_label": "Finance specialist",
+   "purpose": "Checks the merchant against the approved vendor list.",
+   "records": [
+    "Card transaction",
+    "Purchase order"
+   ],
+   "tools": [
+    "search_transactions"
+   ],
+   "output_type": "Finding",
+   "handoff": "Analyst",
+   "execution_mode": "replay",
+   "status": "draft",
+   "required_control": false,
+   "used_in": [],
+   "prohibitions": [
+    "Move money",
+    "Override policy"
+   ],
+   "can_configure": [
+    "Name",
+    "Purpose"
+   ],
+   "revision": 1,
+   "available_actions": [
+    {
+     "command": "add_specialist_to_workflow",
+     "label": "Add to workflow",
+     "enabled": true,
+     "idempotency_key": "dev",
+     "payload_defaults": {}
+    }
+   ]
+  }
+ ],
+ "available_actions": [
+  {
+   "command": "create_specialist_draft",
+   "label": "New finance specialist",
+   "enabled": true,
+   "idempotency_key": "dev",
+   "payload_defaults": {}
+  }
+ ],
+ "options": {
+  "records": [
+   "Card transaction",
+   "Purchase order",
+   "Receipt",
+   "Delivery record"
+  ],
+  "tools": [
+   "read_evidence_field",
+   "search_transactions",
+   "read_attachment",
+   "draft_message"
+  ],
+  "outputs": [
+   "Finding",
+   "Draft message"
+  ],
+  "handoffs": [
+   "Analyst",
+   "Policy Controller"
+  ]
+ },
+ "restricted": [
+  "Move money",
+  "Override policy",
+  "Change records"
+ ]
+}
