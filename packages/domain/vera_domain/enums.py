@@ -86,3 +86,4 @@ class EventType(StrEnum):
     CASE_HELD = "case.held"
     CASE_RESUMED = "case.resumed"
     CASE_REASSIGNED = "case.reassigned"
+    POLICY_EVALUATED = "policy.evaluated"

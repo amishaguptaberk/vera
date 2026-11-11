@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from vera_domain.commands import available_actions
+from vera_domain.commands import REGISTRY, available_actions
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.facts import Hold
 from vera_domain.labels import describe
@@ -22,6 +22,7 @@ from vera_domain.models import (
     TransactionView,
 )
 
+from vera_api import policy as policy_service
 from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
 
 
@@ -152,6 +153,7 @@ def get_case_view(
     state, step = CaseState(case.state), CaseStep(case.step)
     label, kind, next_action = describe(state, step)
     exposure = txn.amount_cents - case.credit_cents
+    gated = any(s.requires_policy is not None for s in REGISTRY.values())
     enabled, blocked = (
         available_actions(
             actor[1],
@@ -161,6 +163,8 @@ def get_case_view(
             case_version=case.case_version,
             user_id=actor[0],
             next_report_id=_next_report_id(session),
+            policy_state=policy_service.current_state(session, case) if gated else None,
+            key_context=policy_service.key_context(session, case),
         )
         if actor
         else ([], [])
@@ -210,4 +214,5 @@ def get_case_view(
         blocked_actions=blocked,
         recovery_actions=[],
         hold=Hold.model_validate(case.hold) if case.hold else None,
+        policy=policy_service.latest_view(session, case.id),
     )
