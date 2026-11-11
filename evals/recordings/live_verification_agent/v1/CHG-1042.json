@@ -1,0 +1,10 @@
+{
+  "content": {},
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
+  "tool_calls": [
+    {"arguments": {"field": "question:q1", "record_id": "CALL-1042-1"}, "id": "call_0", "name": "read_field"},
+    {"arguments": {"field": "line:4", "record_id": "CALL-1042-1"}, "id": "call_1", "name": "read_field"}
+  ],
+  "usage": {}
+}
