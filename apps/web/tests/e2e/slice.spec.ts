@@ -44,6 +44,12 @@ test('known-good journey: CHG-1042 investigation → evidence → run details �
   await expect(page).toHaveURL(/tab=decision/);
   await expect(page.getByTestId('policy-status')).toHaveText('blocked');
 
+  // Vera rail: a question gets the server's answer in place (no crash, no blank rail).
+  const rail = page.getByRole('complementary', { name: 'Conversation with Vera' });
+  await rail.getByPlaceholder('Ask about this case').fill('Why is the policy blocked?');
+  await rail.getByRole('button', { name: 'Send' }).click();
+  await expect(rail).toContainText('Blocked · evidence conflict');
+
   // Demo material change: DLV-882 v2 → the purchase-records check goes stale, a conflict drops, policy re-evaluated.
   await page.getByText('Demo controls').click();
   await page.getByRole('button', { name: 'Simulate material change' }).click();
@@ -75,11 +81,11 @@ test('known-good journey: CHG-1042 investigation → evidence → run details �
   const r = await page.request.post('/api/session/role', { data: { role: 'cardholder' } });
   expect(r.ok()).toBe(true);
   await page.goto('/cases/CHG-1042');
-  await expect(page.getByRole('tab', { name: 'Communications' })).toBeVisible();
+  await expect(page.getByTestId('case-state')).toBeVisible();
   for (const name of ['Evaluate policy', 'Hold for more information', 'Start investigation', 'Reassign']) {
     await expect(page.getByRole('button', { name })).toHaveCount(0);
   }
-  for (const name of ['Evidence', 'Decision', 'Run details']) await expect(page.getByRole('tab', { name })).toHaveCount(0);
+  for (const name of ['Evidence', 'Communications', 'Decision', 'Run details']) await expect(page.getByRole('tab', { name })).toHaveCount(0);
   await expect(page.getByTestId('policy-block')).toHaveCount(0);
   // Leave the shared demo session as the analyst.
   await page.request.post('/api/session/role', { data: { role: 'analyst' } });

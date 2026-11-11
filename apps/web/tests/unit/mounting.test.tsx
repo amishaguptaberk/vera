@@ -79,8 +79,9 @@ describe('internal panels the server denies', () => {
       return denied();
     });
     renderWithProviders(<CaseWorkspace caseId="CHG-1042" />);
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Communications' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('case-state')).toBeTruthy());
     await waitFor(() => expect(screen.queryByRole('tab', { name: 'Evidence' })).toBeNull());
+    expect(screen.queryByRole('tab', { name: 'Communications' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Decision' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Run details' })).toBeNull();
     expect(screen.queryByTestId('policy-block')).toBeNull();

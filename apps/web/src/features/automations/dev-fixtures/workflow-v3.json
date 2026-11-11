@@ -1,0 +1,2354 @@
+{
+ "graph": {
+  "nodes": [
+   {
+    "key": "intake",
+    "kind": "trigger",
+    "label": "Report received",
+    "category": "trigger",
+    "outcomes": [
+     "received"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": true,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "charge_investigator",
+    "kind": "finance_specialist",
+    "label": "Charge Investigator",
+    "category": "agent",
+    "outcomes": [
+     "done"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "related_transaction_investigator",
+    "kind": "finance_specialist",
+    "label": "Related-Transaction Investigator",
+    "category": "agent",
+    "outcomes": [
+     "done"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "receipt_document_reviewer",
+    "kind": "finance_specialist",
+    "label": "Evidence assessment",
+    "category": "agent",
+    "outcomes": [
+     "done"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "pc1",
+    "kind": "policy_check",
+    "label": "Policy Controller \u00b7 evidence sufficiency",
+    "category": "policy",
+    "outcomes": [
+     "sufficient",
+     "missing evidence",
+     "contradictory"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "cardholder_follow_up",
+    "kind": "communication",
+    "label": "Cardholder follow-up",
+    "category": "agent",
+    "outcomes": [
+     "sent",
+     "send failed"
+    ],
+    "failure_outcomes": [
+     "send failed"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "await_cardholder_response",
+    "kind": "human_checkpoint",
+    "label": "Await cardholder response",
+    "category": "checkpoint",
+    "outcomes": [
+     "response",
+     "no answer"
+    ],
+    "failure_outcomes": [
+     "no answer"
+    ],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "identity_verification",
+    "kind": "verification",
+    "label": "Identity verification",
+    "category": "agent",
+    "outcomes": [
+     "verified",
+     "failed"
+    ],
+    "failure_outcomes": [
+     "failed"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "live_verification",
+    "kind": "verification",
+    "label": "Live verification",
+    "category": "agent",
+    "outcomes": [
+     "verified",
+     "contradicted",
+     "no answer"
+    ],
+    "failure_outcomes": [
+     "no answer"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "decision_packet_preparer",
+    "kind": "finance_specialist",
+    "label": "Prepare recommendation",
+    "category": "agent",
+    "outcomes": [
+     "prepared"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "evidence_recheck"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "analyst_decision",
+    "kind": "decision",
+    "label": "Analyst decision",
+    "category": "checkpoint",
+    "outcomes": [
+     "unauthorized",
+     "authorized",
+     "escalation"
+    ],
+    "failure_outcomes": [
+     "escalation"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "human_decision",
+     "decision_record"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "pc2",
+    "kind": "policy_check",
+    "label": "Policy Controller \u00b7 credit eligibility",
+    "category": "policy",
+    "outcomes": [
+     "eligible",
+     "not eligible"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "policy_controller"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "reviewer_approval",
+    "kind": "human_checkpoint",
+    "label": "Reviewer approval",
+    "category": "checkpoint",
+    "outcomes": [
+     "approved",
+     "rejected"
+    ],
+    "failure_outcomes": [
+     "rejected"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "reviewer_approval"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "credit_executor",
+    "kind": "remediation",
+    "label": "Provisional credit",
+    "category": "action",
+    "outcomes": [
+     "issued",
+     "timeout"
+    ],
+    "failure_outcomes": [
+     "timeout"
+    ],
+    "analyst_started": false,
+    "money_affecting": true,
+    "parallel": false,
+    "provides": [
+     "idempotency_gate"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "prevention_planner",
+    "kind": "finance_specialist",
+    "label": "Prevention Planner",
+    "category": "agent",
+    "outcomes": [
+     "planned"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "admin_approval",
+    "kind": "human_checkpoint",
+    "label": "Admin approval",
+    "category": "checkpoint",
+    "outcomes": [
+     "approved",
+     "declined"
+    ],
+    "failure_outcomes": [
+     "declined"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "dispute_packet_preparer",
+    "kind": "remediation",
+    "label": "Dispute packet",
+    "category": "action",
+    "outcomes": [
+     "submitted",
+     "failed"
+    ],
+    "failure_outcomes": [
+     "failed"
+    ],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "final_communication",
+    "kind": "communication",
+    "label": "Final communication",
+    "category": "agent",
+    "outcomes": [
+     "delivered",
+     "send failed"
+    ],
+    "failure_outcomes": [
+     "send failed"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "retry_within_limits",
+    "kind": "policy_check",
+    "label": "Retry within limits",
+    "category": "policy",
+    "outcomes": [
+     "retry",
+     "escalation"
+    ],
+    "failure_outcomes": [
+     "escalation"
+    ],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "analyst_handoff",
+    "kind": "human_checkpoint",
+    "label": "Analyst handoff",
+    "category": "checkpoint",
+    "outcomes": [
+     "close unresolved"
+    ],
+    "failure_outcomes": [
+     "close unresolved"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "close_or_monitor",
+    "kind": "close_case",
+    "label": "Close or monitor",
+    "category": "checkpoint",
+    "outcomes": [],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   }
+  ],
+  "edges": [
+   {
+    "source": "intake",
+    "target": "charge_investigator",
+    "outcome": "received",
+    "max": null
+   },
+   {
+    "source": "intake",
+    "target": "related_transaction_investigator",
+    "outcome": "received",
+    "max": null
+   },
+   {
+    "source": "charge_investigator",
+    "target": "receipt_document_reviewer",
+    "outcome": "done",
+    "max": null
+   },
+   {
+    "source": "related_transaction_investigator",
+    "target": "receipt_document_reviewer",
+    "outcome": "done",
+    "max": null
+   },
+   {
+    "source": "receipt_document_reviewer",
+    "target": "pc1",
+    "outcome": "done",
+    "max": null
+   },
+   {
+    "source": "pc1",
+    "target": "identity_verification",
+    "outcome": "sufficient",
+    "max": null
+   },
+   {
+    "source": "pc1",
+    "target": "cardholder_follow_up",
+    "outcome": "missing evidence",
+    "max": null
+   },
+   {
+    "source": "pc1",
+    "target": "analyst_handoff",
+    "outcome": "contradictory",
+    "max": null
+   },
+   {
+    "source": "cardholder_follow_up",
+    "target": "await_cardholder_response",
+    "outcome": "sent",
+    "max": null
+   },
+   {
+    "source": "cardholder_follow_up",
+    "target": "retry_within_limits",
+    "outcome": "send failed",
+    "max": null
+   },
+   {
+    "source": "await_cardholder_response",
+    "target": "receipt_document_reviewer",
+    "outcome": "response",
+    "max": 3
+   },
+   {
+    "source": "await_cardholder_response",
+    "target": "retry_within_limits",
+    "outcome": "no answer",
+    "max": null
+   },
+   {
+    "source": "identity_verification",
+    "target": "live_verification",
+    "outcome": "verified",
+    "max": null
+   },
+   {
+    "source": "identity_verification",
+    "target": "analyst_handoff",
+    "outcome": "failed",
+    "max": null
+   },
+   {
+    "source": "live_verification",
+    "target": "decision_packet_preparer",
+    "outcome": "verified",
+    "max": null
+   },
+   {
+    "source": "live_verification",
+    "target": "analyst_handoff",
+    "outcome": "contradicted",
+    "max": null
+   },
+   {
+    "source": "live_verification",
+    "target": "retry_within_limits",
+    "outcome": "no answer",
+    "max": null
+   },
+   {
+    "source": "decision_packet_preparer",
+    "target": "analyst_decision",
+    "outcome": "prepared",
+    "max": null
+   },
+   {
+    "source": "analyst_decision",
+    "target": "pc2",
+    "outcome": "unauthorized",
+    "max": null
+   },
+   {
+    "source": "analyst_decision",
+    "target": "final_communication",
+    "outcome": "authorized",
+    "max": null
+   },
+   {
+    "source": "analyst_decision",
+    "target": "analyst_handoff",
+    "outcome": "escalation",
+    "max": null
+   },
+   {
+    "source": "pc2",
+    "target": "reviewer_approval",
+    "outcome": "eligible",
+    "max": null
+   },
+   {
+    "source": "pc2",
+    "target": "dispute_packet_preparer",
+    "outcome": "not eligible",
+    "max": null
+   },
+   {
+    "source": "reviewer_approval",
+    "target": "credit_executor",
+    "outcome": "approved",
+    "max": null
+   },
+   {
+    "source": "reviewer_approval",
+    "target": "decision_packet_preparer",
+    "outcome": "rejected",
+    "max": 2
+   },
+   {
+    "source": "credit_executor",
+    "target": "prevention_planner",
+    "outcome": "issued",
+    "max": null
+   },
+   {
+    "source": "credit_executor",
+    "target": "retry_within_limits",
+    "outcome": "timeout",
+    "max": null
+   },
+   {
+    "source": "prevention_planner",
+    "target": "admin_approval",
+    "outcome": "planned",
+    "max": null
+   },
+   {
+    "source": "admin_approval",
+    "target": "dispute_packet_preparer",
+    "outcome": "approved",
+    "max": null
+   },
+   {
+    "source": "admin_approval",
+    "target": "dispute_packet_preparer",
+    "outcome": "declined",
+    "max": null
+   },
+   {
+    "source": "dispute_packet_preparer",
+    "target": "final_communication",
+    "outcome": "submitted",
+    "max": null
+   },
+   {
+    "source": "dispute_packet_preparer",
+    "target": "analyst_handoff",
+    "outcome": "failed",
+    "max": null
+   },
+   {
+    "source": "final_communication",
+    "target": "close_or_monitor",
+    "outcome": "delivered",
+    "max": null
+   },
+   {
+    "source": "final_communication",
+    "target": "retry_within_limits",
+    "outcome": "send failed",
+    "max": null
+   },
+   {
+    "source": "retry_within_limits",
+    "target": "cardholder_follow_up",
+    "outcome": "retry",
+    "max": 3
+   },
+   {
+    "source": "retry_within_limits",
+    "target": "analyst_handoff",
+    "outcome": "escalation",
+    "max": null
+   },
+   {
+    "source": "analyst_handoff",
+    "target": "close_or_monitor",
+    "outcome": "close unresolved",
+    "max": null
+   }
+  ]
+ },
+ "results": [
+  {
+   "scenario": "Missing receipt \u00b7 confirmed by callback",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 21,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "missing evidence"
+    },
+    {
+     "step": 6,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 7,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "response"
+    },
+    {
+     "step": 8,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 9,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 10,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 11,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 12,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 13,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "unauthorized"
+    },
+    {
+     "step": 14,
+     "node": "pc2",
+     "kind": "policy_check",
+     "outcome": "eligible"
+    },
+    {
+     "step": 15,
+     "node": "reviewer_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 16,
+     "node": "credit_executor",
+     "kind": "remediation",
+     "outcome": "issued"
+    },
+    {
+     "step": 17,
+     "node": "prevention_planner",
+     "kind": "finance_specialist",
+     "outcome": "planned"
+    },
+    {
+     "step": 18,
+     "node": "admin_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 19,
+     "node": "dispute_packet_preparer",
+     "kind": "remediation",
+     "outcome": "submitted"
+    },
+    {
+     "step": 20,
+     "node": "final_communication",
+     "kind": "communication",
+     "outcome": "delivered"
+    },
+    {
+     "step": 21,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Cardholder recognizes it \u00b7 receipt attached",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 11,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 6,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 7,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 8,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 9,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "authorized"
+    },
+    {
+     "step": 10,
+     "node": "final_communication",
+     "kind": "communication",
+     "outcome": "delivered"
+    },
+    {
+     "step": 11,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Contradictory receipt",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 7,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "contradictory"
+    },
+    {
+     "step": 6,
+     "node": "analyst_handoff",
+     "kind": "human_checkpoint",
+     "outcome": "close unresolved"
+    },
+    {
+     "step": 7,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Cardholder does not respond",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 16,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "missing evidence"
+    },
+    {
+     "step": 6,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 7,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "no answer"
+    },
+    {
+     "step": 8,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "retry"
+    },
+    {
+     "step": 9,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 10,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "no answer"
+    },
+    {
+     "step": 11,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "retry"
+    },
+    {
+     "step": 12,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 13,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "no answer"
+    },
+    {
+     "step": 14,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "escalation"
+    },
+    {
+     "step": 15,
+     "node": "analyst_handoff",
+     "kind": "human_checkpoint",
+     "outcome": "close unresolved"
+    },
+    {
+     "step": 16,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Unanswered callback",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 10,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 6,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 7,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "no answer"
+    },
+    {
+     "step": 8,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "escalation"
+    },
+    {
+     "step": 9,
+     "node": "analyst_handoff",
+     "kind": "human_checkpoint",
+     "outcome": "close unresolved"
+    },
+    {
+     "step": 10,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Reviewer returns case",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 21,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 6,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 7,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 8,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 9,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "unauthorized"
+    },
+    {
+     "step": 10,
+     "node": "pc2",
+     "kind": "policy_check",
+     "outcome": "eligible"
+    },
+    {
+     "step": 11,
+     "node": "reviewer_approval",
+     "kind": "human_checkpoint",
+     "outcome": "rejected"
+    },
+    {
+     "step": 12,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 13,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "unauthorized"
+    },
+    {
+     "step": 14,
+     "node": "pc2",
+     "kind": "policy_check",
+     "outcome": "eligible"
+    },
+    {
+     "step": 15,
+     "node": "reviewer_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 16,
+     "node": "credit_executor",
+     "kind": "remediation",
+     "outcome": "issued"
+    },
+    {
+     "step": 17,
+     "node": "prevention_planner",
+     "kind": "finance_specialist",
+     "outcome": "planned"
+    },
+    {
+     "step": 18,
+     "node": "admin_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 19,
+     "node": "dispute_packet_preparer",
+     "kind": "remediation",
+     "outcome": "submitted"
+    },
+    {
+     "step": 20,
+     "node": "final_communication",
+     "kind": "communication",
+     "outcome": "delivered"
+    },
+    {
+     "step": 21,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  }
+ ],
+ "violations": [],
+ "draftGraph": {
+  "nodes": [
+   {
+    "key": "intake",
+    "kind": "trigger",
+    "label": "Report received",
+    "category": "trigger",
+    "outcomes": [
+     "received"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": true,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "charge_investigator",
+    "kind": "finance_specialist",
+    "label": "Charge Investigator",
+    "category": "agent",
+    "outcomes": [
+     "done"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "related_transaction_investigator",
+    "kind": "finance_specialist",
+    "label": "Related-Transaction Investigator",
+    "category": "agent",
+    "outcomes": [
+     "done"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "receipt_document_reviewer",
+    "kind": "finance_specialist",
+    "label": "Evidence assessment",
+    "category": "agent",
+    "outcomes": [
+     "done"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "pc1",
+    "kind": "policy_check",
+    "label": "Policy Controller \u00b7 evidence sufficiency",
+    "category": "policy",
+    "outcomes": [
+     "sufficient",
+     "missing evidence",
+     "contradictory"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "cardholder_follow_up",
+    "kind": "communication",
+    "label": "Cardholder follow-up",
+    "category": "agent",
+    "outcomes": [
+     "sent",
+     "send failed"
+    ],
+    "failure_outcomes": [
+     "send failed"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "await_cardholder_response",
+    "kind": "human_checkpoint",
+    "label": "Await cardholder response",
+    "category": "checkpoint",
+    "outcomes": [
+     "response",
+     "no answer"
+    ],
+    "failure_outcomes": [
+     "no answer"
+    ],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "identity_verification",
+    "kind": "verification",
+    "label": "Identity verification",
+    "category": "agent",
+    "outcomes": [
+     "verified",
+     "failed"
+    ],
+    "failure_outcomes": [
+     "failed"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "live_verification",
+    "kind": "verification",
+    "label": "Live verification",
+    "category": "agent",
+    "outcomes": [
+     "verified",
+     "contradicted",
+     "no answer"
+    ],
+    "failure_outcomes": [
+     "no answer"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "decision_packet_preparer",
+    "kind": "finance_specialist",
+    "label": "Prepare recommendation",
+    "category": "agent",
+    "outcomes": [
+     "prepared"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "evidence_recheck"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "analyst_decision",
+    "kind": "decision",
+    "label": "Analyst decision",
+    "category": "checkpoint",
+    "outcomes": [
+     "unauthorized",
+     "authorized",
+     "escalation"
+    ],
+    "failure_outcomes": [
+     "escalation"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "human_decision",
+     "decision_record"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "pc2",
+    "kind": "policy_check",
+    "label": "Policy Controller \u00b7 credit eligibility",
+    "category": "policy",
+    "outcomes": [
+     "eligible",
+     "not eligible"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "policy_controller"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "reviewer_approval",
+    "kind": "human_checkpoint",
+    "label": "Reviewer approval",
+    "category": "checkpoint",
+    "outcomes": [
+     "approved",
+     "rejected"
+    ],
+    "failure_outcomes": [
+     "rejected"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [
+     "reviewer_approval"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "credit_executor",
+    "kind": "remediation",
+    "label": "Provisional credit",
+    "category": "action",
+    "outcomes": [
+     "issued",
+     "timeout"
+    ],
+    "failure_outcomes": [
+     "timeout"
+    ],
+    "analyst_started": false,
+    "money_affecting": true,
+    "parallel": false,
+    "provides": [
+     "idempotency_gate"
+    ],
+    "specialist_id": null
+   },
+   {
+    "key": "prevention_planner",
+    "kind": "finance_specialist",
+    "label": "Prevention Planner",
+    "category": "agent",
+    "outcomes": [
+     "planned"
+    ],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "admin_approval",
+    "kind": "human_checkpoint",
+    "label": "Admin approval",
+    "category": "checkpoint",
+    "outcomes": [
+     "approved",
+     "declined"
+    ],
+    "failure_outcomes": [
+     "declined"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "dispute_packet_preparer",
+    "kind": "remediation",
+    "label": "Dispute packet",
+    "category": "action",
+    "outcomes": [
+     "submitted",
+     "failed"
+    ],
+    "failure_outcomes": [
+     "failed"
+    ],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "final_communication",
+    "kind": "communication",
+    "label": "Final communication",
+    "category": "agent",
+    "outcomes": [
+     "delivered",
+     "send failed"
+    ],
+    "failure_outcomes": [
+     "send failed"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "retry_within_limits",
+    "kind": "policy_check",
+    "label": "Retry within limits",
+    "category": "policy",
+    "outcomes": [
+     "retry",
+     "escalation"
+    ],
+    "failure_outcomes": [
+     "escalation"
+    ],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "analyst_handoff",
+    "kind": "human_checkpoint",
+    "label": "Analyst handoff",
+    "category": "checkpoint",
+    "outcomes": [
+     "close unresolved"
+    ],
+    "failure_outcomes": [
+     "close unresolved"
+    ],
+    "analyst_started": true,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   },
+   {
+    "key": "close_or_monitor",
+    "kind": "close_case",
+    "label": "Close or monitor",
+    "category": "checkpoint",
+    "outcomes": [],
+    "failure_outcomes": [],
+    "analyst_started": false,
+    "money_affecting": false,
+    "parallel": false,
+    "provides": [],
+    "specialist_id": null
+   }
+  ],
+  "edges": [
+   {
+    "source": "intake",
+    "target": "charge_investigator",
+    "outcome": "received",
+    "max": null
+   },
+   {
+    "source": "intake",
+    "target": "related_transaction_investigator",
+    "outcome": "received",
+    "max": null
+   },
+   {
+    "source": "charge_investigator",
+    "target": "receipt_document_reviewer",
+    "outcome": "done",
+    "max": null
+   },
+   {
+    "source": "related_transaction_investigator",
+    "target": "receipt_document_reviewer",
+    "outcome": "done",
+    "max": null
+   },
+   {
+    "source": "receipt_document_reviewer",
+    "target": "pc1",
+    "outcome": "done",
+    "max": null
+   },
+   {
+    "source": "pc1",
+    "target": "identity_verification",
+    "outcome": "sufficient",
+    "max": null
+   },
+   {
+    "source": "pc1",
+    "target": "cardholder_follow_up",
+    "outcome": "missing evidence",
+    "max": null
+   },
+   {
+    "source": "pc1",
+    "target": "analyst_handoff",
+    "outcome": "contradictory",
+    "max": null
+   },
+   {
+    "source": "cardholder_follow_up",
+    "target": "await_cardholder_response",
+    "outcome": "sent",
+    "max": null
+   },
+   {
+    "source": "cardholder_follow_up",
+    "target": "retry_within_limits",
+    "outcome": "send failed",
+    "max": null
+   },
+   {
+    "source": "await_cardholder_response",
+    "target": "receipt_document_reviewer",
+    "outcome": "response",
+    "max": 3
+   },
+   {
+    "source": "await_cardholder_response",
+    "target": "retry_within_limits",
+    "outcome": "no answer",
+    "max": null
+   },
+   {
+    "source": "identity_verification",
+    "target": "live_verification",
+    "outcome": "verified",
+    "max": null
+   },
+   {
+    "source": "identity_verification",
+    "target": "analyst_handoff",
+    "outcome": "failed",
+    "max": null
+   },
+   {
+    "source": "live_verification",
+    "target": "decision_packet_preparer",
+    "outcome": "verified",
+    "max": null
+   },
+   {
+    "source": "live_verification",
+    "target": "analyst_handoff",
+    "outcome": "contradicted",
+    "max": null
+   },
+   {
+    "source": "live_verification",
+    "target": "retry_within_limits",
+    "outcome": "no answer",
+    "max": null
+   },
+   {
+    "source": "decision_packet_preparer",
+    "target": "analyst_decision",
+    "outcome": "prepared",
+    "max": null
+   },
+   {
+    "source": "analyst_decision",
+    "target": "pc2",
+    "outcome": "unauthorized",
+    "max": null
+   },
+   {
+    "source": "analyst_decision",
+    "target": "final_communication",
+    "outcome": "authorized",
+    "max": null
+   },
+   {
+    "source": "analyst_decision",
+    "target": "analyst_handoff",
+    "outcome": "escalation",
+    "max": null
+   },
+   {
+    "source": "pc2",
+    "target": "reviewer_approval",
+    "outcome": "eligible",
+    "max": null
+   },
+   {
+    "source": "pc2",
+    "target": "dispute_packet_preparer",
+    "outcome": "not eligible",
+    "max": null
+   },
+   {
+    "source": "reviewer_approval",
+    "target": "credit_executor",
+    "outcome": "approved",
+    "max": null
+   },
+   {
+    "source": "reviewer_approval",
+    "target": "decision_packet_preparer",
+    "outcome": "rejected",
+    "max": 2
+   },
+   {
+    "source": "credit_executor",
+    "target": "prevention_planner",
+    "outcome": "issued",
+    "max": null
+   },
+   {
+    "source": "prevention_planner",
+    "target": "admin_approval",
+    "outcome": "planned",
+    "max": null
+   },
+   {
+    "source": "admin_approval",
+    "target": "dispute_packet_preparer",
+    "outcome": "approved",
+    "max": null
+   },
+   {
+    "source": "admin_approval",
+    "target": "dispute_packet_preparer",
+    "outcome": "declined",
+    "max": null
+   },
+   {
+    "source": "dispute_packet_preparer",
+    "target": "final_communication",
+    "outcome": "submitted",
+    "max": null
+   },
+   {
+    "source": "dispute_packet_preparer",
+    "target": "analyst_handoff",
+    "outcome": "failed",
+    "max": null
+   },
+   {
+    "source": "final_communication",
+    "target": "close_or_monitor",
+    "outcome": "delivered",
+    "max": null
+   },
+   {
+    "source": "final_communication",
+    "target": "retry_within_limits",
+    "outcome": "send failed",
+    "max": null
+   },
+   {
+    "source": "retry_within_limits",
+    "target": "cardholder_follow_up",
+    "outcome": "retry",
+    "max": 3
+   },
+   {
+    "source": "retry_within_limits",
+    "target": "analyst_handoff",
+    "outcome": "escalation",
+    "max": null
+   },
+   {
+    "source": "analyst_handoff",
+    "target": "close_or_monitor",
+    "outcome": "close unresolved",
+    "max": null
+   }
+  ]
+ },
+ "draftViolations": [
+  {
+   "rule": 5,
+   "rule_name": "Every declared decision outcome has a path",
+   "node_ids": [
+    "credit_executor"
+   ],
+   "message": "Provisional credit: outcome 'timeout' has no path."
+  },
+  {
+   "rule": 6,
+   "rule_name": "Every analyst-started step and every action has a failure path",
+   "node_ids": [
+    "credit_executor"
+   ],
+   "message": "Provisional credit has no failure path."
+  }
+ ],
+ "draftResults": [
+  {
+   "scenario": "Missing receipt \u00b7 confirmed by callback",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 21,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "missing evidence"
+    },
+    {
+     "step": 6,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 7,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "response"
+    },
+    {
+     "step": 8,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 9,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 10,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 11,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 12,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 13,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "unauthorized"
+    },
+    {
+     "step": 14,
+     "node": "pc2",
+     "kind": "policy_check",
+     "outcome": "eligible"
+    },
+    {
+     "step": 15,
+     "node": "reviewer_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 16,
+     "node": "credit_executor",
+     "kind": "remediation",
+     "outcome": "issued"
+    },
+    {
+     "step": 17,
+     "node": "prevention_planner",
+     "kind": "finance_specialist",
+     "outcome": "planned"
+    },
+    {
+     "step": 18,
+     "node": "admin_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 19,
+     "node": "dispute_packet_preparer",
+     "kind": "remediation",
+     "outcome": "submitted"
+    },
+    {
+     "step": 20,
+     "node": "final_communication",
+     "kind": "communication",
+     "outcome": "delivered"
+    },
+    {
+     "step": 21,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Cardholder recognizes it \u00b7 receipt attached",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 11,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 6,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 7,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 8,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 9,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "authorized"
+    },
+    {
+     "step": 10,
+     "node": "final_communication",
+     "kind": "communication",
+     "outcome": "delivered"
+    },
+    {
+     "step": 11,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Contradictory receipt",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 7,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "contradictory"
+    },
+    {
+     "step": 6,
+     "node": "analyst_handoff",
+     "kind": "human_checkpoint",
+     "outcome": "close unresolved"
+    },
+    {
+     "step": 7,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Cardholder does not respond",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 16,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "missing evidence"
+    },
+    {
+     "step": 6,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 7,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "no answer"
+    },
+    {
+     "step": 8,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "retry"
+    },
+    {
+     "step": 9,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 10,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "no answer"
+    },
+    {
+     "step": 11,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "retry"
+    },
+    {
+     "step": 12,
+     "node": "cardholder_follow_up",
+     "kind": "communication",
+     "outcome": "sent"
+    },
+    {
+     "step": 13,
+     "node": "await_cardholder_response",
+     "kind": "human_checkpoint",
+     "outcome": "no answer"
+    },
+    {
+     "step": 14,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "escalation"
+    },
+    {
+     "step": 15,
+     "node": "analyst_handoff",
+     "kind": "human_checkpoint",
+     "outcome": "close unresolved"
+    },
+    {
+     "step": 16,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Unanswered callback",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 10,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 6,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 7,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "no answer"
+    },
+    {
+     "step": 8,
+     "node": "retry_within_limits",
+     "kind": "policy_check",
+     "outcome": "escalation"
+    },
+    {
+     "step": 9,
+     "node": "analyst_handoff",
+     "kind": "human_checkpoint",
+     "outcome": "close unresolved"
+    },
+    {
+     "step": 10,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  },
+  {
+   "scenario": "Reviewer returns case",
+   "passed": true,
+   "last_step": "close_or_monitor",
+   "steps": 21,
+   "reason": null,
+   "trace": [
+    {
+     "step": 1,
+     "node": "intake",
+     "kind": "trigger",
+     "outcome": "received"
+    },
+    {
+     "step": 2,
+     "node": "charge_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 3,
+     "node": "related_transaction_investigator",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 4,
+     "node": "receipt_document_reviewer",
+     "kind": "finance_specialist",
+     "outcome": "done"
+    },
+    {
+     "step": 5,
+     "node": "pc1",
+     "kind": "policy_check",
+     "outcome": "sufficient"
+    },
+    {
+     "step": 6,
+     "node": "identity_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 7,
+     "node": "live_verification",
+     "kind": "verification",
+     "outcome": "verified"
+    },
+    {
+     "step": 8,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 9,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "unauthorized"
+    },
+    {
+     "step": 10,
+     "node": "pc2",
+     "kind": "policy_check",
+     "outcome": "eligible"
+    },
+    {
+     "step": 11,
+     "node": "reviewer_approval",
+     "kind": "human_checkpoint",
+     "outcome": "rejected"
+    },
+    {
+     "step": 12,
+     "node": "decision_packet_preparer",
+     "kind": "finance_specialist",
+     "outcome": "prepared"
+    },
+    {
+     "step": 13,
+     "node": "analyst_decision",
+     "kind": "decision",
+     "outcome": "unauthorized"
+    },
+    {
+     "step": 14,
+     "node": "pc2",
+     "kind": "policy_check",
+     "outcome": "eligible"
+    },
+    {
+     "step": 15,
+     "node": "reviewer_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 16,
+     "node": "credit_executor",
+     "kind": "remediation",
+     "outcome": "issued"
+    },
+    {
+     "step": 17,
+     "node": "prevention_planner",
+     "kind": "finance_specialist",
+     "outcome": "planned"
+    },
+    {
+     "step": 18,
+     "node": "admin_approval",
+     "kind": "human_checkpoint",
+     "outcome": "approved"
+    },
+    {
+     "step": 19,
+     "node": "dispute_packet_preparer",
+     "kind": "remediation",
+     "outcome": "submitted"
+    },
+    {
+     "step": 20,
+     "node": "final_communication",
+     "kind": "communication",
+     "outcome": "delivered"
+    },
+    {
+     "step": 21,
+     "node": "close_or_monitor",
+     "kind": "close_case",
+     "outcome": null
+    }
+   ]
+  }
+ ],
+ "rules": {
+  "1": "Exactly one trigger",
+  "2": "Every step reachable from the trigger",
+  "3": "Every path can reach Close or monitor",
+  "4": "No dead ends",
+  "5": "Every declared decision outcome has a path",
+  "6": "Every analyst-started step and every action has a failure path",
+  "7": "Each outcome leads to exactly one step",
+  "8": "Every back edge has a retry limit",
+  "9": "Money-affecting steps keep their required controls"
+ }
+}

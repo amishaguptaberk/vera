@@ -1,0 +1,351 @@
+/* Ported class-for-class from apps/web/prototype/Main.dc.html (.cm-*, .kvl, .idv-*, .ctask*, .demo-box, .otp, .spin, .rd). */
+
+.back {
+  padding-left: 0;
+}
+
+.h {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0 8px;
+}
+.ht {
+  font-size: 14px;
+  font-weight: 580;
+}
+.id {
+  font: 500 12px/1 var(--font-mono);
+  color: var(--mute);
+}
+.live {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ink2);
+}
+
+.kvl {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: 6px 16px;
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+.kvl dt {
+  color: var(--mute);
+}
+.kvl dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--ink2);
+  margin: 12px 0 4px;
+}
+.ql {
+  margin: 0 0 4px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ink2);
+}
+.ql li {
+  margin: 2px 0;
+}
+
+.tr {
+  border: 1px solid var(--rule2);
+  border-radius: 8px;
+  padding: 4px 12px;
+  background: #fcfbfa;
+}
+.tl {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule2);
+}
+.tl:last-child {
+  border-bottom: 0;
+}
+.sys .tt {
+  color: var(--mute);
+  font-style: italic;
+}
+.tw {
+  font-size: 11.5px;
+  color: var(--mute);
+}
+.tt {
+  font-size: 13px;
+}
+.tlNew {
+  animation: tlIn var(--duration-local, 0.2s) var(--ease, ease) both;
+}
+@keyframes tlIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tlNew {
+    animation: none;
+  }
+  .spin {
+    animation: none;
+  }
+}
+
+.res {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+.res .sub {
+  margin-top: 0;
+}
+.rt {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  font-weight: 520;
+}
+
+.src {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--mute);
+}
+
+.rd {
+  font-size: 12.5px;
+  color: var(--mute);
+}
+.meta {
+  font-size: 12px;
+  color: var(--mute);
+}
+.msg {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--bad);
+}
+
+.spin {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid #d3d3d3;
+  border-top-color: #0c0a08;
+  border-radius: 50%;
+  animation: vsp var(--spinner-duration, 0.8s) linear infinite;
+  flex: none;
+  display: inline-block;
+}
+@keyframes vsp {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  max-width: 260px;
+}
+.field label {
+  font-size: 12px;
+  font-weight: 510;
+  color: var(--ink2);
+}
+.noteField {
+  composes: field;
+  max-width: none;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+.ta {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  border: 1px solid #d3d3d3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  min-height: 48px;
+}
+.otp {
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--ink);
+  border: 1px solid #d3d3d3;
+  border-radius: 8px;
+  background: #fff;
+  font: 500 20px/1.2 var(--font-mono);
+  letter-spacing: 0.32em;
+  padding: 8px 12px;
+}
+.otp:focus,
+.ta:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Cardholder task card (.ctask*) */
+.ctask {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+.card {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ch {
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--rule2);
+}
+.ch h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.cm {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+.cb {
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ck {
+  font-size: 12.5px;
+  color: var(--mute);
+  margin-bottom: 6px;
+}
+.cq {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.ctext {
+  margin: 4px 0 0;
+}
+.cf {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.done {
+  padding: 22px;
+  font-size: 14px;
+}
+.done p {
+  margin: 6px 0 0;
+  color: var(--ink2);
+}
+.demoBox {
+  border: 1px dashed #bdbab5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: var(--ink2);
+}
+.dt {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mute);
+  margin-bottom: 6px;
+}
+.dp {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Channel chooser (.idv-ch / .idv-o) */
+.rl {
+  font-weight: 500;
+  font-size: 13.5px;
+  margin-top: 12px;
+}
+.chs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.o {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--rule);
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.o:hover {
+  border-color: #cfccc7;
+}
+.on {
+  border-color: var(--cobalt);
+  box-shadow: 0 0 0 1px var(--cobalt) inset;
+}
+.o:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+.cn {
+  font-size: 13.5px;
+  font-weight: 550;
+}
+.cd {
+  font-size: 12px;
+  color: var(--mute);
+}
+.demoRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+/* Cited transcript line (prototype .frow.hl highlight). */
+.tlHl .tt {
+  background: #f1f8a6;
+  border-radius: 2px;
+}

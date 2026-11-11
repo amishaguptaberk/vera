@@ -8,19 +8,10 @@ import { CaseWorkspace } from '@/features/case';
 import { Landing } from '@/features/shell/Landing';
 import { viewForRole } from '@/features/shell/role-view';
 import { pageMounts } from './mounts';
-import styles from './pages.module.css';
+import { NotAvailableYet } from './NotAvailableYet';
 
-/** The prototype's cardholder card with an honest empty state (no fixture data). */
-export function NotAvailableYet({ title = 'Not available yet.', children }: { title?: string; children: string }) {
-  return (
-    <div className={styles.ctask} data-testid="slot-empty">
-      <div className={styles.card}>
-        <b>{title}</b>
-        <p>{children}</p>
-      </div>
-    </div>
-  );
-}
+export { NotAvailableYet };
+import styles from './pages.module.css';
 
 export function RequestRoute({ requestId }: { requestId: string }) {
   const Page = pageMounts.RequestPage;

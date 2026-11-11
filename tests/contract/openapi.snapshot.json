@@ -165,6 +165,238 @@
         "title": "ActivityFeed",
         "type": "object"
       },
+      "ApprovalView": {
+        "properties": {
+          "approval_id": {
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "packet_version": {
+            "title": "Packet Version",
+            "type": "integer"
+          },
+          "policy_version": {
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "return_next_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Next Step"
+          },
+          "return_owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Owner Id"
+          },
+          "return_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Reason"
+          },
+          "reviewer_id": {
+            "title": "Reviewer Id",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "title": "Snapshot Hash",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "transaction_id": {
+            "title": "Transaction Id",
+            "type": "string"
+          },
+          "workflow_version": {
+            "title": "Workflow Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "approval_id",
+          "case_id",
+          "transaction_id",
+          "packet_version",
+          "snapshot_hash",
+          "policy_version",
+          "workflow_version",
+          "status",
+          "reviewer_id"
+        ],
+        "title": "ApprovalView",
+        "type": "object"
+      },
+      "AskAction": {
+        "description": "A button to render. Never auto-run; a command is one the server offers this role now.",
+        "properties": {
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "AskAction",
+        "type": "object"
+      },
+      "AskIn": {
+        "properties": {
+          "last_intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Intent"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AskIn",
+        "type": "object"
+      },
+      "AskOut": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/AskAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "cites": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Cites",
+            "type": "array"
+          },
+          "intent": {
+            "title": "Intent",
+            "type": "string"
+          },
+          "paragraphs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent",
+          "title",
+          "paragraphs",
+          "cites",
+          "actions",
+          "signature"
+        ],
+        "title": "AskOut",
+        "type": "object"
+      },
+      "AskPairView": {
+        "properties": {
+          "answer": {
+            "$ref": "#/components/schemas/AskOut"
+          },
+          "asked_at": {
+            "format": "date-time",
+            "title": "Asked At",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "asked_at"
+        ],
+        "title": "AskPairView",
+        "type": "object"
+      },
       "AssignableUser": {
         "properties": {
           "id": {
@@ -551,6 +783,58 @@
         "title": "CheckView",
         "type": "object"
       },
+      "Citation": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "version",
+          "field"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "CitedRecord": {
+        "properties": {
+          "fields": {
+            "additionalProperties": true,
+            "title": "Fields",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "kind",
+          "version",
+          "fields"
+        ],
+        "title": "CitedRecord",
+        "type": "object"
+      },
       "CommandIn": {
         "properties": {
           "expected_case_version": {
@@ -661,6 +945,178 @@
           "verified_at"
         ],
         "title": "ContactOnFile",
+        "type": "object"
+      },
+      "DecisionPacketView": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/PacketAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "cited_records": {
+            "items": {
+              "$ref": "#/components/schemas/CitedRecord"
+            },
+            "title": "Cited Records",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "latest_version": {
+            "title": "Latest Version",
+            "type": "integer"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "open_conflicts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Open Conflicts",
+            "type": "array"
+          },
+          "packet_status": {
+            "title": "Packet Status",
+            "type": "string"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy"
+          },
+          "policy_evaluation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Evaluation Id"
+          },
+          "policy_version": {
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "preparer": {
+            "$ref": "#/components/schemas/PreparerView"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "recommendation_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/PacketStatement"
+            },
+            "title": "Recommendation Reasons",
+            "type": "array"
+          },
+          "snapshot_hash": {
+            "title": "Snapshot Hash",
+            "type": "string"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/PacketStatement"
+            },
+            "title": "Statements",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_version": {
+            "title": "Workflow Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "version",
+          "latest_version",
+          "current",
+          "snapshot_hash",
+          "workflow_version",
+          "policy_version",
+          "policy_evaluation_id",
+          "packet_status",
+          "preparer",
+          "statements",
+          "recommendation",
+          "recommendation_reasons",
+          "open_conflicts",
+          "missing",
+          "policy",
+          "decision",
+          "approval",
+          "cited_records",
+          "actions",
+          "created_by",
+          "created_at"
+        ],
+        "title": "DecisionPacketView",
         "type": "object"
       },
       "Due": {
@@ -1091,6 +1547,50 @@
         "title": "OpenConflict",
         "type": "object"
       },
+      "PacketAction": {
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "label",
+          "idempotency_key"
+        ],
+        "title": "PacketAction",
+        "type": "object"
+      },
+      "PacketStatement": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "citations"
+        ],
+        "title": "PacketStatement",
+        "type": "object"
+      },
       "Person": {
         "properties": {
           "id": {
@@ -1199,6 +1699,60 @@
           "evaluated_at"
         ],
         "title": "PolicyView",
+        "type": "object"
+      },
+      "PreparerView": {
+        "properties": {
+          "execution_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Mode"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "execution_mode",
+          "model_id",
+          "failure_reason"
+        ],
+        "title": "PreparerView",
         "type": "object"
       },
       "ProgressStep": {
@@ -2074,6 +2628,97 @@
         "summary": "Get Activity"
       }
     },
+    "/api/cases/{case_id}/ask": {
+      "get": {
+        "operationId": "list_ask_pairs_api_cases__case_id__ask_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AskPairView"
+                  },
+                  "title": "Response List Ask Pairs Api Cases  Case Id  Ask Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Ask Pairs"
+      },
+      "post": {
+        "description": "Read-only: fixed answers from stored rows. No model call, no command, no audit event.",
+        "operationId": "ask_api_cases__case_id__ask_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask"
+      }
+    },
     "/api/cases/{case_id}/available-actions": {
       "get": {
         "operationId": "available_api_cases__case_id__available_actions_get",
@@ -2173,6 +2818,61 @@
           }
         },
         "summary": "Run Command"
+      }
+    },
+    "/api/cases/{case_id}/decision-packet": {
+      "get": {
+        "operationId": "get_decision_packet_api_cases__case_id__decision_packet_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionPacketView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision Packet"
       }
     },
     "/api/cases/{case_id}/evidence": {

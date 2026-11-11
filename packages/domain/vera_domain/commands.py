@@ -125,6 +125,9 @@ class CommandSpec:
     adapter: str | None = None
     # One command for a human role AND a service principal. Reserved for DUAL_COMMANDS.
     dual: bool = False
+    # The only exemption from the closed gate: a SERVICE command that may run while the case is
+    # in MONITORING (VER-011 record_dispute_outcome). Never set on a human command.
+    allowed_in_monitoring: bool = False
 
 
 def _user(ctx: ReduceContext, ref: str, field_name: str) -> tuple[str, str]:
@@ -425,6 +428,8 @@ def check_spec_roles(module_name: str, spec: CommandSpec, *, service: bool) -> N
         return
     if not spec.roles:
         raise ValueError(f"{module_name}: command '{spec.name}' lists no role")
+    if spec.allowed_in_monitoring and not service:
+        raise ValueError(f"{module_name}: human command '{spec.name}' may not run in monitoring")
     wrong = sorted(
         r.value for r in (spec.roles & HUMAN_ROLES if service else spec.roles - HUMAN_ROLES)
     )
@@ -491,7 +496,8 @@ def check_role(spec: CommandSpec, active_role: Role) -> None:
 
 def blocked_reason(spec: CommandSpec, state: CaseState, step: CaseStep) -> CommandError | None:
     """Stages 5-8 without side effects. Stage 7 (policy) and 8 (permission) are no-op hooks."""
-    if state in CLOSED_STATES:
+    exempt = spec.allowed_in_monitoring and state == CaseState.MONITORING
+    if state in CLOSED_STATES and not exempt:
         return CommandError("case_closed", 409, CLOSED_REASON, blocked_reason=CLOSED_REASON)
     if not spec.allowed_steps.allows(state, step):
         label = describe(state, step)[0]

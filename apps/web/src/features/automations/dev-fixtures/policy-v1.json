@@ -1,0 +1,105 @@
+{
+ "policy_id": "card-charge-investigation",
+ "version": 1,
+ "versions": [
+  1
+ ],
+ "rules": [
+  {
+   "id": "charge_identified",
+   "group": "Intake",
+   "label": "Charge identified",
+   "predicate": "charge_identified",
+   "params": {},
+   "effect": "blocked",
+   "code": "CHARGE_NOT_IDENTIFIED",
+   "fail_label": "Blocked \u00b7 charge not identified"
+  },
+  {
+   "id": "cardholder_authenticated",
+   "group": "Intake",
+   "label": "Cardholder authenticated",
+   "predicate": "cardholder_authenticated",
+   "params": {},
+   "effect": "needs_evidence",
+   "code": "CARDHOLDER_NOT_AUTHENTICATED",
+   "fail_label": "Needs evidence \u00b7 cardholder not authenticated"
+  },
+  {
+   "id": "duplicates_ruled_out",
+   "group": "Intake",
+   "label": "Duplicates ruled out",
+   "predicate": "duplicates_ruled_out",
+   "params": {},
+   "effect": "needs_evidence",
+   "code": "DUPLICATE_SEARCH_REQUIRED",
+   "fail_label": "Needs evidence \u00b7 duplicate search not done"
+  },
+  {
+   "id": "charge_not_authorized",
+   "group": "Decision and money",
+   "label": "Charge was not authorized",
+   "predicate": "not_authorized",
+   "params": {},
+   "effect": "ineligible",
+   "code": "CHARGE_AUTHORIZED",
+   "fail_label": "Ineligible \u00b7 the cardholder authorized this charge"
+  },
+  {
+   "id": "purchase_records_agree",
+   "group": "Evidence",
+   "label": "Purchase records agree",
+   "predicate": "no_conflicts",
+   "params": {},
+   "effect": "blocked",
+   "code": "EVIDENCE_CONFLICT",
+   "fail_label": "Blocked \u00b7 evidence conflict"
+  },
+  {
+   "id": "receipt_required_above_threshold",
+   "group": "Evidence",
+   "label": "Receipt required above $75",
+   "predicate": "receipt_above_threshold",
+   "params": {
+    "threshold_cents": 7500,
+    "kinds": [
+     "receipt"
+    ]
+   },
+   "effect": "needs_evidence",
+   "code": "RECEIPT_REQUIRED",
+   "fail_label": "Needs evidence \u00b7 receipt required above $75"
+  },
+  {
+   "id": "no_pending_review",
+   "group": "Evidence",
+   "label": "Evidence reviewed",
+   "predicate": "no_pending_review",
+   "params": {},
+   "effect": "needs_evidence",
+   "code": "REVIEW_PENDING",
+   "fail_label": "Needs evidence \u00b7 a record awaits review"
+  },
+  {
+   "id": "verification_not_failed",
+   "group": "Evidence",
+   "label": "Verification did not fail",
+   "predicate": "verification_not_failed",
+   "params": {},
+   "effect": "blocked",
+   "code": "VERIFICATION_FAILED",
+   "fail_label": "Blocked \u00b7 verification failed"
+  },
+  {
+   "id": "structured_verification",
+   "group": "Evidence",
+   "label": "Structured callback result recorded",
+   "predicate": "verification_confirmed",
+   "params": {},
+   "effect": "needs_evidence",
+   "code": "VERIFICATION_REQUIRED",
+   "fail_label": "Needs evidence \u00b7 verification call not completed"
+  }
+ ],
+ "created_at": "2026-11-03T09:00:00Z"
+}

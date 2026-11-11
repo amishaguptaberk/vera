@@ -1,0 +1,21 @@
+{
+  "content": {
+    "outcome": "confirmed",
+    "result": "confirmed",
+    "authorization_answer": "authorized",
+    "outcome_line_seq": 4,
+    "outcome_quote": "Yes, I placed the Northstar Equipment order and I authorize the charge.",
+    "answers": [
+      {
+        "question_id": "q1",
+        "answer": "yes",
+        "line_seq": 4,
+        "quote": "Yes, I placed the Northstar Equipment order and I authorize the charge."
+      }
+    ]
+  },
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
+  "tool_calls": [],
+  "usage": {}
+}

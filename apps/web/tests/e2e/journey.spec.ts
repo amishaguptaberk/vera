@@ -1,0 +1,96 @@
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+
+// No mocks. Continues the CHG-1042 journey through the UI as far as the merged backend serves it:
+// follow-up draft → send → cardholder reply with an attachment → analyst review. Later stages are asserted only
+// when the server offers them (annotated otherwise).
+const setRole = async (page: Page, role: string) => expect((await page.request.post('/api/session/role', { data: { role } })).ok()).toBe(true);
+const caseView = async (request: APIRequestContext) => (await request.get('/api/cases/CHG-1042')).json();
+
+test('journey: follow-up → cardholder reply with attachment → analyst review', async ({ page, request }) => {
+  expect((await request.post('/api/demo/reset')).ok()).toBe(true);
+  await setRole(page, 'analyst');
+  await page.goto('/cases/CHG-1042');
+  const acts = page.getByRole('group', { name: 'Case actions' });
+  await acts.getByRole('button', { name: 'Open case' }).click();
+  await acts.getByRole('button', { name: 'Start investigation' }).click();
+  await expect(page.getByTestId('case-state')).toHaveText('Investigation complete', { timeout: 30_000 });
+
+  // Draft step: the editor owns save/send; the ActionBar does not repeat them.
+  await acts.getByRole('button', { name: 'Draft follow-up' }).click();
+  const send = page.getByRole('button', { name: 'Approve and send' });
+  await expect(send).toBeVisible();
+  await expect(acts.getByRole('button', { name: 'Approve and send' })).toHaveCount(0);
+  await send.click();
+  await expect(page.getByTestId('case-state')).toHaveText('Waiting on cardholder');
+
+  // Refresh resumes the same state.
+  await page.reload();
+  await expect(page.getByTestId('case-state')).toHaveText('Waiting on cardholder');
+
+  // Cardholder: lands on their own request (server-resolved), answers, attaches a receipt.
+  await setRole(page, 'cardholder');
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Confirm this charge' })).toBeVisible();
+  await page.getByLabel('I did').check();
+  await page.getByLabel('Attach file').setInputFiles({ name: 'receipt.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 receipt') });
+  await expect(page.getByText('receipt.pdf')).toBeVisible();
+  await page.getByRole('button', { name: 'Send response' }).click();
+  await expect(page.getByText('Nothing is waiting for you right now.')).toBeVisible();
+
+  // Analyst reviews the response.
+  await setRole(page, 'analyst');
+  await page.goto('/cases/CHG-1042');
+  await expect(page.getByTestId('case-state')).toHaveText('Needs review');
+  await acts.getByRole('button', { name: 'Review response' }).click();
+  await page.getByLabel('Outcome (complete, incomplete or conflicting)').fill('complete');
+  await page.getByRole('form', { name: 'Review response' }).getByRole('button', { name: 'Review response' }).click();
+  await expect(page.getByTestId('case-state')).not.toHaveText('Needs review');
+  const after = await caseView(request);
+  await expect(page.getByTestId('case-state')).toHaveText('Ready for decision');
+  await expect(page.getByTestId('case-state')).toHaveText(after.state_label);
+
+  // Decision: prepare the packet (replay), see it in the Decision tab, evaluate policy, record the decision.
+  await acts.getByRole('button', { name: 'Prepare decision packet' }).click();
+  await page.getByRole('tab', { name: 'Decision' }).click();
+  await expect(page.getByTestId('decision-packet')).toBeVisible({ timeout: 30_000 });
+  await expect(acts).toHaveCount(1);
+  await expect.poll(async () => (await caseView(request)).step, { timeout: 30_000 }).toBe('decide');
+  await expect(page.locator('[data-step="decide"]').first()).toBeVisible();
+  await acts.getByRole('button', { name: 'Evaluate policy' }).click();
+  await expect(acts.getByRole('button', { name: 'Record decision' })).toBeVisible({ timeout: 10_000 });
+  await acts.getByRole('button', { name: 'Record decision' }).click();
+  await page.getByLabel('Decision (credit, dispute, clear, violation or unresolved)').fill('dispute');
+  await page.getByLabel('Your rationale').fill('Receipt confirms 2 of 3 items; dispute the missing item.');
+  await page.getByRole('form', { name: 'Record decision' }).getByRole('button', { name: 'Record decision' }).click();
+  await expect(page.getByRole('form', { name: 'Record decision' })).toHaveCount(0);
+  await page.reload();
+  const decided = await caseView(request);
+  await expect(page.getByTestId('case-state')).toHaveText(decided.state_label);
+
+  // A dispute decision moves to the money tracks: the money task block renders the server's actions.
+  if (decided.step === 'dsp_prepare') {
+    await expect(page.getByTestId('task-block-money')).toBeVisible();
+    const before = decided.case_version;
+    await page.getByTestId('task-block-money').getByRole('button', { name: 'Prepare dispute packet' }).click();
+    await expect.poll(async () => (await caseView(request)).case_version, { timeout: 15_000 }).toBeGreaterThan(before);
+    const moved = await caseView(request);
+    await expect(page.getByTestId('case-state')).toHaveText(moved.state_label);
+    // Dispute track, one server-offered step at a time.
+    const money = page.getByTestId('task-block-money');
+    for (const name of ['Open dispute packet', 'Mark reviewed', 'Record submission — simulated']) {
+      const v0 = (await caseView(request)).case_version;
+      await money.getByRole('button', { name }).click();
+      await expect.poll(async () => (await caseView(request)).case_version, { timeout: 15_000 }).toBeGreaterThan(v0);
+    }
+    expect((await caseView(request)).step).toBe('ctl_prep');
+    // No card controls (reason required) → the final communication step.
+    await money.getByRole('button', { name: 'No controls needed' }).click();
+    const skip = page.getByRole('form', { name: 'No controls needed' });
+    await skip.getByLabel('Reason').fill('No further exposure on this card.');
+    await skip.getByRole('button', { name: 'No controls needed' }).click();
+    await expect(page.getByTestId('case-state')).toHaveText('Final update not sent');
+    await page.reload();
+    await expect(page.getByTestId('case-state')).toHaveText('Final update not sent');
+  }
+  test.info().annotations.push({ type: 'reached', description: `${decided.state} / ${decided.step}: ${decided.available_actions.map((a: { command: string }) => a.command).join(', ')}` });
+});

@@ -41,7 +41,7 @@ export function RunList({ runs, recovery, onRecovery }: { runs: readonly RunOut[
                     <dt>Model</dt>
                     <dd>
                       {s.model_id ?? '—'}
-                      {s.model_id === AUTHORED_REFERENCE ? ' (hand-authored reference recording, not a live model)' : ''}
+                      {s.model_id === AUTHORED_REFERENCE ? ' · reference recording (not a live model)' : ''}
                     </dd>
                     <dt>Prompt version</dt>
                     <dd>{s.prompt_version ?? '—'}</dd>

@@ -20,6 +20,8 @@ type TabId = CaseTabId;
 const DEFAULT_TAB: TabId = 'decision';
 const parseTab = (v: string | null): TabId => (CASE_TABS.some((t) => t.id === v) ? (v as TabId) : DEFAULT_TAB);
 
+// A command blocked only because the case is at another step says nothing useful; real blocks (policy, roles) stay.
+const wrongStep = (b: { label: string; blocked_reason: string }, c: CaseView) => b.blocked_reason === `${b.label} is not available while the case is '${c.state_label}'.`;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -301,9 +303,12 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const recovery = recoveryActions(c);
   const synthetic = session.data?.environment === 'synthetic';
   const role = session.data ? viewForRole(session.data.active_role) : null;
-  const slot: CaseSlotProps = { caseId, c, role, sel, onSelectRecord: selectRecord };
+  // Mounted blocks and the Decision tab see the same pruned blocked list as the ActionBar.
+  const cv: CaseView = { ...c, blocked_actions: c.blocked_actions.filter((x) => !wrongStep(x, c)) };
+  const slot: CaseSlotProps = { caseId, c: cv, role, sel, onSelectRecord: selectRecord };
   const block = taskBlockFor(caseRegistry, c, role);
   const mounted = panelsFor(caseRegistry, tab);
+  const hidden = block?.hides?.(c) ?? [];
   const rail = caseRegistry.rail;
   return (
     <div className={styles.page} data-step={c.step} data-state={c.state}>
@@ -315,12 +320,12 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             Card ending {c.transaction.card_last4} · Posted {dateLabel(c.transaction.posted_at)} · {c.cardholder.name}
           </div>
           <div className={styles.chdW}>
-            {internalDenied ? null : (
+            {internalDenied || evidence.isPending ? null : (
               <button type="button" className={styles.linkb} onClick={() => setParams({ tab: 'trace', sel: null })}>
                 Workflow v{c.pins.workflow_version} · Run details
               </button>
             )}
-            {rail ? <rail.Toggle open={railOpen} onToggle={() => setRailOpen((o) => !o)} /> : null}
+            {rail ? <rail.Toggle role={role} open={railOpen} onToggle={() => setRailOpen((o) => !o)} /> : null}
           </div>
         </div>
         <dl className={styles.cstate} aria-label="Case status" style={{ margin: 0 }}>
@@ -376,7 +381,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               {formFor ? (
                 <CommandForm key={formFor.command} action={formFor} error={formError} busy={run.isPending} onSubmit={(p) => execute(formFor, p)} onCancel={() => setFormFor(null)} />
               ) : block?.ownsActions ? null : (
-                <ActionBar actions={c.available_actions} blocked={c.blocked_actions} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
+                <ActionBar actions={c.available_actions.filter((x) => !hidden.includes(x.command))} blocked={c.blocked_actions.filter((x) => !hidden.includes(x.command) && !wrongStep(x, c))} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
               )}
               {synthetic ? (
                 <details className={styles.demoD}>
@@ -401,6 +406,8 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           <Activity caseId={caseId} />
         </div>
         <div className={styles.colR}>
+          {/* Every tab reads internal data (evidence, messages, verification, runs); a server 403 drops the card. */}
+          {internalDenied || evidence.isPending ? null : (
           <section className={styles.card} aria-label="Case workspace">
             <div className={styles.tabs} role="tablist" aria-label="Case sections">
               {tabs.map((t) => (
@@ -417,7 +424,8 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                   <p className={styles.rd}>Not available yet.</p>
                 </div>
               ) : null}
-              {tab === 'decision' && !mounted.length ? <DecisionPanel c={c} /> : null}
+              {/* The policy block always shows; a mounted decision packet stacks below it. */}
+              {tab === 'decision' ? <DecisionPanel c={cv} /> : null}
               {tab === 'trace' ? <RunDetails c={c} ev={evidence.data} recovery={recovery} onRecovery={onAction} /> : null}
               {mounted.map((m) => (
                 <div key={m.key} data-testid={`tab-panel-${m.key}`}>
@@ -426,6 +434,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
               ))}
             </div>
           </section>
+          )}
         </div>
       </div>
       {rail ? <rail.Rail {...slot} open={railOpen} onClose={() => setRailOpen(false)} onNavigate={(t) => setParams({ tab: parseTab(t), sel: null })} /> : null}
