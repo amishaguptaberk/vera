@@ -110,6 +110,10 @@ def _merchant_id(name: str) -> str:
     return "mer-" + name.lower().replace(" ", "-")
 
 
+from vera_api.plugins import RESET_TABLES, register_reset_tables  # noqa: E402
+
+__all__ = ["register_reset_tables", "reset_database"]
+
 RUN_TABLES = (
     "jobs",
     "workflow_steps",
@@ -124,6 +128,8 @@ def reset_database(session: Session, clock: Clock, tz: str) -> None:
     session.execute(text(f"truncate table {', '.join(ALL_TABLES)} restart identity cascade"))
     # Investigation runs, the job queue and LangGraph checkpoints restart with the demo too.
     session.execute(text(f"truncate table {', '.join(RUN_TABLES)} restart identity cascade"))
+    if RESET_TABLES:  # feature tables registered through plugins.register_reset_tables
+        session.execute(text(f"truncate table {', '.join(RESET_TABLES)} restart identity cascade"))
     _seed(session, clock, tz)
     session.commit()
 

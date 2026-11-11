@@ -28,7 +28,7 @@ from vera_domain.progress import ProgressStep, progress_steps
 
 from vera_api import auth, investigation
 from vera_api import policy as policy_service
-from vera_api.gateway import facts_with_runs
+from vera_api.gateway import approval_binding, approval_state, facts_for
 from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
 
 
@@ -149,7 +149,7 @@ def _waiting_on(session: Session, case: Case, txn: CardTransaction) -> Person | 
 
 
 def _steps(session: Session, case: Case) -> list[ProgressStep]:
-    held_step = derive_step(facts_with_runs(session, case).model_copy(update={"hold": None}))[1]
+    held_step = derive_step(facts_for(session, case).model_copy(update={"hold": None}))[1]
     failed = bool(investigation.failed_steps(session, case.id))  # same source as recovery_actions
     return progress_steps(CaseStep(case.step), held_step=held_step, run_failed=failed)
 
@@ -219,6 +219,8 @@ def get_case_view(
             next_report_id=_next_report_id(session),
             policy_state=policy_service.current_state(session, case) if gated else None,
             key_context=policy_service.key_context(session, case),
+            approval=approval_state(session, case),
+            approval_binding=approval_binding(case),
         )
         if actor
         else ([], [])

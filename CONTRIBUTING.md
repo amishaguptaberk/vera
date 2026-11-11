@@ -1,5 +1,21 @@
 # Contributing
 
+## Parallel feature tickets
+
+Feature tickets build in parallel on top of migration `0009` and plug in through the seams in
+[docs/extension-seams.md](docs/extension-seams.md). Each ticket adds ONE migration file with its
+reserved number and `down_revision = "0009"`; the integrator re-chains them at merge.
+
+| Ticket | Revision | Ticket | Revision |
+|---|---|---|---|
+| VER-005 | `0010` | VER-010 | `0014` |
+| VER-006 | `0011` | VER-011 | `0015` |
+| VER-007 | `0012` | VER-014 | `0016` |
+| VER-009 | `0013` | | |
+
+The only shared file a feature ticket edits is `services/api/vera_api/plugins.py` (one line in
+`FEATURES`). On a feature branch `alembic heads` shows your revision only; never edit `0009`.
+
 ## Setup
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).

@@ -15,7 +15,7 @@ from vera_domain.errors import CommandError
 from vera_domain.exposure import MixedCurrencyError
 from vera_domain.models import ActionView, CaseView, Person, QueueRow, Summary
 
-from vera_api import auth, queries
+from vera_api import auth, plugins, queries
 from vera_api import evidence as evidence_api
 from vera_api.activity import require_staff
 from vera_api.activity import router as activity_router
@@ -305,6 +305,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.include_router(session_router)
     app.include_router(runs_router)
     app.include_router(evidence_api.router)
+    plugins.load_features()
+    for feature_router, synthetic_only in plugins.ROUTERS:
+        if settings.synthetic or not synthetic_only:
+            app.include_router(feature_router)
     if settings.synthetic:
         app.include_router(role_router)
         app.include_router(demo)
