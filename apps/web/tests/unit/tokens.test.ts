@@ -74,6 +74,34 @@ describe('tokens.css matches Handoff §9', () => {
     expect(token(name)).toBe(value);
   });
 
+  // Handoff §8.1 (sidebar widths), §9.4 (control sizes, selection bars, tabs, disabled), §8.2 (focus ring), §9.5 (spinner).
+  const shell: Record<string, string> = {
+    'sidebar-width': '220px',
+    'sidebar-width-max': '320px',
+    'sidebar-width-collapsed': '64px',
+    'sidebar-width-drawer': '248px',
+    'control-h-min': '36px',
+    'control-h-max': '40px',
+    'control-h-sm': '30px',
+    'control-h-ref': '26px',
+    'slot-size': '20px',
+    'selection-bar': '3px',
+    'nav-bar': '2px',
+    'tab-underline': '2px',
+    'focus-ring-width': '2px',
+    'focus-ring-color': 'var(--cobalt)',
+    'opacity-disabled': '0.45',
+    'spinner-duration': '1.1s',
+  };
+
+  it.each(Object.entries(shell))('shell token --%s is %s', (name, value) => {
+    expect(token(name)).toBe(value);
+  });
+
+  it('records the prototype-applied small button height separately from the Handoff value', () => {
+    expect(token('control-h-sm-proto')).toBe('34px');
+  });
+
   it('uses the monospace stack and Inter for the font families (§9.2)', () => {
     expect(token('font-sans')).toMatch(/^'inter'/);
     expect(token('font-mono')).toMatch(/^ui-monospace/);

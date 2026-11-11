@@ -11,7 +11,7 @@ const layer = (message, ...groups) => ({
 const noPrototype = ['**/prototype', '**/prototype/**'];
 // The whole API layer except the generated schema (types only).
 // (The bare barrel is its own group: a gitignore-style parent match would defeat the negation.)
-const apiBarrel = { regex: '(^|/)api$' };
+const apiBarrel = { regex: '(^|/)api/?$' };
 const apiRuntime = ['@/api/**', '!@/api/schema', '**/api/**', '!**/api/schema'];
 const state = ['@/state', '@/state/**', '**/state/**'];
 const features = ['@/features', '@/features/**', '**/features/**'];
@@ -20,6 +20,15 @@ const components = ['@/components', '@/components/**', '**/components/**'];
 const designSystem = ['@/design-system', '@/design-system/**', '**/design-system/**'];
 const lib = ['@/lib', '@/lib/**', '**/lib/**'];
 const api = ['@/api', '@/api/**', '**/api', '**/api/**'];
+
+// Dynamic import() bypasses no-restricted-imports, so the same layers are closed off with a syntax rule.
+// `names` are the layer directories a file must not reach; api/schema (types only) stays allowed.
+const noDynamicImport = (message, ...names) => {
+  const alt = names.map((n) => (n === 'api' ? 'api(\\/(?!schema$).*)?' : `${n}(\\/.*)?`)).join('|');
+  return {
+    'no-restricted-syntax': ['error', { selector: `ImportExpression[source.value=/(^|\\/)(${alt})$/]`, message }],
+  };
+};
 
 const config = [
   { ignores: ['.next/**', 'node_modules/**', 'prototype/**', 'test-results/**', 'next-env.d.ts'] },
@@ -65,6 +74,18 @@ const config = [
   {
     files: ['src/state/**/*.{ts,tsx}'],
     rules: layer('state must not import components, features or app.', noPrototype, components, features, app),
+  },
+  {
+    files: ['src/components/**/*.{ts,tsx}'],
+    rules: noDynamicImport('components must not dynamic-import api, state, features or app (architecture §3).', 'api', 'state', 'features', 'app'),
+  },
+  {
+    files: ['src/app/**/*.{ts,tsx}'],
+    rules: noDynamicImport('app must not dynamic-import api, state, components or lib (architecture §3).', 'api', 'state', 'components', 'lib'),
+  },
+  {
+    files: ['src/lib/**/*.{ts,tsx}'],
+    rules: noDynamicImport('lib must not dynamic-import api, components, features, state or app (architecture §3).', 'api', 'components', 'features', 'state', 'app'),
   },
 ];
 
