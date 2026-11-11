@@ -2,8 +2,9 @@ import { defineConfig } from '@playwright/test';
 import path from 'node:path';
 import { launchOptions } from './browser';
 
-export const APP_PORT = 3100;
-export const PROTOTYPE_PORT = 3101;
+/** Ports are configurable so several checkouts can run parity side by side. */
+export const APP_PORT = Number(process.env.VERA_APP_PORT ?? 3100);
+export const PROTOTYPE_PORT = Number(process.env.VERA_PROTOTYPE_PORT ?? 3101);
 
 const webRoot = path.resolve(__dirname, '../..');
 const prototypeDir = path.join(webRoot, 'prototype');
@@ -29,6 +30,7 @@ export default defineConfig({
       command: `python3 -m http.server ${PROTOTYPE_PORT} --bind 127.0.0.1 --directory ${prototypeDir}`,
       url: `http://127.0.0.1:${PROTOTYPE_PORT}/Main.dc.html`,
       stdout: 'ignore',
+      stderr: 'ignore',
       reuseExistingServer: false,
       timeout: 30_000,
     },

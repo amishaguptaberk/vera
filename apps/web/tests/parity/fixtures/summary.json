@@ -1,0 +1,44 @@
+{
+    "gross_exposure": {
+        "amount_cents": 1122000,
+        "currency": "USD",
+        "count": 6,
+        "basis": "verified",
+        "definition": "Sum of posted charge amounts for cases that are not closed."
+    },
+    "net_exposure": {
+        "amount_cents": 1122000,
+        "currency": "USD",
+        "count": 6,
+        "basis": "verified",
+        "definition": "Gross exposure minus confirmed recoveries only; temporary credit and estimates are not deducted."
+    },
+    "confirmed_recoveries": {
+        "amount_cents": 0,
+        "currency": "USD",
+        "count": 0,
+        "basis": "verified",
+        "definition": "Finalized credits on cases that are not closed."
+    },
+    "temporary_credit": {
+        "amount_cents": 396000,
+        "currency": "USD",
+        "count": 1,
+        "basis": "pending",
+        "definition": "Provisional credit issued and not yet finalized or reversed; never deducted from net exposure."
+    },
+    "due_today": {
+        "amount_cents": 566000,
+        "currency": "USD",
+        "count": 3,
+        "basis": "verified",
+        "definition": "Gross posted amounts of open cases due later today."
+    },
+    "overdue": {
+        "amount_cents": 118000,
+        "currency": "USD",
+        "count": 1,
+        "basis": "verified",
+        "definition": "Gross posted amounts of open cases past their due time."
+    }
+}

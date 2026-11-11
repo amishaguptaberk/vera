@@ -1,9 +1,10 @@
 """Decision packet, decision, reviewer approval (bound to snapshot/policy/workflow) and Ask Vera."""
 
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -14,11 +15,10 @@ from vera_domain.enums import EventType
 from vera_domain.errors import CommandError
 from vera_domain.specialists import ExecutionMode, StepStatus
 
-from vera_api import evidence, gateway, plugins
-from vera_api import investigation as inv
+from vera_api import auth, evidence, gateway, plugins
 from vera_api import policy as policy_service
 from vera_api.auth import Actor
-from vera_api.evidence import DbSession, ReaderDep
+from vera_api.config import Settings
 from vera_api.gateway import EffectContext
 from vera_api.model_client import PROBE_TOOL, default_mode
 from vera_api.models import Case, IdempotencyKey, User
@@ -32,6 +32,30 @@ from vera_api.models_decisions import (
 from vera_api.models_runs import WorkflowStep
 from vera_api.runner import SpecialistRunner, create_run
 from vera_api.worker import Touch, enqueue, register
+
+
+# vera_api.investigation and vera_api.evidence both import the gateway, which loads this feature:
+# import investigation on use and define the route dependencies here to avoid a circular import.
+def _inv():  # type: ignore[no-untyped-def]
+    from vera_api import investigation
+
+    return investigation
+
+
+def _session(request: Request) -> Iterator[Session]:
+    with request.app.state.session_factory() as session:
+        yield session
+
+
+def _actor(request: Request, session: Annotated[Session, Depends(_session)]) -> Actor:
+    settings: Settings = request.app.state.settings
+    return auth.load_actor(
+        session, settings.secret(), request.cookies.get(auth.COOKIE), settings.synthetic
+    )
+
+
+DbSession = Annotated[Session, Depends(_session)]
+ReaderDep = Annotated[Actor, Depends(_actor)]
 
 DEFAULT_REVIEWER = "usr-dana-okafor"
 JOB_KIND = "decision_packet_preparer"
@@ -277,7 +301,7 @@ def _complete_packet(
 
 
 def packet_input(session: Session, case_id: str) -> tuple[d.PacketInput, frozenset[str]]:
-    register_ = inv._register(session, case_id)
+    register_ = _inv()._register(session, case_id)
     ev = evidence.get_evidence_summary(session, case_id)
     view = policy_service.latest_view(session, case_id)
     inputs = d.PacketInput(
@@ -311,23 +335,23 @@ def run_packet_job(session: Session, payload: dict[str, Any], touch: Touch) -> N
         s.rollback()
 
         def apply(output: Any) -> None:
-            inv._execute_retrying(
+            _inv()._execute_retrying(
                 factory,
                 case_id,
                 "complete_decision_packet",
                 f"packet-done:{case_id}:{version}",
                 {"packet_version": version, "run_id": run_id},
-                inv.SYSTEM,
+                _inv().SYSTEM,
             )
 
-        runner = SpecialistRunner(inv.client_for, inv._reader(s, case_id), inv._clock())
+        runner = SpecialistRunner(_inv().client_for, _inv()._reader(s, case_id), _inv()._clock())
         outcome = runner.run_step(
             s, run_id, d.PREPARER, d.build_packet_spec(record_ids), inputs, mode, apply, touch
         )
     if outcome.status != StepStatus.SUCCEEDED.value:
         # Explicit failure: the packet stays `draft` (step `packet`) until an analyst retries.
         reason = outcome.failure_reason or "failed"
-        inv._emit_once(
+        _inv()._emit_once(
             factory,
             case_id,
             EventType.SPECIALIST_FAILED,
@@ -337,7 +361,7 @@ def run_packet_job(session: Session, payload: dict[str, Any], touch: Touch) -> N
             {"reason": reason, "attempt": outcome.attempts, "mode": mode.value},
         )
         return
-    inv._finish(factory, run_id, "succeeded")
+    _inv()._finish(factory, run_id, "succeeded")
 
 
 def dump_request(session: Session, case_id: str, root: Any) -> Any:

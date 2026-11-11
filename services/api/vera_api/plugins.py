@@ -15,6 +15,7 @@ FEATURES: list[str] = [
     "vera_api.identity",
     "vera_api.callbacks",
     "vera_api.decisions",
+    "vera_api.money",
     "vera_api.automations",
 ]
 

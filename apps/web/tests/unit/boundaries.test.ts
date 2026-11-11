@@ -10,6 +10,12 @@ async function lint(filePath: string, code: string) {
   return result.messages.filter((m) => m.ruleId === 'no-restricted-imports');
 }
 
+async function lintSyntax(filePath: string, code: string) {
+  const eslint = new ESLint({ cwd: root });
+  const [result] = await eslint.lintText(code, { filePath: path.join(root, filePath) });
+  return result.messages.filter((m) => m.ruleId === 'no-restricted-syntax');
+}
+
 describe('import boundaries', () => {
   it('rejects a presentation component importing the API client', async () => {
     const msgs = await lint('src/components/shell/Bad.tsx', "import { get } from '@/api/client';\nexport const x = get;\n");
@@ -72,5 +78,33 @@ describe('import boundaries', () => {
     for (const mod of ['@/components/X', '@/features/X', '@/app/x']) {
       expect(await lint('src/state/ui-store.ts', `import { a } from '${mod}';\nexport const x = a;\n`)).toHaveLength(1);
     }
+  });
+
+  it('rejects a trailing-slash API barrel import (api/)', async () => {
+    expect(await lint('src/components/A.tsx', "import { a } from '@/api/';\nexport const x = a;\n")).toHaveLength(1);
+    expect(await lint('src/components/shell/A.tsx', "import { a } from '../../api/';\nexport const x = a;\n")).toHaveLength(1);
+    expect(await lint('src/app/x/page.tsx', "import { a } from '@/api/';\nexport const x = a;\n")).toHaveLength(1);
+    expect(await lint('src/lib/format.ts', "import { a } from '@/api/';\nexport const x = a;\n")).toHaveLength(1);
+  });
+
+  it('rejects dynamic import() of a forbidden layer in components, app and lib', async () => {
+    const dyn = (mod: string) => `export const load = () => import('${mod}');\n`;
+    expect(await lintSyntax('src/components/A.tsx', dyn('@/api/client'))).toHaveLength(1);
+    expect(await lintSyntax('src/components/A.tsx', dyn('@/api'))).toHaveLength(1);
+    expect(await lintSyntax('src/components/A.tsx', dyn('@/api/'))).toHaveLength(1);
+    expect(await lintSyntax('src/components/A.tsx', dyn('../../api/client'))).toHaveLength(1);
+    expect(await lintSyntax('src/components/A.tsx', dyn('@/state/ui-store'))).toHaveLength(1);
+    expect(await lintSyntax('src/app/x/page.tsx', dyn('@/api/hooks'))).toHaveLength(1);
+    expect(await lintSyntax('src/app/x/page.tsx', dyn('@/state'))).toHaveLength(1);
+    expect(await lintSyntax('src/lib/format.ts', dyn('@/api/client'))).toHaveLength(1);
+    expect(await lintSyntax('src/lib/format.ts', dyn('@/components/X'))).toHaveLength(1);
+  });
+
+  it('allows dynamic import() of permitted modules', async () => {
+    const dyn = (mod: string) => `export const load = () => import('${mod}');\n`;
+    expect(await lintSyntax('src/components/A.tsx', dyn('@/design-system/primitives'))).toHaveLength(0);
+    expect(await lintSyntax('src/components/A.tsx', dyn('@/api/schema'))).toHaveLength(0);
+    expect(await lintSyntax('src/app/x/page.tsx', dyn('@/features/shell'))).toHaveLength(0);
+    expect(await lintSyntax('src/features/Ok.tsx', dyn('@/api/client'))).toHaveLength(0);
   });
 });

@@ -1,0 +1,11 @@
+/* Prototype cardholder column (.ctask) and reviewer page head. */
+.ctask { max-width: 640px; margin: 0 auto; padding: 32px 20px 64px; display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; }
+.card b { display: block; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.card p { margin: 6px 0 0; font-size: 13px; color: var(--mute); }
+.head { padding: 20px 24px 0; }
+.head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
+.head p { margin: 4px 0 0; font-size: 13px; color: var(--mute); }
+.pick { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 24px 0; }
+.pick a { font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink2); text-decoration: none; background: var(--card); }
+.pick a[aria-current='true'] { color: var(--ink); border-color: var(--ink); }

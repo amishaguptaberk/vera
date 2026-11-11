@@ -1,0 +1,32 @@
+/* No prototype reference. Built from tokens (Handoff §9.1, §9.4): panel with a 3px tone bar, finance-official copy. */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: var(--selection-bar) solid var(--mute);
+  border-radius: var(--radius-input);
+  font-size: 13px;
+  color: var(--ink);
+}
+.info {
+  border-left-color: var(--cobalt);
+}
+.warn {
+  border-left-color: var(--warn-icon);
+}
+.bad {
+  border-left-color: var(--bad);
+}
+.ok {
+  border-left-color: var(--ok);
+}
+.text {
+  flex: 1;
+  min-width: 0;
+}
+.title {
+  font-weight: 560;
+}
