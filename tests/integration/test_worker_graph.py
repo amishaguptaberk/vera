@@ -1,5 +1,5 @@
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from vera_api.graph import TEST_WORKFLOW, build_graph, postgres_checkpointer, run_graph
 from vera_api.model_client import ModelResult
 from vera_api.runner import SpecialistRunner, create_run
-from vera_api.worker import claim_next, enqueue, run_once
+from vera_api.worker import claim_next, enqueue, run_once, touch
 from vera_domain.clock import FixedClock
 from vera_domain.specialists import ExecutionMode, Finding, SpecialistSpec
 
@@ -71,7 +71,7 @@ def test_skip_locked_lets_two_workers_take_different_jobs(factory: sessionmaker[
 def test_failed_handler_requeues_then_succeeds(factory: sessionmaker[Session]) -> None:
     calls: list[int] = []
 
-    def flaky(session: Session, payload: dict[str, Any]) -> None:
+    def flaky(session: Session, payload: dict[str, Any], touch: Callable[[], bool]) -> None:
         calls.append(1)
         if len(calls) == 1:
             raise RuntimeError("boom")
@@ -148,7 +148,7 @@ def test_worker_crash_resumes_from_checkpoint_without_duplicates(
         with factory() as own:  # parallel nodes must not share a session
             runner.run_step(own, run_id, key, SPEC, {"case_id": CASE}, ExecutionMode.REPLAY)
 
-    def handler(session: Session, payload: dict[str, Any]) -> None:
+    def handler(session: Session, payload: dict[str, Any], touch: Callable[[], bool]) -> None:
         with postgres_checkpointer(db_url) as saver:
             run_graph(build_graph(TEST_WORKFLOW, node, saver), payload["run_id"])
 
@@ -182,3 +182,38 @@ def test_worker_crash_resumes_from_checkpoint_without_duplicates(
         done = s.execute(text("select count(*) from audit_events where type='run.step_succeeded'"))
         assert done.scalar_one() == 3
         assert s.execute(text("select status from jobs")).scalar_one() == "done"
+
+
+def test_touched_job_is_not_reclaimed_after_the_visibility_timeout(
+    factory: sessionmaker[Session],
+) -> None:
+    with factory() as s:
+        jid = enqueue(s, "noop", {}, now=T0)
+        s.commit()
+        assert claim_next(s, "worker-a", T0) is not None
+        assert touch(s.get_bind(), jid, "worker-b", T0 + timedelta(minutes=4)) is False
+        assert touch(s.get_bind(), jid, "worker-a", T0 + timedelta(minutes=4)) is True
+    with factory() as s2:
+        assert claim_next(s2, "worker-b", T0 + timedelta(minutes=6)) is None  # heartbeat held it
+        again = claim_next(s2, "worker-b", T0 + timedelta(minutes=10))
+        assert again is not None and again.locked_by == "worker-b"
+
+
+def test_run_once_hands_the_handler_a_heartbeat_for_its_job(
+    factory: sessionmaker[Session], db_url: str
+) -> None:
+    seen: list[Any] = []
+    later = T0 + timedelta(minutes=4)
+
+    def slow(session: Session, payload: dict[str, Any], touch: Callable[[], bool]) -> None:
+        assert touch() is True
+        engine = create_engine(db_url)  # another worker's view, outside this transaction
+        with engine.connect() as conn:
+            seen.append(conn.execute(text("select locked_at from jobs")).scalar_one())
+        engine.dispose()
+
+    with factory() as s:
+        enqueue(s, "slow", {}, now=T0)
+        s.commit()
+        run_once(s, worker_id="w", now=T0, handlers={"slow": slow}, clock=lambda: later)
+    assert seen == [later]

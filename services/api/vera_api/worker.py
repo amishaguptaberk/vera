@@ -12,14 +12,15 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import Connection, Engine, or_, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from vera_api.config import Settings
 from vera_api.db import make_engine
 from vera_api.models_runs import Job
 
-Handler = Callable[[Session, dict[str, Any]], None]
+Touch = Callable[[], bool]  # heartbeat: refresh this job's lock; False if no longer ours
+Handler = Callable[[Session, dict[str, Any], Touch], None]
 HANDLERS: dict[str, Handler] = {}
 
 VISIBILITY_TIMEOUT = timedelta(minutes=5)
@@ -81,6 +82,18 @@ def claim_next(
     return job
 
 
+def touch(bind: Engine | Connection, job_id: int, worker_id: str, now: datetime) -> bool:
+    """Heartbeat in its own transaction: keep a slow job from being reclaimed as dead."""
+    engine = bind.engine
+    with engine.begin() as conn:
+        res = conn.execute(
+            update(Job)
+            .where(Job.id == job_id, Job.locked_by == worker_id, Job.status == "running")
+            .values(locked_at=now)
+        )
+    return res.rowcount == 1
+
+
 def run_once(
     session: Session,
     *,
@@ -88,6 +101,7 @@ def run_once(
     now: datetime | None = None,
     handlers: dict[str, Handler] | None = None,
     visibility_timeout: timedelta = VISIBILITY_TIMEOUT,
+    clock: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> int | None:
     """Claim and run one job; returns its id, or None when nothing is runnable."""
     now = now or datetime.now(UTC)
@@ -98,7 +112,9 @@ def run_once(
     job_id, kind, payload, attempts = job.id, job.kind, dict(job.payload), job.attempts
     try:
         handler = handlers[kind]
-        handler(session, payload)
+        bind = session.get_bind()
+        assert isinstance(bind, Engine | Connection)
+        handler(session, payload, lambda: touch(bind, job_id, worker_id, clock()))
     except Exception as exc:  # the job is retried or failed; never swallowed silently
         session.rollback()
         job = session.get(Job, job_id)

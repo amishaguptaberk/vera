@@ -1,8 +1,10 @@
+import pytest
 from vera_domain.specialists import (
     ExecutionMode,
     FailureReason,
     Finding,
     StepStatus,
+    _same,
     validate_grounding,
 )
 
@@ -54,3 +56,30 @@ def read_field_lenient(record_id: str, field: str) -> tuple[object, int]:
 def test_numeric_equivalence_is_not_string_sensitive() -> None:
     f = Finding(record_id="CHG-1042", version=3, field="amount", value="2480.00")
     assert validate_grounding([f], read_field) == []
+
+
+@pytest.mark.parametrize(
+    ("source", "cited"),
+    [
+        ("28,40", 2840),
+        ("1,2", "12"),
+        ("0042", "42"),
+        (True, 1),
+        ("1e3", "1000"),
+        ("2840", "28.40"),
+        (284000, "2840.00"),
+        ("USD 2840", "EUR 2840"),
+    ],
+)
+def test_wrong_values_are_not_grounded(source: object, cited: object) -> None:
+    assert not _same(source, cited)
+    assert not _same(cited, source)
+
+
+@pytest.mark.parametrize(
+    ("source", "cited"),
+    [("2,840.00", "2840.00"), (2840, "2840.00"), (2840.0, 2840)],
+)
+def test_equal_numbers_in_different_notation_are_grounded(source: object, cited: object) -> None:
+    assert _same(source, cited)
+    assert _same(cited, source)

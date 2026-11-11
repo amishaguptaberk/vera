@@ -10,6 +10,7 @@ from vera_api.model_client import (
     ModelError,
     ModelResult,
     RecordedModelClient,
+    default_mode,
     probe_model,
     record,
 )
@@ -216,3 +217,24 @@ def test_probe_reports_json_and_tool_support() -> None:
 
     weak = probe_model(live(lambda r: httpx.Response(200, json=chat("plain words"))))
     assert not weak.json_mode and not weak.tool_calls and not weak.ok and weak.errors
+
+
+def test_default_mode_never_silently_defaults_to_replay_outside_tests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("VERA_EXECUTION_MODE", raising=False)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("VERA_ENV", "synthetic")
+    with pytest.raises(RuntimeError, match="VERA_EXECUTION_MODE"):
+        default_mode()
+    monkeypatch.setenv("VERA_EXECUTION_MODE", "live")
+    assert default_mode() is ExecutionMode.LIVE
+    monkeypatch.delenv("VERA_EXECUTION_MODE")
+    monkeypatch.setenv("VERA_ENV", "test")
+    assert default_mode() is ExecutionMode.REPLAY
+
+
+def test_default_mode_is_replay_under_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("VERA_EXECUTION_MODE", raising=False)
+    monkeypatch.delenv("VERA_ENV", raising=False)
+    assert default_mode() is ExecutionMode.REPLAY
