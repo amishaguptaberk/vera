@@ -23,6 +23,8 @@ from vera_domain.labels import register_event_summaries
 MAX_ATTEMPTS = 3
 RESEND_COOLDOWN_SECONDS = 60
 EXPIRES_AFTER_SECONDS = 600
+MAX_SENDS = 3  # first send + 2 resends per verification request
+SEND_LIMIT_REASON = "No resends remain on this request. Cancel it and send a new one."
 
 IdentityStatus = Literal["requested", "verified", "failed", "expired", "declined", "cancelled"]
 

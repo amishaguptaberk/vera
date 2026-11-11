@@ -25,7 +25,7 @@ from vera_domain.clock import Clock
 from vera_domain.enums import Role
 from vera_domain.errors import CommandError
 
-from vera_api import adapters, gateway, plugins
+from vera_api import adapters, gateway, plugins, worker
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
 from vera_api.evidence import DbSession, ReaderDep
@@ -64,18 +64,26 @@ SIMULATED = SimulatedVerification()
 
 
 def _adapter() -> SimulatedVerification:
-    # Registered on first use (not at import) so the framework's "no adapter at import" holds.
+    # Registered on first use (not at import) while main's seam test forbids import-time adapters.
     if ADAPTER not in adapters.ADAPTERS:
         adapters.register_adapter(ADAPTER, SIMULATED)
     adapter = adapters.ADAPTERS[ADAPTER]
-    assert isinstance(adapter, SimulatedVerification)
+    if not isinstance(adapter, SimulatedVerification):
+        raise CommandError(
+            "verification_unavailable", 503, f"Adapter '{ADAPTER}' is registered by another module."
+        )
     return adapter
+
+
+def _synthetic() -> bool:
+    """Process environment (VERA_ENV), the same source as the server secret."""
+    return Settings().synthetic
 
 
 def _secret() -> bytes:
     try:
         return Settings().secret().encode()
-    except RuntimeError:  # pragma: no cover - production requires VERA_SESSION_SECRET
+    except RuntimeError:  # production requires VERA_SESSION_SECRET
         raise CommandError(
             "verification_unavailable", 503, "Server secret is not configured."
         ) from None
@@ -179,6 +187,8 @@ def _deliver(session: Session, case: Case, row: IdentityVerification, now: datet
         row.code_salt = secrets.token_hex(16)
         row.code_hash = hash_code(row.code_salt, code)
     session.flush()
+    if not _synthetic():  # D8: outside the synthetic demo the cleartext code is never stored
+        return
     session.add(
         VerificationOutbox(verification_id=row.id, channel=row.channel, code=code, created_at=now)
     )
@@ -223,6 +233,8 @@ def _resend(
 ) -> dict[str, Any]:
     row = _own(session, case, p.verification_id)
     _active(row)
+    if row.sends >= dom.MAX_SENDS:
+        raise CommandError("send_limit_reached", 409, dom.SEND_LIMIT_REASON)
     ready_at = row.last_sent_at + timedelta(seconds=dom.RESEND_COOLDOWN_SECONDS)
     if now < ready_at:
         raise CommandError("resend_cooldown", 429, "Wait a moment before resending.")
@@ -375,6 +387,8 @@ plugins.register_reset_tables(
     ["verification_outbox", "verification_attempts", "identity_verifications"]
 )
 
+EXPIRER_JOB = "verification_expirer"
+
 SYSTEM = Actor(
     "svc-verification-expirer", "Verification expirer", Role.SYSTEM, frozenset({Role.SYSTEM})
 )
@@ -403,8 +417,20 @@ def expire(session: Session, verification_id: str, now: datetime, request_id: st
     )
 
 
+@worker.register(EXPIRER_JOB)
+def _expirer_job(session: Session, payload: dict[str, Any], touch: worker.Touch) -> None:
+    """Job payload: {"verification_id", "now"} (demo-clock ISO time). Idempotent by expire key."""
+    row = session.get(IdentityVerification, payload["verification_id"])
+    if row is None or row.status != "requested":
+        return
+    now = datetime.fromisoformat(payload["now"])
+    if now >= row.expires_at:
+        with Session(session.get_bind()) as own:  # the gateway owns its transaction
+            expire(own, row.id, now, f"expirer:{row.id}")
+
+
 def verification_expirer(factory: sessionmaker[Session], now: datetime) -> list[str]:
-    """Worker job: expire every requested verification past its demo-clock deadline."""
+    """Sweep: enqueue a verification_expirer job for every request past its demo-clock deadline."""
     with factory() as s:
         due = list(
             s.scalars(
@@ -414,9 +440,11 @@ def verification_expirer(factory: sessionmaker[Session], now: datetime) -> list[
                 )
             )
         )
-    for vid in due:
-        with factory() as s:
-            expire(s, vid, now, f"expirer:{vid}")
+        for vid in due:
+            worker.enqueue(
+                s, EXPIRER_JOB, {"verification_id": vid, "now": now.isoformat()}, now=now
+            )
+        s.commit()
     return due
 
 
@@ -572,8 +600,13 @@ def answer(
 
 
 @synthetic_router.get("/verifications/{verification_id}/outbox")
-def outbox(verification_id: str, session: DbSession, actor: ReaderDep) -> OutboxView:
+def outbox(
+    verification_id: str, request: Request, session: DbSession, actor: ReaderDep
+) -> OutboxView:
     row = _cardholder_case(session, actor, verification_id)
+    clock: Clock = request.app.state.clock
+    if row.status == "requested" and clock.now() >= row.expires_at:
+        raise CommandError("verification_expired", 410, "The verification request has expired.")
     box = session.scalars(
         select(VerificationOutbox).where(VerificationOutbox.verification_id == row.id)
     ).first()
@@ -595,8 +628,12 @@ class ExpireOut(BaseModel):
 
 
 @synthetic_router.post("/demo/verifications/{verification_id}/expire")
-def demo_expire(verification_id: str, request: Request, session: DbSession) -> ExpireOut:
-    """Synthetic demo trigger: run the expirer for one request now (system principal)."""
+def demo_expire(
+    verification_id: str, request: Request, session: DbSession, actor: ReaderDep
+) -> ExpireOut:
+    """Synthetic demo trigger: run the verification_expirer job for one request now."""
+    if actor.active_role not in STAFF_ROLES:
+        _cardholder_case(session, actor, verification_id)  # only the owning cardholder
     clock: Clock = request.app.state.clock
     out = expire(session, verification_id, clock.now(), uuid.uuid4().hex)
     return ExpireOut(status=out.status, result=out.result, event_ids=out.event_ids)

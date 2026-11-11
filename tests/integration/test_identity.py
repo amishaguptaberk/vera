@@ -2,6 +2,8 @@
 
 import logging
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -11,9 +13,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from vera_api import adapters, gateway
+from vera_api import identity as identity_mod
+from vera_api.auth import Actor
 from vera_api.identity import ADAPTER, identity_verified
 from vera_api.models import Case
+from vera_api.worker import run_once
+from vera_domain.clock import default_demo_clock
 from vera_domain.enums import Role
+from vera_domain.errors import CommandError
 
 CASE = "CHG-1042"
 
@@ -292,3 +299,185 @@ def test_cancel_returns_to_identity_check_and_other_cardholder_paths_are_closed(
 def view_version(client: TestClient) -> int:
     switch(client, Role.ANALYST)
     return int(view(client)["case_version"])
+
+
+# --- repair: D8 outside synthetic, outbox expiry, demo route auth, limits, races ---
+
+ANALYST_ACTOR = Actor("usr-sam-rivera", "Sam Rivera", Role.ANALYST, frozenset({Role.ANALYST}))
+
+
+def gw(s: Session, command_: str, key: str, payload: dict[str, Any]) -> gateway.Outcome:
+    case = s.get(Case, CASE)
+    assert case is not None
+    s.refresh(case)
+    version = case.case_version
+    s.rollback()
+    return gateway.execute_command(
+        s,
+        now=default_demo_clock().now(),
+        case_id=CASE,
+        command=command_,
+        key=key,
+        expected_version=version,
+        payload=payload,
+        actor=ANALYST_ACTOR,
+        request_id="t",
+    )
+
+
+def test_outside_synthetic_the_code_is_not_stored_anywhere(
+    client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    to_idv(client)
+    monkeypatch.setenv("VERA_ENV", "production")
+    monkeypatch.setenv("VERA_SESSION_SECRET", "s" * 40)
+    seen: list[str] = []
+    real = identity_mod.SIMULATED.take_code
+
+    def spy(ref: str) -> str | None:
+        code = real(ref)
+        seen.append(code or "")
+        return code
+
+    monkeypatch.setattr(identity_mod.SIMULATED, "take_code", spy)
+    with factory() as s:
+        out = gw(s, "send_verification_request", f"idv:{CASE}:2", {"channel": "otp"})
+    assert out.status == "recorded" and len(seen) == 1 and len(seen[0]) == 6
+    assert q(factory, "select count(*) from verification_outbox")[0][0] == 0
+    blob = "\n".join(
+        str(q(factory, f"select t::text from {t} t"))
+        for t in (
+            "audit_events",
+            "adapter_executions",
+            "idempotency_keys",
+            "identity_verifications",
+            "verification_attempts",
+            "verification_outbox",
+        )
+    )
+    assert seen[0] not in blob
+
+
+def test_outside_synthetic_without_a_secret_send_is_a_typed_503(
+    client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    to_idv(client)
+    monkeypatch.setenv("VERA_ENV", "production")
+    monkeypatch.delenv("VERA_SESSION_SECRET", raising=False)
+    with factory() as s, pytest.raises(CommandError) as err:
+        gw(s, "send_verification_request", f"idv:{CASE}:2", {"channel": "otp"})
+    assert (err.value.code, err.value.http_status) == ("verification_unavailable", 503)
+    assert q(factory, "select count(*) from identity_verifications")[0][0] == 0
+
+
+def test_adapter_name_collision_is_a_typed_503(
+    client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    to_idv(client)
+    monkeypatch.setitem(adapters.ADAPTERS, ADAPTER, object())
+    with factory() as s, pytest.raises(CommandError) as err:
+        gw(s, "send_verification_request", f"idv:{CASE}:2", {"channel": "otp"})
+    assert (err.value.code, err.value.http_status) == ("verification_unavailable", 503)
+
+
+def test_outbox_refuses_after_expiry_before_the_expirer_runs(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_idv(client)
+    vid = send(client)
+    with factory() as s:
+        s.execute(
+            text("update identity_verifications set expires_at = sent_at - interval '1 second'")
+        )
+        s.commit()
+    switch(client, Role.CARDHOLDER)
+    r = client.get(f"/api/verifications/{vid}/outbox")
+    assert r.status_code == 410 and r.json()["code"] == "verification_expired"
+
+
+def test_expirer_job_expires_due_requests_once(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_idv(client)
+    vid = send(client)
+    later = default_demo_clock().now() + timedelta(hours=1)
+    assert identity_mod.verification_expirer(factory, later) == [vid]
+    with factory() as s:
+        while run_once(s, worker_id="w-test", now=datetime(2031, 1, 1, tzinfo=UTC)) is not None:
+            pass
+    rows = q(factory, "select status from identity_verifications")
+    assert rows == [("expired",)]
+    assert q(factory, "select count(*) from audit_events where type='verification.expired'") == [
+        (1,)
+    ]
+
+
+def test_demo_expire_requires_staff_or_the_owning_cardholder(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_idv(client)
+    vid = send(client)
+    switch(client, Role.CARDHOLDER)
+    missing = client.post("/api/demo/verifications/IDV-NOPE/expire")
+    assert missing.status_code == 404 and missing.json()["code"] == "verification_not_found"
+    assert client.post(f"/api/demo/verifications/{vid}/expire").status_code == 200
+
+
+def test_resends_are_capped_with_a_typed_reason(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_idv(client)
+    vid = send(client)
+    with factory() as s:
+        s.execute(text("update identity_verifications set sends = 3"))
+        s.commit()
+    r = command(
+        client, "resend_verification_request", f"idv-resend:{vid}:4", {"verification_id": vid}
+    )
+    assert r.status_code == 409 and r.json()["code"] == "send_limit_reached", r.text
+
+
+def test_parallel_wrong_submits_never_exceed_three_counted_attempts(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_idv(client)
+    vid = send(client)
+    code = outbox(client, vid)["code"]
+    version = view_version(client)
+    switch(client, Role.CARDHOLDER)
+
+    def go(n: int) -> int:
+        return client.post(
+            f"/api/verifications/{vid}/submit_otp",
+            json={
+                "idempotency_key": f"otp:{vid}:{n}",
+                "expected_case_version": version,
+                "code": wrong(code),
+            },
+        ).status_code
+
+    with ThreadPoolExecutor(5) as pool:
+        list(pool.map(go, range(1, 6)))
+    for n in range(1, 6):  # then keep trying sequentially with fresh versions
+        submit(client, vid, wrong(code), n)
+    attempts = q(factory, "select attempts from identity_verifications")[0][0]
+    counted = q(factory, "select count(*) from verification_attempts")[0][0]
+    assert attempts == counted == 3
+
+
+def test_push_double_answer_is_idempotent(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    to_idv(client)
+    vid = send(client, "push")
+    ver = view_version(client)
+    switch(client, Role.CARDHOLDER)
+    body = {"idempotency_key": f"push:{vid}", "expected_case_version": ver, "approve": True}
+    one = client.post(f"/api/verifications/{vid}/answer", json=body)
+    two = client.post(f"/api/verifications/{vid}/answer", json=body)
+    assert (one.status_code, two.status_code) == (200, 200)
+    assert two.json()["status"] == "replayed" and two.json()["result"] == one.json()["result"]
+    assert q(factory, "select count(*) from verification_attempts")[0][0] == 1
+    flip = client.post(f"/api/verifications/{vid}/answer", json={**body, "approve": False})
+    assert flip.status_code == 409  # same key, different answer: key conflict, nothing changes
+    assert q(factory, "select status from identity_verifications") == [("verified",)]
