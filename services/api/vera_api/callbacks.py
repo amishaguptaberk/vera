@@ -7,6 +7,7 @@ Controller reads it.
 """
 
 import json
+import re
 from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
@@ -43,13 +44,13 @@ from vera_domain.callbacks import (
     reduce_start,
 )
 from vera_domain.commands import CommandSpec
-from vera_domain.enums import Role, register_event_types
+from vera_domain.enums import EventType, Role, register_event_types
 from vera_domain.errors import CommandError
-from vera_domain.evidence import content_hash
+from vera_domain.evidence import RecordClaimPayload, content_hash
 from vera_domain.labels import register_event_summaries
 from vera_domain.specialists import ExecutionMode, StepStatus
 
-from vera_api import adapters, auth, gateway, investigation, plugins
+from vera_api import adapters, auth, evidence, gateway, investigation, plugins
 from vera_api import policy as policy_service
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
@@ -275,7 +276,35 @@ def _note_effect(
     note = CallbackNote(callback_id=row.id, author=actor.user_id, text=p.text, created_at=now)
     session.add(note)
     session.flush()
-    return {"note_id": note.id}
+    claim_id = None
+    if PHONE.search(p.text) and ctx.first_report is not None:
+        # A number typed into a note is a claim, never a call target (target = PRF-4418.phone).
+        claim_id = f"CLM-{row.id}-N{note.id}"
+        claim = RecordClaimPayload(
+            claim_id=claim_id,
+            report_id=ctx.first_report.id,
+            statement=f"Phone number stated in a call note: {p.text}"[:500],
+        )
+        evidence.run_effect(
+            session,
+            case,
+            "record_claim",
+            claim,
+            now=now,
+            actor_id=actor.user_id,
+            actor_role=actor.active_role,
+        )
+        _emit(
+            session,
+            EventType.CLAIM_RECORDED,
+            case,
+            actor.user_id,
+            actor.active_role,
+            now,
+            [claim_id],
+            f"Claim {claim_id} recorded (phone number in a call note)",
+        )
+    return {"note_id": note.id, "claim_id": claim_id}
 
 
 _A = frozenset({Role.ANALYST})
@@ -333,6 +362,7 @@ plugins.register_reset_tables(["callback_notes", "callback_transcript_lines", "c
 # ---- the call: telephony (cardholder side) then the Live Verification Agent -----------------
 
 JOB_KIND = "live_verification"
+PHONE = re.compile(r"\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}")
 # Test seams (never switched by product code), as in investigation.py.
 LIVE_TRANSPORT: httpx.BaseTransport | None = None
 RECORDINGS_ROOT: Path | None = None

@@ -320,3 +320,23 @@ def test_latest_callback_for_next_stage(verified: TestClient, db: Session) -> No
     row = callbacks.latest_callback(db, CASE)
     assert row is not None and row.id == done["id"] and row.status == "confirmed"
     assert row.result is not None and row.result["result"] == "confirmed"
+
+
+def test_phone_number_in_a_note_is_a_claim_and_never_the_call_target(
+    verified: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = call(verified, db, "no_answer", monkeypatch, NO_ANSWER)
+    r = command(
+        verified,
+        "add_callback_note",
+        {"callback_id": first["id"], "text": "Cardholder says call her at (212) 555-0199 instead."},
+    )
+    assert r.status_code == 200, r.text
+    claim_id = r.json()["result"]["claim_id"]
+    claim = db.execute(text("select statement from claims where id=:i"), {"i": claim_id}).one()
+    assert "(212) 555-0199" in claim[0]
+    call(verified, db, "confirmed", monkeypatch, CONFIRMED)
+    numbers = db.execute(
+        text("select request->>'number' from adapter_executions where adapter='telephony'")
+    ).scalars()
+    assert list(numbers) == ["(415) 555-0182", "(415) 555-0182"]

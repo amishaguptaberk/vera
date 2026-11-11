@@ -128,7 +128,11 @@ def reduce_note(f: CaseFacts, p: CallbackNotePayload, ctx: ReduceContext) -> Red
         facts=f,
         reason="Callback note",
         events=[EventDraft("callback.note_added", "Note added to the call", [p.callback_id])],
-        result={"callback_id": p.callback_id, "note_id": ctx.extra["note_id"]},
+        result={
+            "callback_id": p.callback_id,
+            "note_id": ctx.extra.get("note_id"),
+            "claim_id": ctx.extra.get("claim_id"),
+        },
     )
 
 
