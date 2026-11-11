@@ -22,6 +22,7 @@ from vera_api.db import make_engine
 from vera_api.gateway import execute_command
 from vera_api.intake import CaseNotOpenableError, UnknownTransactionError, submit_report
 from vera_api.models import ALL_TABLES
+from vera_api.policy import router as policy_router
 from vera_api.seed import reset_database
 
 
@@ -281,6 +282,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.state.clock = clock or default_demo_clock(settings.demo_tz)
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
     app.include_router(cases)
+    app.include_router(policy_router)
     app.include_router(session_router)
     app.include_router(evidence_api.router)
     if settings.synthetic:

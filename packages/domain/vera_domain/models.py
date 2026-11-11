@@ -94,6 +94,7 @@ class CaseView(BaseModel):
     blocked_actions: list[BlockedAction] = []
     recovery_actions: list[str] = []
     hold: Hold | None = None
+    policy: "PolicyView | None" = None
 
 
 class QueueRow(BaseModel):
@@ -120,3 +121,18 @@ class Summary(BaseModel):
     due_today: SummaryMetric
     overdue: SummaryMetric
     temporary_credit: SummaryMetric
+
+
+class PolicyView(BaseModel):
+    status: Literal["eligible", "needs_evidence", "blocked", "ineligible"]
+    code: str
+    label: str
+    rules_passed: list[str]
+    rules_failed: list[str]
+    evidence_used: list[str]
+    snapshot: str
+    policy_version: int
+    evaluated_at: datetime
+
+
+CaseView.model_rebuild()
