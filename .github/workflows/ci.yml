@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vera
+          POSTGRES_PASSWORD: vera
+          POSTGRES_DB: vera
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U vera -d vera"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # REPLAY only: no provider key is configured anywhere in this workflow.
+      VERA_EXECUTION_MODE: replay
+      VERA_ENV: synthetic
+      VERA_DATABASE_URL: postgresql+psycopg://vera:vera@127.0.0.1:54329/vera
+      VERA_TEST_DATABASE_URL: postgresql+psycopg://vera:vera@127.0.0.1:54329/vera_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Create the test database
+        run: PGPASSWORD=vera psql -h 127.0.0.1 -p 54329 -U vera -d vera -c "create database vera_test"
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy packages services
+      - name: Migrations on the service database
+        run: uv run alembic upgrade head
+      - name: Unit, integration, contract and replay evaluation tests
+        run: uv run pytest -q
+      - name: Evaluation harness table
+        run: uv run python -m evals.harness
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  frontend-browser:
+    # apps/web/tests/parity/browser.ts falls back to Playwright's bundled chromium when system
+    # Chrome is absent, so this job is required (not advisory).
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:parity

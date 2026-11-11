@@ -1,0 +1,44 @@
+{
+  "fixture": 2,
+  "title": "Unrecognized charge with missing receipt: receipt missing, policy needs evidence",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "evidence": {
+          "missing": [
+            "receipt"
+          ]
+        },
+        "policy": {
+          "status": "blocked"
+        },
+        "findings": {
+          "expect": [
+            {
+              "kind": "discrepancy",
+              "cites": [
+                [
+                  "CHG-1042",
+                  "amount_cents"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

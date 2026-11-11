@@ -1,0 +1,35 @@
+{
+  "title": "A role without the command gets 403 and nothing is written",
+  "steps": [
+    {
+      "service": "snapshot",
+      "name": "s"
+    },
+    {
+      "as": "reviewer",
+      "command": "open_case",
+      "expect": {
+        "http": 403,
+        "code": "role_forbidden"
+      },
+      "assert": {
+        "unchanged_since": "s"
+      }
+    },
+    {
+      "as": "cardholder",
+      "command": "hold_case",
+      "payload": {
+        "reason": "Waiting for the bank",
+        "next_owner": "usr-dana-okafor"
+      },
+      "expect": {
+        "http": 403,
+        "code": "role_forbidden"
+      },
+      "assert": {
+        "unchanged_since": "s"
+      }
+    }
+  ]
+}

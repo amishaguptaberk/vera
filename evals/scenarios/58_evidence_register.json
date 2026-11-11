@@ -1,0 +1,31 @@
+{
+  "title": "Evidence register on the seed: source records, statuses, no findings",
+  "steps": [
+    {
+      "as": "analyst",
+      "get": "/api/cases/CHG-1042/evidence",
+      "json": {}
+    },
+    {
+      "service": "snapshot",
+      "name": "s",
+      "assert": {
+        "evidence": {
+          "records": {
+            "CHG-1042": "supporting",
+            "PO-219": "supporting",
+            "DLV-882": "supporting",
+            "CHG-1051": "pending_review"
+          },
+          "open_conflicts": 0,
+          "current_versions": {
+            "DLV-882": 1
+          }
+        },
+        "findings": {
+          "count": 0
+        }
+      }
+    }
+  ]
+}

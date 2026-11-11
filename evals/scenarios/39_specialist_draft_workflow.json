@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-014",
+  "fixture": 39,
+  "title": "Specialist draft -> workflow",
+  "description": "Fixture 39: Specialist draft -> workflow. draft created, active version unchanged, case still pinned"
+}

@@ -1,0 +1,27 @@
+{
+  "title": "Source records cannot be mutated by humans or specialists",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "append_evidence_version",
+      "payload": {
+        "record_id": "DLV-882",
+        "fields": {
+          "received_quantity": 1
+        },
+        "source": "me"
+      },
+      "expect": {
+        "http": 403,
+        "code": "role_forbidden"
+      },
+      "assert": {
+        "evidence": {
+          "current_versions": {
+            "DLV-882": 1
+          }
+        }
+      }
+    }
+  ]
+}

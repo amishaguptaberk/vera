@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-010",
+  "fixture": 17,
+  "title": "Uncertain credit adapter result",
+  "description": "Fixture 17: Uncertain credit adapter result. ToSpec 15.17"
+}
