@@ -3,7 +3,7 @@ import { ApiError, apiPost } from './client';
 import { caseKey, casesKey, type ActionView, type CaseView } from './queries';
 import type { components } from './schema';
 
-export type CommandOut = components['schemas']['CommandOut'];
+export type CommandOut = components['schemas']['vera_api__app__CommandOut'];
 export type UserPayload = Record<string, unknown>;
 
 /**
