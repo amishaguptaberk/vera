@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
+import { HomePage } from '@/features/pages';
 
-// The Cases queue is the landing route.
+// Role-specific landing: analyst → queue, reviewer / card admin → Approvals, cardholder → their request.
 export default function Home() {
-  redirect('/cases');
+  return <HomePage />;
 }

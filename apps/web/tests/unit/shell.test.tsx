@@ -6,7 +6,8 @@ import { getUiState } from '@/state';
 import { mockFetch, mockMatchMedia, mockSessionApi, renderWithProviders, session } from './helpers';
 
 const pathname = '/cases';
-vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
+const push = vi.fn();
+vi.mock('next/navigation', () => ({ usePathname: () => pathname, useRouter: () => ({ push, replace: vi.fn() }) }));
 
 const roleButton = () => screen.findByRole('button', { name: /viewing as/i });
 

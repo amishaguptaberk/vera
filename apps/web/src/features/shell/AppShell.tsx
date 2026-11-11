@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useRef, type ReactNode } from 'react';
 import { useResetDemo, useSession, useSwitchRole, type Role } from '@/api';
 import { Sidebar, TopBar, type RoleViewId } from '@/components/shell';
@@ -18,6 +18,7 @@ const ROLE_FOR_VIEW: Record<RoleViewId, Role> = { analyst: 'analyst', cardholder
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? '/';
+  const router = useRouter();
   const session = useSession();
   const switchRole = useSwitchRole();
   const reset = useResetDemo();
@@ -58,7 +59,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               loading: session.isPending,
               selected: view,
               pending: switchRole.isPending,
-              onSelect: (id) => switchRole.mutate(ROLE_FOR_VIEW[id]),
+              // After the server confirms the role, go to that role's landing (prototype `setView`).
+              onSelect: (id) => switchRole.mutate(ROLE_FOR_VIEW[id], { onSuccess: () => router.push('/') }),
             }}
             onReset={synthetic ? () => reset.mutate() : undefined}
             resetPending={reset.isPending}

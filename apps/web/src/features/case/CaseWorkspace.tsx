@@ -8,19 +8,15 @@ import { ActionBar } from '@/components/case';
 import { Banner, Button, Field, Skeleton, StatusSlot } from '@/design-system/primitives';
 import { formatMoney } from '@/lib';
 import { caseSteps, recoveryActions, slotFor, taskLabel } from './adapters';
-import { COMMAND_FORMS } from './command-forms';
+import { viewForRole } from '@/features/shell/role-view';
+import { caseRegistry } from './mounts';
+import { CASE_TABS, panelsFor, taskBlockFor, type CaseSlotProps, type CaseTabId } from './registry';
 import { EvidencePanel } from './EvidencePanel';
 import { RunDetails } from './RunDetails';
 import styles from './CaseWorkspace.module.css';
 
-// Prototype tab order (Main.dc.html etabs). Communications has no API yet: it shows an honest empty state.
-export const CASE_TABS = [
-  { id: 'evidence', label: 'Evidence' },
-  { id: 'comms', label: 'Communications' },
-  { id: 'decision', label: 'Decision' },
-  { id: 'trace', label: 'Run details' },
-] as const;
-type TabId = (typeof CASE_TABS)[number]['id'];
+export { CASE_TABS };
+type TabId = CaseTabId;
 const DEFAULT_TAB: TabId = 'decision';
 const parseTab = (v: string | null): TabId => (CASE_TABS.some((t) => t.id === v) ? (v as TabId) : DEFAULT_TAB);
 
@@ -142,7 +138,7 @@ function Activity({ caseId }: { caseId: string }) {
 }
 
 function CommandForm({ action, error, busy, onSubmit, onCancel }: { action: ActionView; error: string | null; busy: boolean; onSubmit: (p: Record<string, string>) => void; onCancel: () => void }) {
-  const fields = COMMAND_FORMS[action.command] ?? [];
+  const fields = caseRegistry.commandForms[action.command] ?? [];
   const users = useQuery({ ...usersQuery, enabled: fields.some((f) => f.users) });
   const [values, setValues] = useState<Record<string, string>>({});
   const submit = (e: FormEvent) => {
@@ -229,13 +225,19 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const tab = parseTab(params.get('tab'));
+  const requestedTab = parseTab(params.get('tab'));
   const sel = params.get('sel');
   const view = useCaseView(caseId);
   const session = useSession();
   const evidence = useQuery(evidenceQuery(caseId));
   const run = useRunCommand(caseId);
   const material = useMaterialChange(caseId);
+  // The server scopes internal reads (evidence, runs, activity) to staff. A 403 on the evidence read drops the
+  // internal tabs (Evidence, Decision with its policy evidence ids, Run details); no client-side role logic.
+  const internalDenied = evidence.error instanceof ApiError && evidence.error.status === 403;
+  const tabs = internalDenied ? CASE_TABS.filter((t) => t.id === 'comms') : CASE_TABS;
+  const tab: TabId = tabs.some((t) => t.id === requestedTab) ? requestedTab : tabs[0].id;
+  const [railOpen, setRailOpen] = useState(false);
   const [formFor, setFormFor] = useState<ActionView | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'warn' | 'bad'; text: string } | null>(null);
@@ -288,7 +290,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
     );
   };
   const onAction = (a: ActionView) => {
-    if (COMMAND_FORMS[a.command]) {
+    if (caseRegistry.commandForms[a.command]) {
       setFormError(null);
       setFormFor(a);
     } else execute(a);
@@ -298,6 +300,11 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   const cur = c.transaction.currency;
   const recovery = recoveryActions(c);
   const synthetic = session.data?.environment === 'synthetic';
+  const role = session.data ? viewForRole(session.data.active_role) : null;
+  const slot: CaseSlotProps = { caseId, c, role, sel, onSelectRecord: selectRecord };
+  const block = taskBlockFor(caseRegistry, c, role);
+  const mounted = panelsFor(caseRegistry, tab);
+  const rail = caseRegistry.rail;
   return (
     <div className={styles.page} data-step={c.step} data-state={c.state}>
       {view.isError ? <Banner tone="warn">Could not refresh: {view.error.message} Showing the last loaded version.</Banner> : null}
@@ -308,9 +315,12 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             Card ending {c.transaction.card_last4} · Posted {dateLabel(c.transaction.posted_at)} · {c.cardholder.name}
           </div>
           <div className={styles.chdW}>
-            <button type="button" className={styles.linkb} onClick={() => setParams({ tab: 'trace', sel: null })}>
-              Workflow v{c.pins.workflow_version} · Run details
-            </button>
+            {internalDenied ? null : (
+              <button type="button" className={styles.linkb} onClick={() => setParams({ tab: 'trace', sel: null })}>
+                Workflow v{c.pins.workflow_version} · Run details
+              </button>
+            )}
+            {rail ? <rail.Toggle open={railOpen} onToggle={() => setRailOpen((o) => !o)} /> : null}
           </div>
         </div>
         <dl className={styles.cstate} aria-label="Case status" style={{ margin: 0 }}>
@@ -358,9 +368,14 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                 </p>
               ) : null}
               {notice ? <Banner tone={notice.tone}>{notice.text}</Banner> : null}
+              {block ? (
+                <div data-testid={`task-block-${block.key}`}>
+                  <block.Block {...slot} />
+                </div>
+              ) : null}
               {formFor ? (
                 <CommandForm key={formFor.command} action={formFor} error={formError} busy={run.isPending} onSubmit={(p) => execute(formFor, p)} onCancel={() => setFormFor(null)} />
-              ) : (
+              ) : block?.ownsActions ? null : (
                 <ActionBar actions={c.available_actions} blocked={c.blocked_actions} busy={run.isPending ? (run.variables?.action.command ?? null) : null} onAction={onAction} />
               )}
               {synthetic ? (
@@ -388,7 +403,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
         <div className={styles.colR}>
           <section className={styles.card} aria-label="Case workspace">
             <div className={styles.tabs} role="tablist" aria-label="Case sections">
-              {CASE_TABS.map((t) => (
+              {tabs.map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={cx(styles.tab, tab === t.id && styles.on)} onClick={() => setParams({ tab: t.id, sel: null })}>
                   {t.label}
                 </button>
@@ -396,17 +411,24 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             </div>
             <div role="tabpanel" aria-label={CASE_TABS.find((t) => t.id === tab)!.label}>
               {tab === 'evidence' ? <EvidencePanel caseId={caseId} sel={sel} onSelect={selectRecord} /> : null}
-              {tab === 'comms' ? (
-                <div className={styles.inspBody}>
-                  <p className={styles.rd}>No messages or calls yet.</p>
+              {tab === 'comms' && !mounted.length ? (
+                <div className={styles.inspBody} data-testid="slot-empty-comms">
+                  <div className={styles.lbl}>Messages and calls</div>
+                  <p className={styles.rd}>Not available yet.</p>
                 </div>
               ) : null}
-              {tab === 'decision' ? <DecisionPanel c={c} /> : null}
+              {tab === 'decision' && !mounted.length ? <DecisionPanel c={c} /> : null}
               {tab === 'trace' ? <RunDetails c={c} ev={evidence.data} recovery={recovery} onRecovery={onAction} /> : null}
+              {mounted.map((m) => (
+                <div key={m.key} data-testid={`tab-panel-${m.key}`}>
+                  <m.Panel {...slot} />
+                </div>
+              ))}
             </div>
           </section>
         </div>
       </div>
+      {rail ? <rail.Rail {...slot} open={railOpen} onClose={() => setRailOpen(false)} onNavigate={(t) => setParams({ tab: parseTab(t), sel: null })} /> : null}
     </div>
   );
 }
