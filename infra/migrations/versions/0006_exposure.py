@@ -1,13 +1,13 @@
 """Exposure: distinguish issued (pending) from finalized (confirmed) credit on cases.
 
 Revision ID: 0006
-Revises: 0005
+Revises: 0004
 """
 
 from alembic import op
 
 revision = "0006"
-down_revision = "0005"
+down_revision = "0004"
 
 
 def upgrade() -> None:

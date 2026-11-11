@@ -75,3 +75,15 @@ def test_every_metric_has_a_single_basis_and_definition() -> None:
 def test_mixed_currencies_are_never_summed() -> None:
     with pytest.raises(ValueError):
         compute_exposure([row(1), row(2, currency="EUR")], NOW, TZ)
+
+
+def test_case_impact_splits_credit_by_status() -> None:
+    from vera_domain.exposure import case_impact
+
+    issued = case_impact(row(284000, credit_cents=10000, credit_status=CreditStatus.ISSUED))
+    assert (issued.exposure_cents, issued.temporary_credit_cents) == (284000, 10000)
+    assert (issued.confirmed_recovery_cents, issued.net_exposure_cents) == (0, 284000)
+    final = case_impact(row(284000, credit_cents=10000, credit_status=CreditStatus.FINALIZED))
+    assert (final.temporary_credit_cents, final.confirmed_recovery_cents) == (0, 10000)
+    assert final.net_exposure_cents == 274000
+    assert final.bases["temporary_credit_cents"] is Basis.PENDING

@@ -12,6 +12,7 @@ from vera_domain.clock import Clock, default_demo_clock
 from vera_domain.commands import ReportId
 from vera_domain.enums import Role
 from vera_domain.errors import CommandError
+from vera_domain.exposure import MixedCurrencyError
 from vera_domain.models import ActionView, CaseView, Person, QueueRow, Summary
 
 from vera_api import auth, queries
@@ -69,7 +70,10 @@ def list_cases(session: DbSession, clock: ClockDep, settings: SettingsDep) -> li
 
 @cases.get("/cases/summary")
 def summary(session: DbSession, clock: ClockDep, settings: SettingsDep) -> Summary:
-    return queries.summarize(session, clock.now(), settings.demo_tz)
+    try:
+        return queries.summarize(session, clock.now(), settings.demo_tz)
+    except MixedCurrencyError as exc:
+        raise CommandError("mixed_currency", 409, str(exc)) from None
 
 
 def _view(
