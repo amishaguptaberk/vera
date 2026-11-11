@@ -2,11 +2,13 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from vera_domain.enums import CaseState, CaseStep, EventType, Role
+from vera_domain.enums import EventType, Role
+from vera_domain.facts import CaseFacts, derive_step
 
 from vera_api.models import (
     AuditEvent,
@@ -16,6 +18,7 @@ from vera_api.models import (
     Claim,
     Report,
     StateTransition,
+    User,
 )
 
 DEFAULT_OWNER_ID = "usr-sam-rivera"
@@ -48,24 +51,33 @@ def _emit(
     session: Session,
     type_: EventType,
     case: Case,
-    cardholder_id: str,
+    actor_id: str,
+    actor_role: Role,
     at: datetime,
     record_ids: list[str],
     summary: str,
+    detail: dict[str, Any] | None = None,
 ) -> int:
     event = AuditEvent(
         type=type_.value,
         case_id=case.id,
         case_version=case.case_version,
         at=at,
-        actor_id=cardholder_id,
-        actor_role=Role.CARDHOLDER.value,
+        actor_id=actor_id,
+        actor_role=actor_role.value,
         record_ids=record_ids,
         summary=summary,
+        detail=detail or {},
     )
     session.add(event)
     session.flush()
     return event.id
+
+
+def _intake_actor(session: Session, cardholder_id: str) -> tuple[str, str]:
+    """The user linked to the cardholder (users.cardholder_id): the id commands also use."""
+    user = session.scalars(select(User).where(User.cardholder_id == cardholder_id)).first()
+    return (user.id, user.name) if user else (cardholder_id, "Cardholder")
 
 
 def _existing(session: Session, transaction_id: str) -> Case | None:
@@ -95,7 +107,7 @@ def submit_report(
             case = _existing(session, transaction_id)
             if case is None:
                 raise
-    return _link_duplicate(session, case, txn, report_id, now)
+    return _link_duplicate(session, case, txn, report_id, statement, now)
 
 
 def _create(
@@ -106,11 +118,15 @@ def _create(
     now: datetime,
     due_at: datetime | None,
 ) -> IntakeResult:
+    actor_id, _ = _intake_actor(session, txn.cardholder_id)
+    state, step = derive_step(
+        CaseFacts(opened_at=None, closed=False, hold=None, owner_id=DEFAULT_OWNER_ID, due_at=due_at)
+    )
     case = Case(
         id=case_id_for(txn.id),
         transaction_id=txn.id,
-        state=CaseState.REPORTED.value,
-        step=CaseStep.INTAKE.value,
+        state=state.value,
+        step=step.value,
         case_version=1,
         owner_id=DEFAULT_OWNER_ID,
         due_at=due_at,
@@ -144,7 +160,8 @@ def _create(
         session,
         EventType.REPORT_RECEIVED,
         case,
-        txn.cardholder_id,
+        actor_id,
+        Role.CARDHOLDER,
         now,
         [report_id],
         "Cardholder report received",
@@ -153,7 +170,8 @@ def _create(
         session,
         EventType.CASE_CREATED,
         case,
-        txn.cardholder_id,
+        actor_id,
+        Role.CARDHOLDER,
         now,
         [case.id],
         "Case created from report",
@@ -165,7 +183,7 @@ def _create(
             prior_step=None,
             next_state=case.state,
             next_step=case.step,
-            actor_id=txn.cardholder_id,
+            actor_id=actor_id,
             actor_role=Role.CARDHOLDER.value,
             reason="Report received",
             case_version=case.case_version,
@@ -181,21 +199,52 @@ def _create(
 
 
 def _link_duplicate(
-    session: Session, case: Case, txn: CardTransaction, report_id: str, now: datetime
+    session: Session,
+    case: Case,
+    txn: CardTransaction,
+    report_id: str,
+    statement: str,
+    now: datetime,
 ) -> IntakeResult:
     original = session.scalars(
-        select(Report).where(Report.case_id == case.id).order_by(Report.received_at, Report.id)
+        select(Report)
+        .where(Report.case_id == case.id)
+        .order_by(Report.received_at, Report.created_at, Report.id)
     ).first()
     if original is None or not case.live:
         raise CaseNotOpenableError(case.id)
     if report_id != original.id:  # same report id is a plain replay: nothing to record
-        _emit(
-            session,
-            EventType.REPORT_DUPLICATE_LINKED,
-            case,
-            txn.cardholder_id,
-            now,
-            [report_id, original.id],
-            "Repeat report linked to existing case",
-        )
+        # Local import: the gateway imports _emit from this module.
+        from vera_domain.commands import REGISTRY, LinkReportPayload
+
+        from vera_api.gateway import find_key, replay, request_hash, write_command
+
+        spec = REGISTRY["link_report"]
+        model = LinkReportPayload(report_id=report_id, statement=statement)
+        key = f"report:{report_id}"
+        actor_id, actor_name = _intake_actor(session, txn.cardholder_id)
+        req_hash = request_hash(spec.name, actor_id, Role.CARDHOLDER, model.model_dump(mode="json"))
+        locked = session.scalars(
+            select(Case)
+            .where(Case.id == case.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).one()
+        existing = find_key(session, key, case.id, spec.name, req_hash)
+        if existing is not None:
+            replay(existing, now)
+        else:
+            write_command(
+                session,
+                locked,
+                spec,
+                model,
+                key=key,
+                req_hash=req_hash,
+                actor_id=actor_id,
+                actor_name=actor_name,
+                actor_role=Role.CARDHOLDER,
+                request_id="intake",
+                now=now,
+            )
     return IntakeResult(case_id=case.id, report_id=original.id, created=False)

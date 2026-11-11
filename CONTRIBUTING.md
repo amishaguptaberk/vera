@@ -45,3 +45,24 @@ uv run pytest -q            # integration tests use VERA_TEST_DATABASE_URL (defa
 - `services/api/vera_api`: FastAPI app, SQLAlchemy models, intake, seed and reset.
 - `infra/migrations`: Alembic. History tables (`audit_events`, `reports`, `claims`,
   `state_transitions`) are append-only through database triggers; reset uses `TRUNCATE`.
+
+## Case writes (VER-002)
+
+Every case write goes through `vera_api.gateway.execute_command` (commands registered in
+`vera_domain.commands.REGISTRY`; state/step come only from `vera_domain.facts.derive_step`).
+Set `VERA_SESSION_SECRET` for any non-synthetic environment; `POST /api/session/role` exists
+only when `VERA_ENV=synthetic`.
+
+Idempotency keys: the server resolves the command's key template from the case, the actor and
+the payload (`report:{report_id}`, `hold:{case_id}:{case_version}`); the client's
+`idempotency_key` must equal it (else 422 `idempotency_key_mismatch`). Every `ActionView`
+carries a fully resolved `idempotency_key` (never a placeholder) that the client echoes as
+given. Server-allocated payload fields (the next `report_id` for `link_report`) come in
+`ActionView.payload_defaults`; the client merges them under its own payload. `key_template` is
+informational only. A key replayed with a different command, user, role or payload returns
+409 `idempotency_key_conflict`. `link_report` creates the linked report
+row itself (payload needs `report_id` and `statement`) and rejects ids that already exist,
+including the case's original report.
+
+Demo-only behavior: in the synthetic environment a missing or tampered session cookie falls back
+to Sam Rivera as analyst. Any other environment returns 401 `unauthenticated` instead.

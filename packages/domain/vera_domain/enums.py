@@ -73,9 +73,16 @@ class Role(StrEnum):
     CARD_ADMIN = "card_admin"
     CARDHOLDER = "cardholder"
     SYSTEM = "system"
+    SPECIALIST = "specialist"
+    POLICY_CONTROLLER = "policy_controller"
+    ADAPTER = "adapter"
 
 
 class EventType(StrEnum):
     REPORT_RECEIVED = "report.received"
     CASE_CREATED = "case.created"
-    REPORT_DUPLICATE_LINKED = "report.duplicate_linked"
+    REPORT_LINKED = "report.linked"
+    CASE_OPENED = "case.opened"
+    CASE_HELD = "case.held"
+    CASE_RESUMED = "case.resumed"
+    CASE_REASSIGNED = "case.reassigned"

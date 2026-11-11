@@ -21,6 +21,7 @@ from vera_api.models import (
 SAM = "usr-sam-rivera"
 DANA = "usr-dana-okafor"
 PRIYA = "chd-priya-shah"
+PRIYA_USER = "usr-priya-shah"
 
 
 @dataclass(frozen=True)
@@ -115,6 +116,10 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
             email="priya.shah@halden.example",
         )
     )
+    session.flush()
+    session.add(User(id=PRIYA_USER, name="Priya Shah", cardholder_id=PRIYA))
+    session.flush()
+    session.add(UserRole(user_id=PRIYA_USER, role=Role.CARDHOLDER.value))
     names = {"Northstar Equipment"} | {r.merchant for r in DISPLAY_ROWS}
     session.add_all([Merchant(id=_merchant_id(n), name=n) for n in sorted(names)])
     session.flush()
