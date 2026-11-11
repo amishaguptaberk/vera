@@ -4,7 +4,7 @@
   {
    "label": "Decision recorded",
    "status": "met",
-   "detail": "Temporary credit \u00b7 Nov 10",
+   "detail": "Temporary credit · Nov 10",
    "owner": null,
    "next_action": null,
    "record_ids": [
@@ -15,7 +15,7 @@
   {
    "label": "Credit status recorded",
    "status": "met",
-   "detail": "Temporary credit issued \u00b7 Nov 10",
+   "detail": "Temporary credit issued · Nov 10",
    "owner": null,
    "next_action": null,
    "record_ids": [
@@ -27,11 +27,8 @@
    "label": "Card-control decision recorded",
    "status": "unknown",
    "detail": "Awaiting admin approval",
-   "owner": {
-    "id": "usr-dana-okafor",
-    "name": "Dana Okafor"
-   },
-   "next_action": "Approve or decline CTL-1042",
+   "owner": "card_admin",
+   "next_action": "Apply or decline the card controls",
    "record_ids": [
     "CTL-1042"
    ],
@@ -40,11 +37,8 @@
   {
    "label": "Final cardholder communication sent",
    "status": "unmet",
-   "detail": "Drafted \u00b7 not sent",
-   "owner": {
-    "id": "usr-sam-rivera",
-    "name": "Sam Rivera"
-   },
+   "detail": "Drafted · not sent",
+   "owner": "analyst",
    "next_action": "Send the final update",
    "record_ids": [
     "MSG-2210"

@@ -142,10 +142,9 @@ describe('MoneyTask · tracks and closure', () => {
     const ctl = items.find((i) => i.textContent?.includes('Card-control decision recorded'))!;
     expect(ctl.className).not.toMatch(/ok/);
     expect(ctl.textContent).toContain('Not verifiable');
-    expect(ctl.textContent).toContain('Dana Okafor');
-    expect(ctl.textContent).toContain('Approve or decline CTL-1042');
+    expect(ctl.textContent).toContain('Card admin · Apply or decline the card controls');
     const fin = items.find((i) => i.textContent?.includes('Final cardholder communication sent'))!;
-    expect(fin.textContent).toContain('Sam Rivera · Send the final update');
+    expect(fin.textContent).toContain('Analyst · Send the final update');
     const met = items.find((i) => i.textContent?.includes('Decision recorded'))!;
     expect(met.querySelector('[data-mark]')?.textContent).toBe('✓');
   });

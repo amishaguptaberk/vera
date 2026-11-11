@@ -5,6 +5,7 @@ import { ApiError, useRunCommand, type ActionView } from '@/api';
 import { ActionBar } from '@/components/case';
 import { ClosureChecklist, ControlPlan, DisputeNarrative, FinalDraft, ParallelTracks, SimulatedNote, TaskNote, TaskParas, type ClosureItemView, type TrackRow } from '@/components/money';
 import { Banner, Button, Field } from '@/design-system/primitives';
+import { sentence } from '@/lib';
 import { commandForms } from './command-forms';
 import type { ControlPlanItem, ControlsStatus, DisputeStatus, MoneyCaseView, RemediationBody } from './contract';
 import { useClosureChecklist, useFinalMessage, useRemediation } from './queries';
@@ -139,7 +140,7 @@ export function MoneyTask({ caseId, c, onOpenRecord }: MoneyTaskProps) {
   };
 
   const items: ClosureItemView[] | null = checklist.data
-    ? checklist.data.items.map((i) => ({ key: i.name, label: i.label, status: i.status, detail: i.detail, owner_name: i.owner?.name ?? null, next_action: i.next_action ?? null, record_ids: i.record_ids }))
+    ? checklist.data.items.map((i) => ({ key: i.name, label: i.label, status: i.status, detail: i.detail, owner_name: i.owner ? sentence(i.owner) : null, next_action: i.next_action ?? null, record_ids: i.record_ids }))
     : null;
   const unavailable = checklist.isError ? (checklist.error instanceof ApiError && checklist.error.status === 404 ? 'Closure checklist · not available yet' : `Closure checklist · could not load: ${checklist.error.message}`) : null;
 

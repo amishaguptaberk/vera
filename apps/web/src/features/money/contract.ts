@@ -44,7 +44,8 @@ export type ClosureItem = {
   status: 'met' | 'unmet' | 'unknown';
   record_ids: string[];
   detail: string;
-  owner?: { id: string; name: string } | null;
+  /** Role that must act on an open item, e.g. "analyst" or "card_admin". */
+  owner?: string | null;
   next_action?: string | null;
 };
 export type ClosureChecklistBody = { case_id: string; ready: boolean; items: ClosureItem[] };
