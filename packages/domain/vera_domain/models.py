@@ -4,7 +4,10 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from vera_domain.enums import CaseState, CaseStep, Role, StateKind
+from vera_domain.exposure import Basis
 from vera_domain.facts import Hold
+from vera_domain.labels import WaitKind
+from vera_domain.progress import ProgressStep
 
 
 class Person(BaseModel):
@@ -47,8 +50,11 @@ class CardholderView(BaseModel):
 
 class ChargeImpact(BaseModel):
     posted_cents: int
-    credit_cents: int
-    exposure_cents: int
+    exposure_cents: int  # gross: the posted amount (D-H)
+    temporary_credit_cents: int
+    confirmed_recovery_cents: int
+    net_exposure_cents: int
+    bases: dict[str, Basis]
     note: str
 
 
@@ -95,6 +101,7 @@ class CaseView(BaseModel):
     recovery_actions: list[ActionView] = []  # e.g. retry_specialist_step after a failed step
     hold: Hold | None = None
     policy: "PolicyView | None" = None
+    steps: list[ProgressStep] = []  # display only (VER-016)
 
 
 class QueueRow(BaseModel):
@@ -109,18 +116,28 @@ class QueueRow(BaseModel):
     due: Due | None
     credit_cents: int
     live: bool
+    next_action: str | None = None
+    waiting_on: str | None = None  # person or party the case waits on, display name
+    blocker: str | None = None  # "What's blocking it" column
+    wait_kind: WaitKind | None = None  # queue filter chips
+    due_today: bool = False  # due later today (demo clock, demo timezone), not overdue
 
 
 class SummaryMetric(BaseModel):
     amount_cents: int
-    cases: int
+    currency: str
+    count: int
+    basis: Basis
+    definition: str
 
 
 class Summary(BaseModel):
-    open_exposure: SummaryMetric
+    gross_exposure: SummaryMetric
+    net_exposure: SummaryMetric
+    confirmed_recoveries: SummaryMetric
+    temporary_credit: SummaryMetric
     due_today: SummaryMetric
     overdue: SummaryMetric
-    temporary_credit: SummaryMetric
 
 
 class PolicyView(BaseModel):
@@ -133,6 +150,41 @@ class PolicyView(BaseModel):
     snapshot: str
     policy_version: int
     evaluated_at: datetime
+
+
+class FilterCounts(BaseModel):
+    """Counts for the queue filter chips (prototype `FL`), computed with the demo clock."""
+
+    all: int
+    due_today: int
+    overdue: int
+    mine: int  # "Waiting on me": the session user, nobody else waited on, open
+    cardholder: int
+    reviewer: int
+
+
+class ActivityEvent(BaseModel):
+    id: int
+    type: str
+    at: datetime
+    actor_name: str
+    actor_role: str
+    summary: str
+    record_ids: list[str]
+
+
+class ActivityFeed(BaseModel):
+    events: list[ActivityEvent]
+
+
+class AssignableUser(BaseModel):
+    id: str
+    name: str
+    roles: list[Role]
+
+
+class AssignableUsers(BaseModel):
+    users: list[AssignableUser]
 
 
 CaseView.model_rebuild()
