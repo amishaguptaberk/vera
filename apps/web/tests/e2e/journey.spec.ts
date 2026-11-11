@@ -46,6 +46,23 @@ test('journey: follow-up → cardholder reply with attachment → analyst review
   await page.getByRole('form', { name: 'Review response' }).getByRole('button', { name: 'Review response' }).click();
   await expect(page.getByTestId('case-state')).not.toHaveText('Needs review');
   const after = await caseView(request);
+  await expect(page.getByTestId('case-state')).toHaveText('Ready for decision');
   await expect(page.getByTestId('case-state')).toHaveText(after.state_label);
-  test.info().annotations.push({ type: 'reached', description: `${after.state} / ${after.step}: ${after.available_actions.map((a: { command: string }) => a.command).join(', ')}` });
+
+  // Decision: prepare the packet (replay), see it in the Decision tab, evaluate policy, record the decision.
+  await acts.getByRole('button', { name: 'Prepare decision packet' }).click();
+  await page.getByRole('tab', { name: 'Decision' }).click();
+  await expect(page.getByTestId('decision-packet')).toBeVisible({ timeout: 30_000 });
+  await expect(acts).toHaveCount(1);
+  await acts.getByRole('button', { name: 'Evaluate policy' }).click();
+  await expect(acts.getByRole('button', { name: 'Record decision' })).toBeVisible();
+  await acts.getByRole('button', { name: 'Record decision' }).click();
+  await page.getByLabel('Decision (credit, dispute, clear, violation or unresolved)').fill('dispute');
+  await page.getByLabel('Your rationale').fill('Receipt confirms 2 of 3 items; dispute the missing item.');
+  await page.getByRole('form', { name: 'Record decision' }).getByRole('button', { name: 'Record decision' }).click();
+  await expect(page.getByRole('form', { name: 'Record decision' })).toHaveCount(0);
+  await page.reload();
+  const decided = await caseView(request);
+  await expect(page.getByTestId('case-state')).toHaveText(decided.state_label);
+  test.info().annotations.push({ type: 'reached', description: `${decided.state} / ${decided.step}: ${decided.available_actions.map((a: { command: string }) => a.command).join(', ')}` });
 });

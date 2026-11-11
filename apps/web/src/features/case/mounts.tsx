@@ -2,7 +2,8 @@
 import { CommsPanel, commandForms as commsForms, FollowupTask, isFollowupStep } from '@/features/comms';
 import { CallPanel, CardholderVerifyPanel, commandForms as verifyForms, IdentityPanel } from '@/features/verify';
 import { useQuery } from '@tanstack/react-query';
-import { DecisionPanel as PacketPanel, decisionPacketQuery, commandForms as decisionForms, ReviewerPanel, VeraButton, VeraRailPanel } from '@/features/decision';
+import { ApprovalHistory, PacketView } from '@/components/decision';
+import { decisionPacketQuery, commandForms as decisionForms, packetProps, ReviewerPanel, VeraButton, VeraRailPanel } from '@/features/decision';
 import { commandForms as moneyForms, MONEY_STEPS, MoneyTask } from '@/features/money';
 import { COMMAND_FORMS } from './command-forms';
 import type { CaseRegistry, CaseRole, CaseSlotProps, RailProps } from './registry';
@@ -32,7 +33,14 @@ function PacketTab({ c, sel, onSelectRecord }: CaseSlotProps) {
   const packet = useQuery(decisionPacketQuery(c.case_id));
   if (packet.isPending) return null;
   if (!Array.isArray(packet.data?.statements)) return <p style={{ margin: '0 16px 16px', fontSize: 13, color: 'var(--mute)' }}>Decision packet: not available yet.</p>;
-  return <PacketPanel c={c} selected={sel} onSelectRecord={onSelectRecord} />;
+  // Read-only packet: the decision actions are the workspace ActionBar's (no second action bar in the tab).
+  const p = packetProps(packet.data!);
+  return (
+    <div data-testid="decision-packet" style={{ padding: '0 16px 16px' }}>
+      <PacketView {...p} selected={sel} onSelectRecord={onSelectRecord} />
+      <ApprovalHistory items={p.approvals} />
+    </div>
+  );
 }
 const REVIEWER_COMMANDS = new Set(['approve_decision', 'return_decision']);
 function ReviewerBlock({ c, sel, onSelectRecord }: CaseSlotProps) {
