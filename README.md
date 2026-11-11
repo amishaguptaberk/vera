@@ -24,6 +24,12 @@ Vera's investigation is done by nine specialist agents running on **NVIDIA-hoste
 | Dispute Packet Preparer | The network reason code and cited dispute narrative |
 | Prevention Planner | Which card controls would stop a repeat |
 
+### Why NVIDIA
+
+- **Card data can stay in-house.** The models Vera uses on NVIDIA's hosted API are open-weight models that also ship as self-hosted NIM containers, so a bank can run the same model in its own cloud or data centre. Moving there is one setting (`VERA_BASE_URL`), not a code change.
+- **The API fits the agent loop.** NVIDIA's endpoint is OpenAI-compatible, with tool calling and JSON-mode output, which is what the runner's read-then-answer loop and schema validation need. `uv run python -m vera_api.model_client probe` checks that a chosen model supports both before you rely on it.
+- **Choice of model without lock-in.** Llama, Nemotron and other catalogue models are swapped with `VERA_MODEL_ID`. Every agent step records the model id it ran on, so an audit shows exactly which model produced each finding.
+
 Each agent runs a tool-calling loop: the model decides which evidence fields to read through a scoped tool gateway (up to four rounds), then returns typed findings. Every finding must cite fields the agent actually read; output that fails the schema or cites evidence it never read is rejected, and the agent is re-prompted with the reason (up to two retries).
 
 ### Orchestration with LangGraph
