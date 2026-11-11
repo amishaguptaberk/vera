@@ -1,0 +1,57 @@
+{
+ "case_id": "CHG-1042",
+ "can_close": false,
+ "will_monitor": true,
+ "items": [
+  {
+   "key": "decision",
+   "label": "Decision recorded",
+   "status": "met",
+   "detail": "Temporary credit \u00b7 Nov 10",
+   "owner": null,
+   "next_action": null,
+   "record_ids": [
+    "DEC-1042"
+   ]
+  },
+  {
+   "key": "credit",
+   "label": "Credit status recorded",
+   "status": "met",
+   "detail": "Temporary credit issued \u00b7 Nov 10",
+   "owner": null,
+   "next_action": null,
+   "record_ids": [
+    "CREDIT-1042"
+   ]
+  },
+  {
+   "key": "controls",
+   "label": "Card-control decision recorded",
+   "status": "unknown",
+   "detail": "Awaiting admin approval",
+   "owner": {
+    "id": "usr-dana-okafor",
+    "name": "Dana Okafor"
+   },
+   "next_action": "Approve or decline CTL-1042",
+   "record_ids": [
+    "CTL-1042"
+   ]
+  },
+  {
+   "key": "final",
+   "label": "Final cardholder communication sent",
+   "status": "unmet",
+   "detail": "Drafted \u00b7 not sent",
+   "owner": {
+    "id": "usr-sam-rivera",
+    "name": "Sam Rivera"
+   },
+   "next_action": "Send the final update",
+   "record_ids": [
+    "MSG-2210"
+   ]
+  }
+ ]
+}
