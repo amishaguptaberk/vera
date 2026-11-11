@@ -1,0 +1,27 @@
+# Vera web image (Next.js 16). Build from the repo root:
+#   docker build -f Dockerfile.web --build-arg VERA_API_ORIGIN=http://api:8000 -t vera-web .
+#
+# The API origin is BUILD-TIME: next.config.mjs reads it when `next build` evaluates the
+# rewrites, and Next bakes the destination into the routes manifest. Changing it requires a rebuild.
+FROM node:22-slim AS build
+WORKDIR /app
+ARG VERA_API_ORIGIN=http://api:8000
+# Both names are set: the base reads VERA_API_URL, the frontend branch reads VERA_API_ORIGIN.
+ENV VERA_API_ORIGIN=$VERA_API_ORIGIN \
+    VERA_API_URL=$VERA_API_ORIGIN \
+    NEXT_TELEMETRY_DISABLED=1
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci
+COPY apps/web/ ./
+RUN rm -rf prototype && npm run build
+
+FROM node:22-slim
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+COPY --from=build --chown=node:node /app/package.json /app/next.config.mjs ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/.next ./.next
+USER node
+EXPOSE 3000
+CMD ["node_modules/.bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]
