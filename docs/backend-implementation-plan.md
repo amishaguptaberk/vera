@@ -168,7 +168,7 @@ LangGraph runs specialists and holds the run's position; it never writes case st
 - Nodes: Handoff §10.3 (21 nodes). Edges: v3 outcomes in Handoff §7.2, with retry limits (follow-up 2, contradicted verification 2, reviewer rejection 2, not-eligible 1, callback attempts 2 per response).
 - Parallelism: `charge_investigator` ∥ `related_transaction_investigator` → `receipt_document_reviewer` → `pc1`; after `credit_executor`, `dispute_packet_preparer` ∥ `prevention_planner` → join before `final_communication` (D3).
 - Checkpointer: `PostgresSaver`, `thread_id = run_id`. Refresh or worker restart resumes from the last checkpoint; an interrupted step is shown as interrupted, never as complete.
-- Specialists are deterministic, fixture-backed functions behind a `Specialist` protocol with typed input/output models and a declared record scope enforced by the tool gateway (out-of-scope read raises). A model-backed implementation can be swapped in per specialist later; CI and replay always use the deterministic one.
+- Specialists are model-backed agents run by one `SpecialistRunner`; LIVE and REPLAY differ only in the model transport (§18).
 
 ## 12. Worker jobs
 
@@ -240,3 +240,45 @@ The prompt lists VER-004 after VER-003, but 003 needs somewhere typed to write f
 | D-C | **Specialists are real model-backed agents; LIVE is the primary experience, REPLAY is the deterministic mode.** One architecture, two model transports. See §18. |
 | D-D | **VER-014 Automations versioning is added** (workflow/specialist/policy draft, validate, check, publish). |
 | D-E | `to-tickets` / `run-tickets` remain user-invoked. |
+
+## 18. Specialist execution: LIVE and REPLAY (D-C)
+
+**One runner, one loop.** `SpecialistRunner.run(definition, input, ctx)` is the only agent implementation:
+
+```text
+typed input (Pydantic) ─► prompt from versioned template
+   ─► ModelClient.complete(messages, tool schemas)        ◄── the only seam that differs by mode
+   ─► tool calls ─► ToolGateway (scope check ─► typed finance tool ─► real DB read)
+   ─► … loop until the model returns the structured output …
+   ─► schema validation ─► grounding validation ─► typed records written via service commands
+```
+
+| | LIVE | REPLAY |
+|---|---|---|
+| `ModelClient` | `LiveModelClient`: real inference through the provider SDK | `RecordedModelClient`: returns recorded model turns keyed by `(specialist, prompt_version, model_id, input_hash, turn)` |
+| Tool calls | executed for real | executed for real — the recorded turns request them, the gateway runs them |
+| Validation, retries, events, records, UI | identical | identical |
+| Used for | interactive demo (default) | CI, replay evals, offline, explicit demo fallback |
+
+Because the swap is below the agent loop, there are not two agent architectures: orchestration, schemas, tool gateway, validators, events and UI are shared code paths.
+
+**Bounded authority.** Each specialist definition declares purpose, permitted record kinds, permitted tools, output schema, handoff, execution mode, checkpoint and prohibitions (ToSpec §8.3). The `ToolGateway` is constructed per run from that declaration: a tool or record outside it raises `scope_violation` (recorded, step fails). No tool in the library can issue credit, apply controls, approve, close, change source records or run code.
+
+**Model text never mutates state.** The runner's only writes are typed records (`findings`, `claims`, `communication_drafts`, `recommendations`, `callbacks.result`) created through service-principal commands that pass the same gateway stages as human commands. State and step change only through `derive_step`; policy only through the Policy Controller; a specialist's "recommendation" is a record a human acts on.
+
+**Evidence grounding.** Every finding must cite `{record_id, version, field}` pairs. The grounding validator rejects a finding if a cited record is out of scope, does not exist, or the cited field's value does not match what the finding states (e.g. amount, quantity). Classification outputs (`complete | incomplete | conflicting`) must cite the statements they rest on. Ungrounded output is not stored.
+
+**Failures are explicit.**
+
+- Per call: timeout (default 45 s), transport retry ×2 with backoff.
+- Per step: validation retry ×2, feeding the validator errors back to the model; token/cost budget from the specialist definition.
+- Exhausted → `specialist.failed` event with reason (`timeout | provider_error | schema_invalid | ungrounded | scope_violation | budget_exceeded`), step marked failed, case stays in its step with recovery actions `retry_specialist_step` and `hold_case`. Nothing is fabricated to move the case forward.
+- **No silent substitution.** `workflow_steps.execution_mode` (`live | replay`), `model_id`, `prompt_version`, token usage and cost are stored per step and shown in Run details. Switching a failed LIVE step to REPLAY is an explicit operator action (`retry_specialist_step {mode: "replay"}`), emits `specialist.replayed`, and the step and Vera rail entry are labeled `Replayed result` — never presented as live inference. A replay miss (no recording for the input hash) is an error, not a fallback to anything else.
+
+**Recordings.** `evals/recordings/<specialist>/<prompt_version>/<input_hash>.json` holds the model turns from a LIVE run plus model id and timestamp. `python -m vera.record <fixture>` produces them; they are reviewed and committed. Changing a prompt template bumps `prompt_version` and requires re-recording; CI fails on a missing recording.
+
+**What the models actually do.** Charge Investigator compares the transaction against PO and delivery fields it retrieves; Related-Transaction Investigator searches and judges relatedness on full identity plus source support; Receipt and Document Reviewer extracts fields from attachments and classifies the response against the initial report; Cardholder Follow-up drafts only the unresolved questions; Live Verification Agent conducts the simulated call against the approved question set and produces the structured result from the transcript; Decision Packet Preparer assembles sections from current records; Prevention Planner proposes controls with reasons and scope. Conclusions are not pre-written: the seed data is fixed, the reasoning is the model's, and the validators decide whether it is admissible.
+
+**Configuration.** `VERA_SPECIALIST_MODE=live|replay` (default `live` for the app, `replay` for tests), provider key and model id from environment, per-specialist override in the definition. Provider access sits behind `ModelClient`, so the runtime (ToSpec §18 #4) stays replaceable. Tracing via OpenTelemetry/Langfuse in LIVE; disabled in CI.
+
+Added events: `specialist.failed`, `specialist.retried`, `specialist.replayed`. Added command: `retry_specialist_step` (analyst). VER-003 owns the runner, `ModelClient` seam, validators and recordings for the three investigation specialists; later tickets add their specialists on the same runner.
