@@ -23,6 +23,33 @@ class ChecklistItem(BaseModel):
     status: ItemStatus
     record_ids: list[str] = Field(default_factory=list)
     detail: str = ""
+    # Filled for unmet / unknown items: who must act (role) and what they do next.
+    owner: str | None = None
+    next_action: str | None = None
+
+
+# Item name -> (owner role, next action) shown for an open item (Handoff 4.3, US-G08).
+OPEN_ITEM_ACTIONS: dict[str, tuple[str, str]] = {
+    "decision": ("analyst", "Record the decision"),
+    "approval": ("reviewer", "Approve the decision packet"),
+    "credit": ("analyst", "Issue the provisional credit"),
+    "dispute": ("analyst", "Submit the dispute"),
+    "controls": ("card_admin", "Apply or decline the card controls"),
+    "evidence_conflicts": ("analyst", "Resolve the open evidence conflicts"),
+    "policy_current": ("analyst", "Evaluate policy on the current evidence"),
+    "investigation_run": ("analyst", "Finish the investigation"),
+    "exposure_columns": ("analyst", "Record the credit on the case"),
+    "final_message": ("analyst", "Send the final update"),
+}
+
+
+def with_owner(item: ChecklistItem) -> ChecklistItem:
+    if item.status == "met":
+        return item
+    owner, action = OPEN_ITEM_ACTIONS.get(item.name, ("analyst", f"Complete: {item.label}"))
+    return item.model_copy(
+        update={"owner": item.owner or owner, "next_action": item.next_action or action}
+    )
 
 
 class ClosureChecklist(BaseModel):
@@ -40,8 +67,14 @@ class CloseCasePayload(Payload):
     outcome: Literal["resolved", "no_action", "unresolved"]
 
 
+class SendFinalMessagePayload(Payload):
+    """Send the stored draft. `body` is optional and, when given, must equal the stored draft
+    body exactly; edits go through update_final_message (otherwise 422 final_message_edited)."""
+
+    body: str | None = Field(default=None, max_length=4000)
+
+
 DraftFinalMessagePayload = NoPayload
-SendFinalMessagePayload = NoPayload
 
 
 # ---- content policy -----------------------------------------------------------------------------
@@ -138,7 +171,7 @@ def reduce_update(f: CaseFacts, p: UpdateFinalMessagePayload, ctx: ReduceContext
     )
 
 
-def reduce_send(f: CaseFacts, p: NoPayload, ctx: ReduceContext) -> Reduction:
+def reduce_send(f: CaseFacts, p: SendFinalMessagePayload, ctx: ReduceContext) -> Reduction:
     mid = ctx.extra["message_id"]
     return Reduction(
         facts=f.model_copy(update={"final_message_status": "sent"}),

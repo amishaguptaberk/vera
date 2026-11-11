@@ -28,6 +28,7 @@ class CaseClosure(Base):
     reason: Mapped[str] = mapped_column(String)
     outcome: Mapped[str] = mapped_column(String)
     monitoring: Mapped[bool] = mapped_column(Boolean)
+    evidence_snapshot: Mapped[str] = mapped_column(String)
     checklist: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
     closed_by: Mapped[str] = mapped_column(String)
     closed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

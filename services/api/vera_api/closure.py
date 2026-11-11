@@ -45,6 +45,7 @@ from vera_domain.closure import (
     ChecklistItem,
     CloseCasePayload,
     ClosureChecklist,
+    SendFinalMessagePayload,
     UpdateFinalMessagePayload,
     content_violations,
     reduce_close,
@@ -52,6 +53,7 @@ from vera_domain.closure import (
     reduce_send,
     reduce_update,
     render_final_message,
+    with_owner,
 )
 from vera_domain.commands import CommandSpec, NoPayload, StepSet
 from vera_domain.enums import CaseState, CaseStep, Role, StateKind, register_event_types
@@ -175,6 +177,7 @@ def checklist(session: Session, case_id: str) -> ClosureChecklist:
     for fn in CHECKLIST_SOURCES.values():
         got = fn(session, case_id)
         items.extend(got if isinstance(got, list) else [got])
+    items = [with_owner(i) for i in items]
     return ClosureChecklist(
         case_id=case_id, ready=all(i.status == "met" for i in items), items=items
     )
@@ -183,7 +186,9 @@ def checklist(session: Session, case_id: str) -> ClosureChecklist:
 def _require(items: list[ChecklistItem], what: str) -> None:
     open_items = [i for i in items if i.status != "met"]
     if open_items:
-        names = ", ".join(f"{i.label} ({i.status})" for i in open_items)
+        names = "; ".join(
+            f"{i.label} ({i.status}) - {i.owner}: {i.next_action}" for i in open_items
+        )
         raise CommandError("closure_incomplete", 422, f"{what}: {names}.")
 
 
@@ -283,10 +288,28 @@ def _update_effect(
     return {"message_id": row.id}
 
 
+MESSAGING_UNAVAILABLE = "Messaging is not available"
+
+
 def _send_effect(
-    session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: EffectContext
+    session: Session,
+    case: Case,
+    actor: Actor,
+    p: SendFinalMessagePayload,
+    now: datetime,
+    ctx: EffectContext,
 ) -> dict[str, Any]:
     row = _drafted(session, case)
+    if p.body is not None and p.body != row.body:
+        raise CommandError(
+            "final_message_edited",
+            422,
+            "The body differs from the stored draft. Edits go through update_final_message.",
+        )
+    if MESSAGING_ADAPTER not in adapters.ADAPTERS:
+        raise CommandError(
+            "blocked", 409, MESSAGING_UNAVAILABLE, blocked_reason=MESSAGING_UNAVAILABLE
+        )
     _check_content(session, case, row.body)  # facts may have changed since the draft
     result = adapters.execute(
         session,
@@ -326,6 +349,7 @@ def _close_effect(
         reason=p.reason,
         outcome=p.outcome,
         monitoring=monitoring,
+        evidence_snapshot=case.evidence_snapshot,
         checklist=[i.model_dump() for i in items],
         closed_by=actor.user_id,
         closed_at=now,
@@ -402,7 +426,7 @@ UPDATE = CommandSpec(
 SEND = CommandSpec(
     "send_final_message",
     _ANALYST,
-    NoPayload,
+    SendFinalMessagePayload,
     StepSet(include=frozenset({(_RP, CaseStep.FINAL)})),
     "final-send:{case_id}",
     reduce_send,
@@ -457,6 +481,7 @@ class ClosureRecordView(BaseModel):
     state: str
     closed_by: str
     closed_at: datetime
+    evidence_snapshot: str
     checklist: list[ChecklistItem]
 
 
@@ -515,6 +540,7 @@ def get_closure(case_id: str, session: DbSession, actor: StaffDep) -> ClosureRec
         state="monitoring" if row.monitoring else "closed",
         closed_by=row.closed_by,
         closed_at=row.closed_at,
+        evidence_snapshot=row.evidence_snapshot,
         checklist=[ChecklistItem.model_validate(i) for i in row.checklist],
     )
 

@@ -31,6 +31,7 @@ def upgrade() -> None:
             reason text not null,
             outcome text not null,
             monitoring boolean not null,
+            evidence_snapshot text not null,
             checklist jsonb not null,
             closed_by text not null,
             closed_at timestamptz not null

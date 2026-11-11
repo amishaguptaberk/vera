@@ -156,7 +156,13 @@ def test_draft_is_blocked_while_required_sources_are_unknown(
     assert view(client)["step"] == "finalprep"
     resp = post(client, "draft_final_message", f"final:{CASE}")
     assert resp.status_code == 422 and resp.json()["code"] == "closure_incomplete"
-    assert "Decision recorded (unknown)" in resp.json()["message"]
+    assert "Decision recorded (unknown) - analyst: Record the decision" in resp.json()["message"]
+    items = client.get(f"/api/cases/{CASE}/closure-checklist").json()["items"]
+    for item in items:
+        if item["status"] != "met":
+            assert item["owner"] and item["next_action"], item
+        else:
+            assert item["owner"] is None
     assert view(client)["step"] == "finalprep"
 
 
@@ -192,8 +198,13 @@ def test_full_path_draft_edit_send_close_and_closed_gate(
     )
     assert ok.status_code == 200, ok.text
 
-    sent = post(client, "send_final_message", f"final-send:{CASE}")
+    edited = post(client, "send_final_message", f"final-send:{CASE}", {"body": "Other text."})
+    assert edited.status_code == 422 and edited.json()["code"] == "final_message_edited"
+    stored = client.get(f"/api/cases/{CASE}/final-message").json()["body"]
+    sent = post(client, "send_final_message", f"final-send:{CASE}", {"body": stored})
     assert sent.status_code == 200, sent.text
+    resend = post(client, "send_final_message", f"final-send:{CASE}", {"body": stored})
+    assert resend.json()["status"] == "replayed" and len(messaging.sent) == 1  # sent once
     assert messaging.sent[0]["body"].startswith("Hello Priya")
     assert view(client)["step"] == "close"
     assert client.get(f"/api/cases/{CASE}/final-message").json()["status"] == "sent"
@@ -209,6 +220,9 @@ def test_full_path_draft_edit_send_close_and_closed_gate(
     assert (v["state"], v["step"]) == ("closed", "closed")
     record = client.get(f"/api/cases/{CASE}/closure").json()
     assert record["state"] == "closed" and record["reason"] == CLOSE_BODY["reason"]
+    assert record["closed_by"] == "usr-sam-rivera" and record["closed_at"]
+    snap = db.execute(text("select evidence_snapshot from cases where id=:c"), {"c": CASE})
+    assert record["evidence_snapshot"] == snap.scalar_one()
     assert record["outcome"] == "resolved" and all(
         i["status"] == "met" for i in record["checklist"]
     )
@@ -271,7 +285,8 @@ def test_send_is_blocked_with_a_typed_reason_without_a_messaging_adapter(
     register_parallel_sources(monkeypatch)
     assert post(client, "draft_final_message", f"final:{CASE}").status_code == 200
     resp = post(client, "send_final_message", f"final-send:{CASE}")
-    assert resp.json()["code"] == "adapter_not_registered"
+    assert resp.status_code == 409 and resp.json()["code"] == "blocked"
+    assert resp.json()["blocked_reason"] == "Messaging is not available"
     assert view(client)["step"] == "final"
 
 
@@ -285,5 +300,8 @@ def test_close_is_rejected_listing_open_items(
     monkeypatch.delitem(closure.CHECKLIST_SOURCES, "approval")
     resp = post(client, "close_case", f"close:{CASE}", CLOSE_BODY)
     assert resp.status_code == 422 and resp.json()["code"] == "closure_incomplete"
-    assert "Approval valid for the decision (unknown)" in resp.json()["message"]
+    assert (
+        "Approval valid for the decision (unknown) - reviewer: Approve the decision packet"
+        in resp.json()["message"]
+    )
     assert view(client)["step"] == "close"
