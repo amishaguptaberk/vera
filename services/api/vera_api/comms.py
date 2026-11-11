@@ -54,6 +54,7 @@ WATCHER = Actor("svc-deadline-watcher", "Deadline watcher", Role.SYSTEM, frozens
 
 register_event_summaries(
     {
+        "communication.review_recommended": "Response review recommendation recorded",
         "communication.drafted": "Follow-up drafted for analyst approval",
         "communication.updated": "Follow-up draft edited",
         "communication.sent": "Request sent to the cardholder",
