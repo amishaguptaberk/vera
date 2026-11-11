@@ -788,7 +788,7 @@ def _store_follow_up(
     factory: sessionmaker[Session], case_id: str, run_id: str, out: BaseModel
 ) -> None:
     assert isinstance(out, dom.FollowUpOutput)
-    by_ref = {}
+    by_ref: dict[tuple[str, str], str] = {}
     with factory() as s:
         for f in _unresolved(s, case_id)[0]:
             for lk in f.links:
