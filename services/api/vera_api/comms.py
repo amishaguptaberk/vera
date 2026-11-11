@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from vera_domain import comms as dom
 from vera_domain.adapters import AdapterResult
 from vera_domain.clock import Clock
-from vera_domain.enums import Role
+from vera_domain.enums import CaseState, CaseStep, Role, StateKind
 from vera_domain.errors import CommandError
 from vera_domain.evidence import content_hash
-from vera_domain.labels import register_event_summaries
+from vera_domain.labels import register_event_summaries, register_labels
 
 from vera_api import adapters, auth, gateway, plugins
 from vera_api.auth import STAFF_ROLES, Actor
@@ -39,6 +39,20 @@ register_event_summaries(
         "communication.overdue": "Reply deadline missed",
         "communication.responded": "Cardholder replied to the request",
         "communication.reviewed": "Cardholder response reviewed",
+    }
+)
+
+_W = CaseState.WAITING_ON_CARDHOLDER
+register_labels(
+    {
+        (_W, CaseStep.WAITING): ("Waiting on cardholder", StateKind.WAITING, "Send reminder"),
+        (_W, CaseStep.NORESP1): ("Response overdue", StateKind.BLOCKED, "Send a reminder"),
+        (_W, CaseStep.NORESP2): ("Response overdue", StateKind.BLOCKED, "Escalate the case"),
+        (CaseState.RESPONSE_RECEIVED, CaseStep.RESPONSE): (
+            "Needs review",
+            StateKind.REVIEW,
+            "Review the cardholder response",
+        ),
     }
 )
 

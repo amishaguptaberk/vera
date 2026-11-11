@@ -99,7 +99,7 @@ def _spec(
     summary: str,
     update: dict[str, object],
     label: str,
-    style: str = "secondary",
+    style: Literal["primary", "secondary", "dark", "ghost"] = "secondary",
 ) -> CommandSpec:
     return CommandSpec(
         name,
