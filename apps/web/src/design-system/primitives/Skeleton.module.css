@@ -1,0 +1,17 @@
+/* No prototype reference. Handoff §8.3 rule 1: skeletons only on first load, never a full-page loader. */
+.skel {
+  display: inline-block;
+  background: var(--rule2);
+  border-radius: var(--radius-chip);
+  animation: skelpulse 1.4s ease-in-out infinite;
+}
+@keyframes skelpulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
+}

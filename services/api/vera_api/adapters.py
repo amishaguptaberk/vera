@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from vera_domain.adapters import AdapterResult, FaultMode, SimulatedAdapter
 from vera_domain.enums import Role
@@ -124,8 +125,22 @@ def execute(
             created_at=now,
             updated_at=now,
         )
-        session.add(row)
-        session.flush()
+        try:
+            with session.begin_nested():  # savepoint: a lost race must not poison the caller
+                session.add(row)
+                session.flush()
+        except IntegrityError:
+            # Another transaction inserted this key first (its commit released our insert).
+            # Start over on its row: a succeeded or uncertain result replays, never re-dispatches.
+            return execute(
+                session,
+                case_id=case_id,
+                adapter=adapter,
+                operation=operation,
+                key=key,
+                request=request,
+                now=now,
+            )
     row.attempts += 1
     fault = _take_fault(session, adapter, operation)
     if fault in ("fail", "timeout"):  # failed before the effect: the adapter is not called

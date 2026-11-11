@@ -1,0 +1,6 @@
+/* Prototype .acts / .safe-n / .why-off (Main.dc.html). */
+.wrap { display: flex; flex-direction: column; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 16px; }
+.safe { margin: 8px 0 0; font-size: 12.5px; color: var(--mute); }
+.blocked { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--mute); display: flex; flex-direction: column; gap: 2px; }
+.blocked strong { color: #3b3a39; font-weight: 550; }

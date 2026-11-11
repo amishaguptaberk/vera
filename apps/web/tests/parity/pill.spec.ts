@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { launchOptions } from './browser';
 import { compareState } from './compare';
+import { installCaseRoutes, installSessionRoutes } from './fixtures';
 import { APP_PORT, PROTOTYPE_PORT } from './playwright.config';
 import { STATES, VIEWPORTS, type ParityState } from './states';
 
@@ -66,15 +67,29 @@ async function openPrototype(width: number, height: number, state: ParityState):
   await page.waitForFunction(() => !!(window as unknown as { __vera?: unknown }).__vera);
   await page.locator('h1.pg-t').waitFor();
   await state.setupPrototype?.(page);
+  await settle(page, width, height);
   return page;
+}
+
+/** Images decoded, fonts ready, transitions finished and the pointer parked away from every control. */
+async function settle(page: Page, width: number, height: number) {
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete));
+  await page.waitForTimeout(400);
+  await page.mouse.move(width - 2, height - 2);
 }
 
 async function openApp(width: number, height: number, state: ParityState): Promise<Page> {
   const ctx = await browser.newContext({ viewport: { width, height } });
   contexts.push(ctx);
   const page = await ctx.newPage();
+  await installSessionRoutes(page);
+  await installCaseRoutes(page);
   await page.goto(`http://127.0.0.1:${APP_PORT}${state.appPath}`, { waitUntil: 'load' });
-  await page.evaluate(() => document.fonts.ready);
+  // The role selector renders once the session has loaded (a skeleton stands in until then).
+  await page.getByRole('button', { name: /viewing as/i }).waitFor();
+  await state.setupApp?.(page);
+  await settle(page, width, height);
   return page;
 }
 
@@ -96,8 +111,8 @@ for (const state of STATES) {
         if (result.pngs.app) writeFileSync(`${SHOTS}/${tag}-app.png`, result.pngs.app);
       }
       expect(result.differences).toEqual([]);
-      if (vp.width === 390) {
-        // Hidden in both at 390 px (prototype @media max-width:760px).
+      if (state.hiddenWidths?.includes(vp.width)) {
+        // Hidden in both (prototype @media max-width:760px).
         await expect(proto.locator(state.prototypeSelector)).toBeHidden();
         await expect(app.locator(state.appSelector)).toBeHidden();
       } else {
@@ -106,6 +121,23 @@ for (const state of STATES) {
     });
   }
 }
+
+test('shell/mobile-closed: the sidebar is off-canvas in both pages, with the same box', async () => {
+  const state = STATES.find((s) => s.name === 'shell/mobile-closed (top bar)')!;
+  const vp = VIEWPORTS[3];
+  const proto = await openPrototype(vp.width, vp.height, state);
+  const app = await openApp(vp.width, vp.height, state);
+  const box = (page: Page, selector: string) => page.locator(selector).first().evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  });
+  const p = await box(proto, '.side');
+  const a = await box(app, '[data-parity="side"]');
+  expect(p.x + p.width).toBeLessThanOrEqual(0);
+  expect(a.x + a.width).toBeLessThanOrEqual(0);
+  for (const k of ['x', 'y', 'width', 'height'] as const) expect(Math.abs(p[k] - a[k])).toBeLessThanOrEqual(0.5);
+  expect(a.width).toBe(248);
+});
 
 test('self-test: changing a token value makes the comparison fail', async () => {
   const state = STATES[0];

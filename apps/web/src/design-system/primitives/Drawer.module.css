@@ -1,0 +1,64 @@
+/* Drawer: prototype @media (max-width:760px) sidebar drawer (Main.dc.html:1242) and the 220ms slide of
+   Handoff §9.5. `always` drawers slide at every width; `narrow` drawers are ordinary flow elements above
+   760px (no rules apply) and slide in at 760px and below. `.panel.x` (two classes) outranks the owner's
+   one-class flow rules (sticky, 100vh, z-index) regardless of stylesheet order. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 10, 8, 0.28);
+  border: 0;
+  z-index: 30;
+  padding: 0;
+}
+
+.panel.always {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  width: var(--drawer-width, var(--sidebar-width-drawer));
+  transition: transform 0.2s var(--ease);
+  z-index: 31;
+}
+.panel.always.left {
+  left: 0;
+  transform: translateX(-102%);
+}
+.panel.always.right {
+  right: 0;
+  transform: translateX(102%);
+}
+.panel.always.open {
+  transform: none;
+  box-shadow: 0 12px 40px rgba(12, 10, 8, 0.18);
+}
+
+@media (max-width: 760px) {
+  .panel.narrow {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    width: var(--drawer-width, var(--sidebar-width-drawer));
+    transition: transform 0.2s var(--ease);
+    z-index: 31;
+  }
+  .panel.narrow.left {
+    left: 0;
+    transform: translateX(-102%);
+  }
+  .panel.narrow.right {
+    right: 0;
+    transform: translateX(102%);
+  }
+  .panel.narrow.open {
+    transform: none;
+    box-shadow: 0 12px 40px rgba(12, 10, 8, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none !important;
+  }
+}
