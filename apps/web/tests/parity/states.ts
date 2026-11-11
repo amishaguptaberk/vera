@@ -67,9 +67,9 @@ const proto = {
   view: (view: string) => async (page: Page) => {
     await page.evaluate((x) => (window as unknown as { __vera: { setView(v: string): void } }).__vera.setView(x), view);
   },
-  // Leaves only the shell visible: the prototype's page content differs from an empty app page.
-  hideMain: async (page: Page) => {
-    await page.addStyleTag({ content: '.frame-c > :not(header){visibility:hidden !important}' });
+  openCase: async (page: Page) => {
+    await page.evaluate(() => (window as unknown as { __vera: { openCase(): void } }).__vera.openCase());
+    await page.locator('#task').waitFor();
   },
   // The reviewer view also shows the Vera rail toggle below 1280px; the rail is F9's. See ACCEPTED.md.
   hideVeraToggle: async (page: Page) => {
@@ -125,19 +125,8 @@ function shell(o: ShellOptions): ParityState[] {
     out.push({ ...common, name: `${o.name} (sidebar)`, prototypeSelector: '.side', appSelector: '[data-parity="side"]', widths: o.sidebarWidths });
   }
   if (o.menu) {
-    // The menu's rounded corners show what lies behind them, so the prototype's main content is hidden for this
-    // region (setupPrototype below); see ACCEPTED.md.
-    out.push({
-      ...common,
-      name: `${o.name} (role menu)`,
-      prototypeSelector: '.rsel-m',
-      appSelector: '[role="menu"]',
-      widths: o.widths,
-      setupPrototype: async (page) => {
-        await o.setupPrototype?.(page);
-        await proto.hideMain(page);
-      },
-    });
+    // The queue now renders behind the menu in both pages, so the F1 hideMain override is gone.
+    out.push({ ...common, name: `${o.name} (role menu)`, prototypeSelector: '.rsel-m', appSelector: '[role="menu"]', widths: o.widths });
   }
   return out;
 }
@@ -164,4 +153,11 @@ export const STATES: ParityState[] = [
     }, setupApp: app.role(/Reviewer · card admin/, /viewing as reviewer/i) }),
   ...shell({ name: 'shell/mobile-drawer-open', widths: MOBILE, sidebarWidths: MOBILE, setupPrototype: proto.upd('navOpen'), setupApp: app.openDrawer }),
   ...shell({ name: 'shell/mobile-closed', widths: MOBILE }),
+  // F2 queue (data: real captured API bodies, tests/parity/fixtures).
+  { name: 'cases/queue (summary strip)', prototypeSelector: '.sumstrip', appSelector: '[data-parity="sumstrip"]', appPath: '/cases', widths: ALL, position: FROM_PAGE_ROOT },
+  { name: 'cases/queue (table card)', prototypeSelector: '.tcard', appSelector: '[data-parity="queue"]', appPath: '/cases', widths: ALL, position: FROM_PAGE_ROOT },
+  // F3 workspace at intake.
+  { name: 'case/intake (header)', prototypeSelector: '.chd', appSelector: '[data-parity="case-header"]', appPath: '/cases/CHG-1042', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
+  { name: 'case/intake (task card)', prototypeSelector: '#task', appSelector: '[data-parity="task"]', appPath: '/cases/CHG-1042', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
+  { name: 'case/intake (charge impact)', prototypeSelector: '.plain-sec', appSelector: '[data-parity="charge-impact"]', appPath: '/cases/CHG-1042', widths: [1440, 390], position: FROM_PAGE_ROOT, setupPrototype: proto.openCase },
 ];

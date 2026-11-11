@@ -81,7 +81,7 @@ function ChargeImpact({ c }: { c: CaseView }) {
     { k: 'Net exposure', v: formatMoney(i.net_exposure_cents, cur), cls: styles.tot },
   ];
   return (
-    <section className={styles.plainSec} aria-labelledby="ci-h">
+    <section className={styles.plainSec} aria-labelledby="ci-h" data-parity="charge-impact">
       <div className={styles.secRow}>
         <h2 className={styles.secT} id="ci-h" style={{ margin: 0 }}>
           Charge impact
@@ -301,7 +301,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
   return (
     <div className={styles.page} data-step={c.step} data-state={c.state}>
       {view.isError ? <Banner tone="warn">Could not refresh: {view.error.message} Showing the last loaded version.</Banner> : null}
-      <div className={styles.chd}>
+      <div className={styles.chd} data-parity="case-header">
         <div>
           <div className={styles.chdT}>{formatMoney(c.transaction.amount_cents, cur, 'cents')}</div>
           <div className={styles.chdM}>
@@ -344,7 +344,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
       <Progress c={c} />
       <div className={styles.caseMain}>
         <div className={styles.colM}>
-          <section className={styles.focus} id="task" aria-label="Current task" aria-live="polite">
+          <section className={styles.focus} id="task" data-parity="task" aria-label="Current task" aria-live="polite">
             <div className={styles.focusIn}>
               <div className={styles.fState}>
                 <span>{taskLabel(c.state_kind)}</span>
