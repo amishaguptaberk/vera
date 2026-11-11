@@ -17,6 +17,7 @@ Format and execution rules: docs/spec/Vera_Fable_Backend_Orchestration_Prompt.md
 | [VER-011](VER-011.md) | Final communication and closure | VER-010 |
 | [VER-013](VER-013.md) | Evaluation suite and CI | VER-002 |
 | [VER-014](VER-014.md) | Automations versioning | VER-003, VER-008 |
+| [VER-015](VER-015.md) | Dashboard exposure: gross and net | VER-002 |
 | [VER-012-F0](VER-012-F0.md) | Next.js scaffold, tokens and parity harness | — |
 | [VER-012-F1](VER-012-F1.md) | Design-system primitives and app shell | VER-012-F0, VER-002 |
 | [VER-012-F2](VER-012-F2.md) | Cases queue | VER-012-F1, VER-001 |
