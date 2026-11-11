@@ -54,7 +54,13 @@ class _Fail(Exception):
 
 
 def create_run(
-    session: Session, *, case_id: str, mode: ExecutionMode, now: datetime, run_id: str | None = None
+    session: Session,
+    *,
+    case_id: str,
+    mode: ExecutionMode,
+    now: datetime,
+    run_id: str | None = None,
+    commit: bool = True,
 ) -> str:
     """Create a workflow run pinned to the case's workflow and policy versions."""
     case = session.get(Case, case_id)
@@ -71,7 +77,10 @@ def create_run(
         updated_at=now,
     )
     session.add(run)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()  # inside a command transaction (start_investigation)
     return run.id
 
 

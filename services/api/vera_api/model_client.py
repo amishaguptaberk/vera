@@ -35,6 +35,7 @@ class ModelResult:
     usage: dict[str, Any]
     model_id: str
     mode: ExecutionMode
+    provenance: str | None = None  # "authored-reference" for hand-written recordings
 
 
 class ModelClient(Protocol):
@@ -78,9 +79,12 @@ class LiveModelClient:
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self.base_url = (base_url or os.environ.get("VERA_BASE_URL") or DEFAULT_BASE_URL).rstrip(
-            "/"
-        )
+        self.base_url = (
+            base_url
+            or os.environ.get("VERA_BASE_URL")
+            or os.environ.get("VERA_MODEL_BASE_URL")  # plan D-G name, accepted as an alias
+            or DEFAULT_BASE_URL
+        ).rstrip("/")
         self.model_id = model_id or os.environ.get("VERA_MODEL_ID") or DEFAULT_MODEL_ID
         self.timeout = timeout
         self.max_retries = max_retries
@@ -222,6 +226,7 @@ class RecordedModelClient:
             usage=raw.get("usage", {}),
             model_id=raw["model_id"],
             mode=ExecutionMode.REPLAY,
+            provenance=raw.get("provenance"),
         )
 
 

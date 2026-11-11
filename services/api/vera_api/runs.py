@@ -26,6 +26,9 @@ class StepOut(BaseModel):
     failure_reason: str | None
     started_at: datetime | None
     finished_at: datetime | None
+    # True when this step's result came from a recording on a LIVE run: an explicit
+    # retry_specialist_step {mode: "replay"}, shown as "Replayed result", never as live.
+    replayed: bool = False
 
 
 class RunOut(BaseModel):
@@ -65,7 +68,14 @@ def list_runs(case_id: str, request: Request) -> list[RunOut]:
                     status=run.status,
                     mode=run.mode,
                     created_at=run.created_at,
-                    steps=[StepOut.model_validate(s, from_attributes=True) for s in steps],
+                    steps=[
+                        StepOut.model_validate(s, from_attributes=True).model_copy(
+                            update={
+                                "replayed": run.mode == "live" and s.execution_mode == "replay"
+                            }
+                        )
+                        for s in steps
+                    ],
                 )
             )
         return out

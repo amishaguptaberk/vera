@@ -140,6 +140,8 @@ def run_once(
 
 
 def main() -> None:
+    from vera_api import investigation  # noqa: F401  (registers specialist_runner)
+
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     factory = sessionmaker(make_engine(Settings().database_url), expire_on_commit=False)
     while True:
