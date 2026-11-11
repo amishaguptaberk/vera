@@ -1,0 +1,36 @@
+{
+  "content": {
+    "findings": [
+      {
+        "citations": [
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1042",
+            "value": 284000,
+            "version": 1
+          }
+        ],
+        "kind": "discrepancy",
+        "statement": "No receipt is on file for CHG-1042. The charge of $2,840.00 is above the $75.00 receipt threshold, so a receipt is required and missing."
+      },
+      {
+        "citations": [
+          {
+            "field": "statement",
+            "record_id": "REP-1042",
+            "value": "I do not recognize this charge.",
+            "version": 1
+          }
+        ],
+        "kind": "note",
+        "statement": "The initial report says only that the cardholder does not recognize the charge; it gives no detail on items or amount, so it is incomplete."
+      }
+    ],
+    "receipt_present": false,
+    "report_classification": "incomplete"
+  },
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
+  "tool_calls": [],
+  "usage": {}
+}

@@ -54,7 +54,13 @@ class _Fail(Exception):
 
 
 def create_run(
-    session: Session, *, case_id: str, mode: ExecutionMode, now: datetime, run_id: str | None = None
+    session: Session,
+    *,
+    case_id: str,
+    mode: ExecutionMode,
+    now: datetime,
+    run_id: str | None = None,
+    commit: bool = True,
 ) -> str:
     """Create a workflow run pinned to the case's workflow and policy versions."""
     case = session.get(Case, case_id)
@@ -71,7 +77,10 @@ def create_run(
         updated_at=now,
     )
     session.add(run)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()  # inside a command transaction (start_investigation)
     return run.id
 
 
@@ -116,6 +125,17 @@ class SpecialistRunner:
             return StepOutcome(
                 "succeeded", step.attempts, spec.output_schema.model_validate(step.output)
             )
+        if (
+            step is not None
+            and step.output is not None
+            and (
+                step.status == StepStatus.RUNNING
+                or step.failure_reason == FailureReason.APPLY_FAILED.value
+            )
+        ):
+            # A validated output was stored before apply: re-apply it, never call the model again
+            # (same finding ids and payloads, so the writes replay idempotently).
+            return self._reapply(session, case, step, spec, mode, apply)
         typed_in = spec.input_schema.model_validate(
             inputs.model_dump() if isinstance(inputs, BaseModel) else inputs
         )
@@ -144,47 +164,72 @@ class SpecialistRunner:
         state: dict[str, Any] = {"attempts": 0, "model_id": None, "heartbeat": heartbeat}
         try:
             output = self._attempts(spec, typed_in, mode, case.id, gateway, usage, state)
-            # Another worker may have finished this step while we waited on the model: re-check
-            # under the row lock (held until commit) so apply and success happen at most once.
-            current = session.scalars(
-                select(WorkflowStep)
-                .where(WorkflowStep.run_id == run_id, WorkflowStep.step_key == step_key)
-                .with_for_update()
-                .execution_options(populate_existing=True)
-            ).one()
-            if current.status == StepStatus.SUCCEEDED:
-                stored = StepOutcome(
-                    "succeeded", current.attempts, spec.output_schema.model_validate(current.output)
-                )
-                session.rollback()
-                return stored
-            if apply is not None:
-                apply(output)
         except _Fail as fail:
             return self._finish_failed(
                 session, case, step, spec, mode, gateway, usage, state, fail.reason, fail.message
             )
+        # Persist the validated output before any write, so a crash inside apply resumes from it.
+        current = self._lock_step(session, run_id, step_key)
+        if current.status == StepStatus.SUCCEEDED:
+            stored = StepOutcome(
+                "succeeded", current.attempts, spec.output_schema.model_validate(current.output)
+            )
+            session.rollback()
+            return stored
+        current.attempts = state["attempts"]
+        current.model_id = state["model_id"]
+        current.usage = usage
+        current.output = output.model_dump(mode="json")
+        current.tool_calls = gateway.calls
+        session.commit()
+        return self._reapply(session, case, current, spec, mode, apply)
+
+    def _lock_step(self, session: Session, run_id: str, step_key: str) -> WorkflowStep:
+        return session.scalars(
+            select(WorkflowStep)
+            .where(WorkflowStep.run_id == run_id, WorkflowStep.step_key == step_key)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).one()
+
+    def _reapply(
+        self,
+        session: Session,
+        case: Case,
+        step: WorkflowStep,
+        spec: SpecialistSpec,
+        mode: ExecutionMode,
+        apply: Callable[[BaseModel], None] | None,
+    ) -> StepOutcome:
+        """Apply the stored validated output and mark the step succeeded (at most once)."""
+        run_id, step_key = step.run_id, step.step_key
+        current = self._lock_step(session, run_id, step_key)
+        output = spec.output_schema.model_validate(current.output)
+        if current.status == StepStatus.SUCCEEDED:
+            session.rollback()
+            return StepOutcome("succeeded", current.attempts, output)
+        try:
+            if apply is not None:
+                apply(output)
         except Exception:
-            session.rollback()  # apply() failed: the step stays `running`, the job retries
+            session.rollback()  # the step stays `running` with its output; the job retries
             raise
-        step.status = StepStatus.SUCCEEDED.value
-        step.attempts = state["attempts"]
-        step.model_id = state["model_id"]
-        step.usage = usage
-        step.output = output.model_dump(mode="json")
-        step.tool_calls = gateway.calls
-        step.finished_at = self._clock.now()
+        current = self._lock_step(session, run_id, step_key)
+        current.status = StepStatus.SUCCEEDED.value
+        current.failure_reason = None
+        current.error = None
+        current.finished_at = self._clock.now()
         self._emit(
             session,
             case,
             RunEventType.RUN_STEP_SUCCEEDED,
             spec,
-            step_key=step.step_key,
-            mode=mode,
-            detail={"attempts": state["attempts"], "model_id": state["model_id"]},
+            step_key=step_key,
+            mode=ExecutionMode(current.execution_mode or mode.value),
+            detail={"attempts": current.attempts, "model_id": current.model_id},
         )
         session.commit()
-        return StepOutcome("succeeded", state["attempts"], output)
+        return StepOutcome("succeeded", current.attempts, output)
 
     def _attempts(
         self,

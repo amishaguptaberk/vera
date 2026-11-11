@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from vera_domain.commands import REGISTRY, available_actions
+from vera_domain.commands import REGISTRY, available_actions, recovery_actions
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.exposure import CreditStatus, ExposureRow, case_impact, compute_exposure
 from vera_domain.facts import Hold, derive_step
@@ -25,13 +25,11 @@ from vera_domain.models import (
     TransactionView,
 )
 from vera_domain.progress import ProgressStep, progress_steps
-from vera_domain.specialists import StepStatus
 
-from vera_api import auth
+from vera_api import auth, investigation
 from vera_api import policy as policy_service
-from vera_api.gateway import facts_of
+from vera_api.gateway import facts_with_runs
 from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
-from vera_api.models_runs import WorkflowRun, WorkflowStep
 
 
 class CaseNotFoundError(LookupError):
@@ -151,21 +149,8 @@ def _waiting_on(session: Session, case: Case, txn: CardTransaction) -> Person | 
 
 
 def _steps(session: Session, case: Case) -> list[ProgressStep]:
-    held_step = derive_step(facts_of(case).model_copy(update={"hold": None}))[1]
-    latest = session.scalars(
-        select(WorkflowRun.id)
-        .where(WorkflowRun.case_id == case.id)
-        .order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
-        .limit(1)
-    ).first()
-    failed = latest is not None and (
-        session.scalars(
-            select(WorkflowStep.step_key).where(
-                WorkflowStep.run_id == latest, WorkflowStep.status == StepStatus.FAILED.value
-            )
-        ).first()
-        is not None
-    )
+    held_step = derive_step(facts_with_runs(session, case).model_copy(update={"hold": None}))[1]
+    failed = bool(investigation.failed_steps(session, case.id))  # same source as recovery_actions
     return progress_steps(CaseStep(case.step), held_step=held_step, run_failed=failed)
 
 
@@ -274,7 +259,18 @@ def get_case_view(
         charge_impact=ChargeImpact(**vars(case_impact(_exposure_row(case, txn)))),
         available_actions=enabled,
         blocked_actions=blocked,
-        recovery_actions=[],
+        recovery_actions=(
+            recovery_actions(
+                actor[1],
+                state,
+                step,
+                case_id=case.id,
+                case_version=case.case_version,
+                failed_steps=investigation.failed_steps(session, case.id),
+            )
+            if actor
+            else []
+        ),
         hold=Hold.model_validate(case.hold) if case.hold else None,
         policy=policy_service.latest_view(session, case.id),
         steps=_steps(session, case),
