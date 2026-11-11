@@ -288,3 +288,23 @@ Added events: `specialist.failed`, `specialist.retried`, `specialist.replayed`. 
 **D-F (Nov 10): LIVE model provider.** Same as the `echo` project: provider `openai`, model `gpt-4o`, key from `OPENAI_API_KEY`. Both are configuration (`VERA_MODEL_PROVIDER`, `VERA_MODEL_ID`), read once at startup; a missing key in LIVE mode is a startup readiness error, not a fallback to REPLAY. The key is never committed: `.env.example` lists the variable name only, `.env` is git-ignored, and CI runs REPLAY with no key.
 
 **D-G (Nov 10): supersedes D-F — LIVE provider is NVIDIA.** Hosted NVIDIA API catalog, OpenAI-compatible Chat Completions at `https://integrate.api.nvidia.com/v1`, key from `NVIDIA_API_KEY`. Config: `VERA_MODEL_PROVIDER=nvidia`, `VERA_MODEL_BASE_URL`, `VERA_MODEL_ID`. Tool-calling and structured-output support differs per model on this catalog, so the model id is chosen by a capability check, not assumed: VER-003 starts with a probe (`python -m vera.models.probe`) that lists the models the key can use and runs one tool-call round trip and one schema-constrained output against each candidate; the first candidate that passes both is pinned in config and recorded with each step. Provisional candidate: `meta/llama-3.3-70b-instruct`. Key handling is unchanged from D-F: `.env` only, never committed, never logged; CI runs REPLAY with no key.
+
+## 19. Decisions recorded Nov 10, 9:17 PM
+
+**D-H: Dashboard exposure shows gross and net; gross is primary.**
+
+| Metric | Definition | Status of the amounts |
+|---|---|---|
+| Gross exposure (primary) | Sum of posted charge amounts for cases that are not closed | verified (posted transactions) |
+| Net exposure | Gross exposure minus **confirmed recoveries** only | verified |
+| Confirmed recovery | A credit that has been finalized (dispute accepted, credit status `finalized`) | verified |
+| Temporary credit | Provisional credit issued and not yet finalized or reversed | pending — shown separately, **never** deducted from net |
+| Estimated amounts | Anything a specialist proposes (e.g. expected recovery) | estimate — never added into either exposure figure |
+
+Each amount returned by the API carries its basis (`verified | pending | estimated`); a single figure never mixes bases. Due-today and overdue amounts are gross. This supersedes VER-001's single net-of-issued-credit `open_exposure` and is implemented by ticket VER-015 (backend) and VER-012-F2 (display). Parity note: the prototype shows one figure; the second (net) figure is an agreed addition and is listed in the parity accepted-differences file.
+
+**D-I: Each passed ticket is synced to GitHub after independent verification.** After a reviewer pass and the local commit, the orchestrator writes `docs/verification/<ticket>.md` (commit SHA, checks run with output tails, reviewer verdict and rounds, known limitations), commits it, and pushes `main`. The sync is idempotent (re-running writes the same record and `git push` of an up-to-date branch is a no-op) and non-blocking: a failed push is logged in `docs/verification/SYNC_PENDING.md` and retried after the next ticket; implementation continues regardless. This overrides the run-tickets default of not pushing.
+
+**D-J: Demo role switching is server-authorized.** The role endpoint exists only in the synthetic environment, selects the user from `user_roles`, never accepts a client-supplied user or a service-principal role, and the gateway re-checks role membership in the database on every command.
+
+**D-K: Completion gate.** Before completion is declared, an independent verification council reviews architecture, security, state-machine correctness, API contracts, frontend integration and end-to-end workflows, and its report lists blockers, regressions and unresolved risks with evidence.
