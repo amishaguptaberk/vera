@@ -1,8 +1,9 @@
 """Specialist contracts (plan §18): pure types and the grounding validator. No I/O."""
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -76,13 +77,33 @@ class Violation:
 ReadField = Callable[[str, str], tuple[Any, int]]
 
 
+_GROUPED = re.compile(r"-?\d{1,3}(,\d{3})+(\.\d+)?")
+_PLAIN = re.compile(r"-?(0|[1-9]\d*)(\.\d+)?")
+
+
+def _number(v: Any) -> Decimal | None:
+    """A strictly numeric value as Decimal: numbers (never bool) or well-formed numeric strings
+    (thousands separators only in groups of three, no leading zeros, no exponent)."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, int | Decimal):
+        return Decimal(v)
+    if isinstance(v, float):
+        return Decimal(str(v))
+    if isinstance(v, str):
+        t = v.strip()
+        if _GROUPED.fullmatch(t) or _PLAIN.fullmatch(t):
+            return Decimal(t.replace(",", ""))
+    return None
+
+
 def _same(a: Any, b: Any) -> bool:
-    if a == b:
-        return True
-    try:
-        return Decimal(str(a).replace(",", "").strip()) == Decimal(str(b).replace(",", "").strip())
-    except InvalidOperation:
-        return str(a).strip() == str(b).strip()
+    if isinstance(a, bool) or isinstance(b, bool):
+        return type(a) is type(b) and a == b
+    na, nb = _number(a), _number(b)
+    if na is not None and nb is not None:
+        return na == nb
+    return str(a).strip() == str(b).strip()
 
 
 def validate_grounding(findings: list[Finding], read_field: ReadField) -> list[Violation]:

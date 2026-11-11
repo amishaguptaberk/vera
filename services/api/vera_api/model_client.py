@@ -50,8 +50,14 @@ class ModelClient(Protocol):
 
 
 def default_mode() -> ExecutionMode:
-    """VERA_EXECUTION_MODE; unset means replay (tests/CI). The product sets live explicitly."""
-    return ExecutionMode(os.environ.get("VERA_EXECUTION_MODE", "replay"))
+    """VERA_EXECUTION_MODE. Unset defaults to replay only in tests (VERA_ENV=test or pytest);
+    anywhere else it is an error, so a product path never silently replays recordings."""
+    mode = os.environ.get("VERA_EXECUTION_MODE")
+    if mode:
+        return ExecutionMode(mode)
+    if os.environ.get("VERA_ENV") == "test" or "PYTEST_CURRENT_TEST" in os.environ:
+        return ExecutionMode.REPLAY
+    raise RuntimeError("VERA_EXECUTION_MODE is not set; choose 'live' or 'replay' explicitly")
 
 
 def make_client(mode: ExecutionMode, case_id: str) -> ModelClient:

@@ -334,3 +334,90 @@ def test_runs_endpoint_lists_steps_with_mode_model_prompt_usage(
     assert step["prompt_version"] == "v1" and step["usage"] == {"total_tokens": 10}
     assert step["failure_reason"] is None
     assert client.get("/api/cases/NOPE/runs").status_code == 404
+
+
+def test_live_tool_round_trip_uses_openai_wire_format(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NVIDIA_API_KEY", KEY)
+    bodies: list[dict[str, Any]] = []
+    tool_call = {
+        "id": "call_7",
+        "type": "function",
+        "function": {
+            "name": "read_field",
+            "arguments": json.dumps({"record_id": CASE, "field": "amount"}),
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        message: dict[str, Any] = (
+            {"role": "assistant", "content": None, "tool_calls": [tool_call]}
+            if len(bodies) == 1
+            else {"role": "assistant", "content": json.dumps(out())}
+        )
+        return httpx.Response(200, json={"model": "m", "choices": [{"message": message}]})
+
+    client = live_client(handler)
+    run_id = new_run(session, ExecutionMode.LIVE)
+    outcome = make_runner(lambda m, c: client).run_step(
+        session, run_id, "s1", SPEC, {"case_id": CASE}, ExecutionMode.LIVE
+    )
+    assert outcome.status == "succeeded" and len(bodies) == 2
+    msgs = bodies[1]["messages"]
+    i = next(n for n, m in enumerate(msgs) if m.get("tool_calls"))
+    assistant, tool = msgs[i], msgs[i + 1]
+    [sent] = assistant["tool_calls"]
+    assert sent["id"] == "call_7" and sent["type"] == "function"
+    assert sent["function"]["name"] == "read_field"
+    assert isinstance(sent["function"]["arguments"], str)
+    assert json.loads(sent["function"]["arguments"]) == {"record_id": CASE, "field": "amount"}
+    assert tool["role"] == "tool" and tool["tool_call_id"] == "call_7"
+    assert isinstance(tool["content"], str) and "2,480.00" in tool["content"]
+
+
+def test_step_finished_by_another_worker_meanwhile_is_not_applied_twice(
+    session: Session, db_url: str
+) -> None:
+    run_id = new_run(session)
+    other = create_engine(db_url)
+
+    class OtherWorkerWins:
+        def complete(self, **kw: Any) -> ModelResult:
+            # While this worker waits on the model, another worker finishes the same step.
+            with other.begin() as conn:
+                conn.execute(
+                    text(
+                        "update workflow_steps set status='succeeded', attempts=1, output=:o"
+                        " where run_id=:r and step_key='s1'"
+                    ),
+                    {"o": json.dumps(out("2,480.00")), "r": run_id},
+                )
+            return result(out())
+
+    applied: list[BaseModel] = []
+    outcome = make_runner(lambda m, c: OtherWorkerWins()).run_step(
+        session, run_id, "s1", SPEC, {"case_id": CASE}, ExecutionMode.REPLAY, applied.append
+    )
+    other.dispose()
+    assert outcome.status == "succeeded" and outcome.attempts == 1
+    assert isinstance(outcome.output, EchoOut) and outcome.output.summary == "done"
+    assert applied == []
+    assert events(session) == ["run.step_started"]  # no second run.step_succeeded from us
+
+
+def test_heartbeat_is_called_before_each_model_call(session: Session) -> None:
+    run_id = new_run(session)
+    call = {"id": "1", "name": "read_field", "arguments": {"record_id": CASE, "field": "amount"}}
+    beats: list[int] = []
+    stub = ScriptedClient([result({}, [call]), result(out())])
+
+    def beat() -> None:
+        beats.append(len(stub.calls))  # model calls made so far when the heartbeat fires
+
+    outcome = make_runner(lambda m, c: stub).run_step(
+        session, run_id, "s1", SPEC, {"case_id": CASE}, ExecutionMode.REPLAY, heartbeat=beat
+    )
+    assert outcome.status == "succeeded"
+    assert beats == [0, 1]

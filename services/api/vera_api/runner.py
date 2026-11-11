@@ -75,6 +75,15 @@ def create_run(
     return run.id
 
 
+def _wire_tool_call(tc: dict[str, Any]) -> dict[str, Any]:
+    """Internal {id, name, arguments: dict} -> OpenAI wire form for the assistant message."""
+    return {
+        "id": tc.get("id", ""),
+        "type": "function",
+        "function": {"name": tc["name"], "arguments": json.dumps(tc.get("arguments", {}))},
+    }
+
+
 class SpecialistRunner:
     def __init__(self, client_factory: ClientFactory, read_field: ReadField, clock: Clock) -> None:
         self._factory = client_factory
@@ -90,7 +99,9 @@ class SpecialistRunner:
         inputs: BaseModel | dict[str, Any],
         mode: ExecutionMode,
         apply: Callable[[BaseModel], None] | None = None,
+        heartbeat: Callable[[], object] | None = None,
     ) -> StepOutcome:
+        """`heartbeat` (e.g. the worker's job touch) runs before each model call."""
         run = session.get(WorkflowRun, run_id)
         if run is None:
             raise LookupError(run_id)
@@ -130,9 +141,23 @@ class SpecialistRunner:
 
         gateway = ToolGateway(spec, case.id, self._read_field)
         usage: dict[str, Any] = {}
-        state: dict[str, Any] = {"attempts": 0, "model_id": None}
+        state: dict[str, Any] = {"attempts": 0, "model_id": None, "heartbeat": heartbeat}
         try:
             output = self._attempts(spec, typed_in, mode, case.id, gateway, usage, state)
+            # Another worker may have finished this step while we waited on the model: re-check
+            # under the row lock (held until commit) so apply and success happen at most once.
+            current = session.scalars(
+                select(WorkflowStep)
+                .where(WorkflowStep.run_id == run_id, WorkflowStep.step_key == step_key)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            ).one()
+            if current.status == StepStatus.SUCCEEDED:
+                stored = StepOutcome(
+                    "succeeded", current.attempts, spec.output_schema.model_validate(current.output)
+                )
+                session.rollback()
+                return stored
             if apply is not None:
                 apply(output)
         except _Fail as fail:
@@ -226,6 +251,8 @@ class SpecialistRunner:
         convo = list(messages)
         result = None
         for _ in range(MAX_TOOL_ROUNDS + 1):
+            if state["heartbeat"] is not None:
+                state["heartbeat"]()
             result = client.complete(
                 specialist=spec.name,
                 prompt_version=spec.prompt_version,
@@ -239,7 +266,13 @@ class SpecialistRunner:
                     usage[k] = usage.get(k, 0) + v
             if not result.tool_calls:
                 return result
-            convo.append({"role": "assistant", "content": "", "tool_calls": result.tool_calls})
+            convo.append(
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [_wire_tool_call(tc) for tc in result.tool_calls],
+                }
+            )
             for tc in result.tool_calls:
                 data = gateway.call(tc["name"], tc.get("arguments", {}))  # may raise ScopeViolation
                 convo.append(
