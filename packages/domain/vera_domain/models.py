@@ -92,7 +92,7 @@ class CaseView(BaseModel):
     charge_impact: ChargeImpact
     available_actions: list[ActionView]
     blocked_actions: list[BlockedAction] = []
-    recovery_actions: list[str] = []
+    recovery_actions: list[ActionView] = []  # e.g. retry_specialist_step after a failed step
     hold: Hold | None = None
     policy: "PolicyView | None" = None
 

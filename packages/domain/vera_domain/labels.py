@@ -12,6 +12,16 @@ _LABELS: dict[tuple[CaseState, CaseStep], tuple[str, StateKind, str]] = {
         StateKind.WORKING,
         "Start the investigation",
     ),
+    (CaseState.INVESTIGATING, CaseStep.WORKING): (
+        "Investigating",
+        StateKind.WORKING,
+        "Specialists are reviewing the charge",
+    ),
+    (CaseState.INVESTIGATING, CaseStep.DRAFT): (
+        "Investigation complete",
+        StateKind.REVIEW,
+        "Review the findings and draft the cardholder request",
+    ),
     (CaseState.HELD, CaseStep.ONHOLD): (
         "On hold",
         StateKind.WAITING,
