@@ -49,7 +49,10 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 def get_actor(request: Request, session: DbSession, settings: SettingsDep) -> Actor:
     return auth.load_actor(
-        session, settings.secret(), request.cookies.get(auth.COOKIE), settings.synthetic
+        session,
+        settings.secret(),
+        auth.session_cookie(request.headers.getlist("cookie")),
+        settings.synthetic,
     )
 
 
