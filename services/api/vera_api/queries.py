@@ -1,9 +1,12 @@
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from vera_domain.enums import CaseState, CaseStep
+from vera_domain.commands import REGISTRY, available_actions
+from vera_domain.enums import CaseState, CaseStep, Role
+from vera_domain.facts import Hold
 from vera_domain.labels import describe
 from vera_domain.models import (
     CardholderView,
@@ -19,7 +22,8 @@ from vera_domain.models import (
     TransactionView,
 )
 
-from vera_api.models import Cardholder, CardTransaction, Case, Merchant, User
+from vera_api import policy as policy_service
+from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
 
 
 class CaseNotFoundError(LookupError):
@@ -115,7 +119,27 @@ def summarize(session: Session, now: datetime, tz: str) -> Summary:
     )
 
 
-def get_case_view(session: Session, case_id: str, now: datetime, tz: str) -> CaseView:
+_SEQUENTIAL_REPORT_ID = re.compile(r"REP-([0-9]{1,9})", re.ASCII)
+
+
+def _next_report_id(session: Session) -> str:
+    """Next sequential REP-NNNN above the highest stored report id (read in this session)."""
+    top = 0
+    for (rid,) in session.execute(select(Report.id).where(Report.id.like("REP-%"))):
+        # ASCII digits only and bounded: stored ids may be foreign data; never raise here.
+        match = _SEQUENTIAL_REPORT_ID.fullmatch(rid)
+        if match:
+            top = max(top, int(match.group(1)))
+    return f"REP-{top + 1:04d}"
+
+
+def get_case_view(
+    session: Session,
+    case_id: str,
+    now: datetime,
+    tz: str,
+    actor: tuple[str, Role] | None = None,
+) -> CaseView:
     case = session.get(Case, case_id)
     if case is None:
         raise CaseNotFoundError(case_id)
@@ -129,6 +153,22 @@ def get_case_view(session: Session, case_id: str, now: datetime, tz: str) -> Cas
     state, step = CaseState(case.state), CaseStep(case.step)
     label, kind, next_action = describe(state, step)
     exposure = txn.amount_cents - case.credit_cents
+    gated = any(s.requires_policy is not None for s in REGISTRY.values())
+    enabled, blocked = (
+        available_actions(
+            actor[1],
+            state,
+            step,
+            case_id=case.id,
+            case_version=case.case_version,
+            user_id=actor[0],
+            next_report_id=_next_report_id(session),
+            policy_state=policy_service.current_state(session, case) if gated else None,
+            key_context=policy_service.key_context(session, case),
+        )
+        if actor
+        else ([], [])
+    )
     return CaseView(
         case_id=case.id,
         case_version=case.case_version,
@@ -170,5 +210,9 @@ def get_case_view(session: Session, case_id: str, now: datetime, tz: str) -> Cas
             if case.credit_cents == 0
             else "Temporary credit issued.",
         ),
-        available_actions=[],
+        available_actions=enabled,
+        blocked_actions=blocked,
+        recovery_actions=[],
+        hold=Hold.model_validate(case.hold) if case.hold else None,
+        policy=policy_service.latest_view(session, case.id),
     )

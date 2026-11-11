@@ -7,6 +7,16 @@ _LABELS: dict[tuple[CaseState, CaseStep], tuple[str, StateKind, str]] = {
         StateKind.IDLE,
         "Open the case and start the investigation",
     ),
+    (CaseState.INVESTIGATING, CaseStep.INTAKE): (
+        "Needs investigation",
+        StateKind.WORKING,
+        "Start the investigation",
+    ),
+    (CaseState.HELD, CaseStep.ONHOLD): (
+        "On hold",
+        StateKind.WAITING,
+        "Resume when the next owner is ready",
+    ),
 }
 
 
