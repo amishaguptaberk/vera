@@ -157,6 +157,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{case_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_cases__case_id__runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Evidence */
+        get: operations["get_evidence_api_cases__case_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/evidence/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Evidence Record */
+        get: operations["get_evidence_record_api_cases__case_id__evidence__record_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session/role": {
         parameters: {
             query?: never;
@@ -211,6 +262,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/demo/material-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Material Change */
+        post: operations["material_change_api_demo_material_change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -249,6 +317,11 @@ export interface components {
             /** Key Template */
             key_template?: string | null;
         };
+        /**
+         * Basis
+         * @enum {string}
+         */
+        Basis: "verified" | "pending" | "estimated";
         /** BlockedAction */
         BlockedAction: {
             /** Command */
@@ -317,12 +390,33 @@ export interface components {
         ChargeImpact: {
             /** Posted Cents */
             posted_cents: number;
-            /** Credit Cents */
-            credit_cents: number;
             /** Exposure Cents */
             exposure_cents: number;
+            /** Temporary Credit Cents */
+            temporary_credit_cents: number;
+            /** Confirmed Recovery Cents */
+            confirmed_recovery_cents: number;
+            /** Net Exposure Cents */
+            net_exposure_cents: number;
+            /** Bases */
+            bases: {
+                [key: string]: components["schemas"]["Basis"];
+            };
             /** Note */
             note: string;
+        };
+        /** CheckView */
+        CheckView: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Kinds */
+            kinds: string[];
+            /** Status */
+            status: string;
+            /** Stale Reason */
+            stale_reason: string | null;
         };
         /** CommandIn */
         CommandIn: {
@@ -350,6 +444,15 @@ export interface components {
             event_ids: string[];
             case: components["schemas"]["CaseView"];
         };
+        /** ConflictValue */
+        ConflictValue: {
+            /** Record Id */
+            record_id: string;
+            /** Version */
+            version: number;
+            /** Value */
+            value: unknown;
+        };
         /** ContactOnFile */
         ContactOnFile: {
             /** Phone Masked */
@@ -371,6 +474,54 @@ export interface components {
             /** Overdue */
             overdue: boolean;
         };
+        /** EvidenceRegister */
+        EvidenceRegister: {
+            /** Snapshot Hash */
+            snapshot_hash: string;
+            /** Records */
+            records: components["schemas"]["RecordSummary"][];
+            /** Open Conflicts */
+            open_conflicts: components["schemas"]["OpenConflict"][];
+            /** Missing */
+            missing: string[];
+            /** Checks */
+            checks: components["schemas"]["CheckView"][];
+            /** Findings */
+            findings: components["schemas"]["FindingView"][];
+        };
+        /**
+         * EvidenceStatus
+         * @enum {string}
+         */
+        EvidenceStatus: "supporting" | "missing" | "conflicting" | "superseded" | "pending_review" | "not_relevant";
+        /** EvidenceSummary */
+        EvidenceSummary: {
+            /** Snapshot Hash */
+            snapshot_hash: string;
+            /** Records */
+            records: components["schemas"]["RecordSummary"][];
+            /** Open Conflicts */
+            open_conflicts: components["schemas"]["OpenConflict"][];
+            /** Missing */
+            missing: string[];
+        };
+        /** FindingView */
+        FindingView: {
+            /** Finding Id */
+            finding_id: string;
+            /** Kind */
+            kind: string;
+            /** Statement */
+            statement: string;
+            /** Status */
+            status: string;
+            /** Resolved By */
+            resolved_by: string | null;
+            /** Links */
+            links: {
+                [key: string]: unknown;
+            }[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -391,6 +542,52 @@ export interface components {
              * Format: date-time
              */
             held_at: string;
+        };
+        /** MaterialChangeIn */
+        MaterialChangeIn: {
+            /**
+             * Case Id
+             * @default CHG-1042
+             */
+            case_id: string;
+            /**
+             * Record Id
+             * @default DLV-882
+             */
+            record_id: string;
+            /** Fields */
+            fields?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Source
+             * @default delivery system (demo)
+             */
+            source: string;
+        };
+        /** MaterialChangeOut */
+        MaterialChangeOut: {
+            before: components["schemas"]["EvidenceSummary"];
+            after: components["schemas"]["EvidenceSummary"];
+            /** Version */
+            version: number;
+            /** Material */
+            material: boolean;
+            /** Stale Checks */
+            stale_checks: string[];
+            /** Event Ids */
+            event_ids: string[];
+        };
+        /** OpenConflict */
+        OpenConflict: {
+            /** Finding Id */
+            finding_id: string;
+            /** Record Ids */
+            record_ids: string[];
+            /** Field */
+            field: string;
+            /** Values */
+            values: components["schemas"]["ConflictValue"][];
         };
         /** Person */
         Person: {
@@ -456,6 +653,34 @@ export interface components {
             /** Live */
             live: boolean;
         };
+        /** RecordDetail */
+        RecordDetail: {
+            /** Record Id */
+            record_id: string;
+            /** Kind */
+            kind: string;
+            status: components["schemas"]["EvidenceStatus"];
+            /** Current Version */
+            current_version: number;
+            /** Versions */
+            versions: components["schemas"]["VersionView"][];
+            /** Findings */
+            findings: components["schemas"]["FindingView"][];
+        };
+        /** RecordSummary */
+        RecordSummary: {
+            /** Record Id */
+            record_id: string;
+            /** Kind */
+            kind: string;
+            status: components["schemas"]["EvidenceStatus"];
+            /** Current Version */
+            current_version: number;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+        };
         /** ReportIn */
         ReportIn: {
             /** Report Id */
@@ -483,6 +708,28 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
+        /** RunOut */
+        RunOut: {
+            /** Id */
+            id: string;
+            /** Case Id */
+            case_id: string;
+            /** Workflow Version */
+            workflow_version: number;
+            /** Policy Version */
+            policy_version: number;
+            /** Status */
+            status: string;
+            /** Mode */
+            mode: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Steps */
+            steps: components["schemas"]["StepOut"][];
+        };
         /** SessionOut */
         SessionOut: {
             user: components["schemas"]["Person"];
@@ -497,19 +744,53 @@ export interface components {
          * @enum {string}
          */
         StateKind: "idle" | "working" | "complete" | "blocked" | "review" | "waiting";
+        /** StepOut */
+        StepOut: {
+            /** Step Key */
+            step_key: string;
+            /** Specialist */
+            specialist: string;
+            /** Status */
+            status: string;
+            /** Execution Mode */
+            execution_mode: string | null;
+            /** Model Id */
+            model_id: string | null;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Usage */
+            usage: {
+                [key: string]: unknown;
+            };
+            /** Attempts */
+            attempts: number;
+            /** Failure Reason */
+            failure_reason: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
         /** Summary */
         Summary: {
-            open_exposure: components["schemas"]["SummaryMetric"];
+            gross_exposure: components["schemas"]["SummaryMetric"];
+            net_exposure: components["schemas"]["SummaryMetric"];
+            confirmed_recoveries: components["schemas"]["SummaryMetric"];
+            temporary_credit: components["schemas"]["SummaryMetric"];
             due_today: components["schemas"]["SummaryMetric"];
             overdue: components["schemas"]["SummaryMetric"];
-            temporary_credit: components["schemas"]["SummaryMetric"];
         };
         /** SummaryMetric */
         SummaryMetric: {
             /** Amount Cents */
             amount_cents: number;
-            /** Cases */
-            cases: number;
+            /** Currency */
+            currency: string;
+            /** Count */
+            count: number;
+            basis: components["schemas"]["Basis"];
+            /** Definition */
+            definition: string;
         };
         /** TransactionView */
         TransactionView: {
@@ -541,6 +822,34 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VersionView */
+        VersionView: {
+            /** Version */
+            version: number;
+            /** Material Version */
+            material_version: number;
+            /** Status */
+            status: string;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            /** Content Hash */
+            content_hash: string;
+            /** Source */
+            source: string;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Attachments */
+            attachments: {
+                [key: string]: unknown;
+            }[];
         };
     };
     responses: never;
@@ -809,6 +1118,100 @@ export interface operations {
             };
         };
     };
+    list_runs_api_cases__case_id__runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evidence_api_cases__case_id__evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceRegister"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evidence_record_api_cases__case_id__evidence__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     switch_role_api_session_role_post: {
         parameters: {
             query?: never;
@@ -882,6 +1285,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: number;
                     };
+                };
+            };
+        };
+    };
+    material_change_api_demo_material_change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialChangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialChangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

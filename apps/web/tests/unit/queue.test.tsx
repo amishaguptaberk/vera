@@ -65,21 +65,16 @@ describe('CasesQueue', () => {
 });
 
 describe('summaryTiles', () => {
-  it('reads the current (old) shape without inventing metrics', () => {
+  it('reads the metric shape from the real summary: gross primary, net beside it, basis and definition passed through', () => {
     const t = summaryTiles(summary);
-    expect(t.map((x) => [x.label, x.amountCents, x.count, x.primary])).toEqual([
-      ['Open exposure', 726000, 6, true],
-      ['Due today', 566000, 3, false],
-      ['Overdue', 118000, 1, false],
-      ['Temporary credit', 396000, 1, false],
-    ]);
+    expect(t.map((x) => x.key)).toEqual(['gross_exposure', 'net_exposure', 'temporary_credit', 'confirmed_recoveries', 'due_today', 'overdue']);
+    expect(t[0]).toMatchObject({ primary: true, amountCents: 1122000, count: 6, basis: 'verified', definition: 'Sum of posted charge amounts for cases that are not closed.' });
+    expect(t[1].primary).toBe(false);
+    expect(t[2]).toMatchObject({ basis: 'pending', amountCents: 396000 });
   });
 
-  it('reads the new metric shape: gross primary, net beside it, basis and definition passed through', () => {
-    const m = (amount_cents: number, count: number, basis: string) => ({ amount_cents, currency: 'USD', count, basis, definition: `${basis} def` });
-    const t = summaryTiles({ net_exposure: m(330000, 5, 'net'), gross_exposure: m(726000, 6, 'gross'), overdue: m(118000, 1, 'gross') });
-    expect(t.map((x) => x.key)).toEqual(['gross_exposure', 'net_exposure', 'overdue']);
-    expect(t[0]).toMatchObject({ primary: true, amountCents: 726000, basis: 'gross', definition: 'gross def' });
-    expect(t[1].primary).toBe(false);
+  it('does not invent metrics the body lacks', () => {
+    expect(summaryTiles({ overdue: { amount_cents: 118000, currency: 'USD', count: 1, basis: 'verified', definition: 'd' } }).map((x) => x.key)).toEqual(['overdue']);
+    expect(summaryTiles({ open_exposure: { amount_cents: 1, cases: 1 } })).toEqual([]);
   });
 });
