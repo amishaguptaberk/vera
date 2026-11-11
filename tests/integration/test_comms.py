@@ -1,6 +1,7 @@
 """VER-005: cardholder follow-up through HTTP commands, cardholder routes and the watcher."""
 
 import json
+import re
 import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -13,7 +14,7 @@ from command_payloads import register_test_payloads
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
-from vera_api import investigation
+from vera_api import comms, investigation
 from vera_api.worker import run_once
 
 CASE = "CHG-1042"
@@ -398,7 +399,7 @@ def test_live_follow_up_uses_the_provider_through_mock_transport(
 
 
 def test_response_reviewer_recommends_conflicting_but_analyst_decides(
-    client: TestClient, factory: sessionmaker[Session]
+    client: TestClient, factory: sessionmaker[Session], tmp_path: Path
 ) -> None:
     drafted_and_sent(client, factory)
     conflicts = q(factory, "select count(*) from findings where kind='conflict'")[0][0]
@@ -409,6 +410,14 @@ def test_response_reviewer_recommends_conflicting_but_analyst_decides(
     assert rec[0][0]["classification"] == "conflicting"
     assert rec[0][1] == "none"
     assert step(client) == ("response_received", "response")
+    with factory() as s:  # the committed request files match what the specialists are sent
+        for path in comms.dump_requests(s, CASE, tmp_path):
+            rel = path.relative_to(tmp_path)
+
+            def norm(t: str) -> str:  # finding ids carry the random investigation run id
+                return re.sub(r"run_[0-9a-f]{6,}", "run_ID", t)
+
+            assert norm(path.read_text()) == norm((Path("evals/requests") / rel).read_text()), rel
     # a recommendation only: the reviewer opens no finding; the analyst's review decides
     assert q(factory, "select count(*) from findings where kind='conflict'")[0][0] == conflicts
     v = version(client)

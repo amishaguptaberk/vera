@@ -1,0 +1,99 @@
+{
+  "messages": [
+    {
+      "content": "Response reviewer (Receipt and Document Reviewer). Purpose: classify the cardholder's reply as complete (answers every question, consistent with the initial report), incomplete (leaves a question unanswered) or conflicting (contradicts the initial report). Read the reply text, the request's questions and the initial report statement with read_field and cite each value your classification rests on as {record_id, version, field, value, statement}. This is a recommendation for the analyst, not a decision. Reply with one JSON object only.\n\nOutput JSON schema: {\"$defs\": {\"ReviewCitation\": {\"properties\": {\"record_id\": {\"title\": \"Record Id\", \"type\": \"string\"}, \"version\": {\"minimum\": 1, \"title\": \"Version\", \"type\": \"integer\"}, \"field\": {\"title\": \"Field\", \"type\": \"string\"}, \"value\": {\"title\": \"Value\"}, \"statement\": {\"minLength\": 1, \"title\": \"Statement\", \"type\": \"string\"}}, \"required\": [\"record_id\", \"version\", \"field\", \"value\", \"statement\"], \"title\": \"ReviewCitation\", \"type\": \"object\"}}, \"properties\": {\"classification\": {\"enum\": [\"complete\", \"incomplete\", \"conflicting\"], \"title\": \"Classification\", \"type\": \"string\"}, \"citations\": {\"items\": {\"$ref\": \"#/$defs/ReviewCitation\"}, \"minItems\": 1, \"title\": \"Citations\", \"type\": \"array\"}}, \"required\": [\"classification\", \"citations\"], \"title\": \"ResponseReviewOutput\", \"type\": \"object\"}",
+      "role": "system"
+    },
+    {
+      "content": "{\"case_id\": \"CHG-1042\", \"initial_report_id\": \"REP-1042\", \"request_id\": \"MSG-2201\", \"response_id\": \"RSP-2201\"}",
+      "role": "user"
+    }
+  ],
+  "response_schema": {
+    "$defs": {
+      "ReviewCitation": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "version",
+          "field",
+          "value",
+          "statement"
+        ],
+        "title": "ReviewCitation",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "citations": {
+        "items": {
+          "$ref": "#/$defs/ReviewCitation"
+        },
+        "minItems": 1,
+        "title": "Citations",
+        "type": "array"
+      },
+      "classification": {
+        "enum": [
+          "complete",
+          "incomplete",
+          "conflicting"
+        ],
+        "title": "Classification",
+        "type": "string"
+      }
+    },
+    "required": [
+      "classification",
+      "citations"
+    ],
+    "title": "ResponseReviewOutput",
+    "type": "object"
+  },
+  "tools": [
+    {
+      "function": {
+        "description": "Read one field of a record.",
+        "name": "read_field",
+        "parameters": {
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "record_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "record_id",
+            "field"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

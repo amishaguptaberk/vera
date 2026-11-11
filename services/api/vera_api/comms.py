@@ -1,8 +1,10 @@
 """Cardholder follow-up (VER-005): effects, fact provider, messaging adapter, routes, watcher."""
 
+import json
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -24,7 +26,7 @@ from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
 from vera_api.evidence import read_evidence_field, recompute_snapshot
 from vera_api.gateway import EffectContext
-from vera_api.model_client import default_mode
+from vera_api.model_client import PROBE_TOOL, default_mode
 from vera_api.models import AuditEvent, CardTransaction, Case, User
 from vera_api.models_comms import Communication, CommunicationDraft, CommunicationResponse
 from vera_api.models_evidence import (
@@ -36,7 +38,7 @@ from vera_api.models_evidence import (
 )
 from vera_api.models_runs import WorkflowRun
 from vera_api.runner import SpecialistRunner, create_run
-from vera_api.worker import Touch, enqueue, register, run_once
+from vera_api.worker import FAILURE_HOOKS, Touch, enqueue, register, run_once
 
 REPLY_WINDOW = timedelta(days=3)
 FIRST_MESSAGE = 2201
@@ -859,6 +861,35 @@ def _store_review(
 @register(RR_JOB)
 def run_response_review(session: Session, payload: dict[str, Any], touch: Touch) -> None:
     _run_specialist(session, payload, touch, _build_review, _store_review, dom.RESPONSE_REVIEWER)
+
+
+def _on_job_failed(session: Session, payload: dict[str, Any], error: str) -> None:
+    """Out of attempts: the run's running step fails explicitly, as for the investigation."""
+    inv.on_job_failed(session, payload, error)
+
+
+FAILURE_HOOKS[FU_JOB] = _on_job_failed
+FAILURE_HOOKS[RR_JOB] = _on_job_failed
+
+
+def dump_requests(session: Session, case_id: str, root: Path) -> list[Path]:
+    """Request files for recording on a networked machine: evals/requests/{specialist}/v1/."""
+    builds: list[tuple[str, Any]] = [(dom.FOLLOW_UP, _build_follow_up)]
+    if latest_communication(session, case_id) is not None:
+        builds.append((dom.RESPONSE_REVIEWER, _build_review))
+    out = []
+    for name, build in builds:
+        spec, inputs, _read = build(session, case_id, "dump")
+        path = root / name / dom.PROMPT_VERSION / f"{case_id}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        doc = {
+            "messages": spec.build_messages(inputs),
+            "response_schema": spec.output_schema.model_json_schema(),
+            "tools": [PROBE_TOOL],
+        }
+        path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
+        out.append(path)
+    return out
 
 
 @register(WATCH_JOB)
