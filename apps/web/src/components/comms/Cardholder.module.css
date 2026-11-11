@@ -175,6 +175,7 @@
   padding: 8px 10px;
   background: var(--paper);
   min-height: 72px;
+  box-sizing: border-box;
   resize: vertical;
   line-height: 1.55;
 }

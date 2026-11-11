@@ -230,6 +230,7 @@
   color: #3b3a39;
 }
 .control {
+  box-sizing: border-box;
   width: 100%;
   font: inherit;
   font-size: 13.5px;
