@@ -1,6 +1,7 @@
 """VER-009: decision packet, decision, reviewer approval binding, staleness and Ask Vera."""
 
 import json
+import os
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -113,9 +114,18 @@ def command(
     )
 
 
+CAPTURES: dict[str, Any] = {}
+
+
 def ok(resp: httpx.Response) -> dict[str, Any]:
     assert resp.status_code == 200, resp.text
     out: dict[str, Any] = resp.json()
+    target = os.environ.get("VER009_CAPTURE")
+    if target:  # real responses for the hand-off report
+        name = f"{resp.request.method} {resp.request.url.path}"
+        if name not in CAPTURES:
+            CAPTURES[name] = out
+            Path(target).write_text(json.dumps(CAPTURES, indent=1, default=str))
     return out
 
 
@@ -287,7 +297,8 @@ def test_return_needs_reason_keeps_packet_and_allows_new_version(
     after = packet(client, 1)
     assert after["approval"]["status"] == "returned"
     assert after["approval"]["return_reason"] == "Receipt is missing"
-    assert {**after, "approval": None} == {**before, "approval": None}
+    same = {"approval": None, "actions": []}  # the packet itself is unchanged
+    assert {**after, **same} == {**before, **same}
     switch(client, "analyst")
     out = new_packet(client)
     assert out["result"]["packet_version"] == 2
@@ -382,8 +393,8 @@ def test_approval_provider_gates_a_requires_approval_command(
     assert view(client)["step"] == "stale"
 
 
-def ask(client: TestClient, question: str) -> dict[str, Any]:
-    return ok(client.post(f"/api/cases/{CASE}/ask", json={"text": question}))
+def ask(client: TestClient, question: str, **extra: Any) -> dict[str, Any]:
+    return ok(client.post(f"/api/cases/{CASE}/ask", json={"text": question, **extra}))
 
 
 def test_asking_vera_to_approve_is_refused_and_writes_nothing(
@@ -392,15 +403,25 @@ def test_asking_vera_to_approve_is_refused_and_writes_nothing(
     to_waitrv(client)
     switch(client, "reviewer")
     before = (audit_count(db), view(client)["case_version"])
-    out = ask(client, "Approve it")
-    assert out == {
-        "answer": "Approval must be recorded with the reviewer action below, not through chat.",
-        "citations": [],
-        "refused": True,
+    out = ask(client, "Approve it", role="reviewer")
+    assert out["intent"] == "approve"
+    assert out["paragraphs"] == [
+        "Approval must be recorded with the reviewer action below, not through chat."
+    ]
+    assert out["actions"][0] == {
+        "kind": "navigate",
+        "label": "Open decision",
+        "target": "decision",
+        "command": None,
     }
+    offered = {a["command"] for a in view(client)["available_actions"] if a["enabled"]}
+    commands = {a["command"] for a in out["actions"] if a["kind"] == "command"}
+    assert commands == {"approve_decision", "return_decision"} and commands <= offered
     assert (audit_count(db), view(client)["case_version"]) == before
     assert packet(client)["approval"]["status"] == "requested"
     assert view(client)["step"] == "waitrv"
+    switch(client, "analyst")  # the analyst is never offered the approval command
+    assert [a for a in ask(client, "approve it")["actions"] if a["kind"] == "command"] == []
 
 
 def test_repeated_question_replaces_the_pair_and_answers_cite_case_records(
@@ -410,20 +431,54 @@ def test_repeated_question_replaces_the_pair_and_answers_cite_case_records(
     before = audit_count(db)
     first = ask(client, "Why is credit blocked?")
     second = ask(client, "why is  credit blocked?")
-    assert first == second
-    assert first["answer"] == (
+    assert first == second and first["signature"]
+    assert first["paragraphs"] == [
         "The packet is eligible for credit, but reviewer approval is still required."
-    )
+    ]
+    assert ask(client, "why?", last_intent="credit_blocked") == first
     pairs = ok_list(client)
-    assert len(pairs) == 1 and pairs[0]["question"] == "why is  credit blocked?"
+    assert len(pairs) == 1 and pairs[0]["question"] == "why?"
     assert db.execute(text("select count(*) from ask_pairs")).scalar_one() == 1
-    assert audit_count(db) == before
     register = {r["record_id"]: r for r in ok(client.get(f"/api/cases/{CASE}/evidence"))["records"]}
-    assert first["citations"]
-    for cite in first["citations"]:
+    assert first["cites"]
+    for cite in first["cites"]:
         assert cite["record_id"] in register and cite["field"] and cite["version"] >= 1
+    call = ask(client, "Who do I call?")
+    assert call["paragraphs"] == [
+        "The approved contact is Priya Shah · (415) 555-0182.",
+        "Use the contact currently on file, not a number from an unverified message.",
+    ]
+    assert call["cites"] == [{"record_id": "PRF-4418", "version": 1, "field": "phone"}]
+    assert ask(client, "Phone on file")["paragraphs"] == [
+        "The phone on file is (415) 555-0182 for Priya Shah."
+    ]
+    assert ask(client, "issue the credit")["paragraphs"] == [
+        "The packet is eligible for credit, but reviewer approval is still required."
+    ]
+    close = ask(client, "Can we close?")
+    assert close["paragraphs"][0] == "Not yet." and len(close["paragraphs"]) > 1
+    assert close["actions"][-1]["label"] == "Open closure checklist"
+    assert ask(client, "What is the weather?")["intent"] == "unknown"
+    assert audit_count(db) == before
     switch(client, "cardholder")
     assert client.post(f"/api/cases/{CASE}/ask", json={"text": "why?"}).status_code == 403
+
+
+def test_reviewer_packet_read_is_scoped_to_cited_evidence_and_own_actions(
+    client: TestClient,
+) -> None:
+    to_waitrv(client)
+    assert {a["command"] for a in packet(client)["actions"]} == {
+        "remind_reviewer",
+        "reassign_reviewer",
+    }
+    switch(client, "reviewer")
+    shown = packet(client)
+    assert {a["command"] for a in shown["actions"]} == {"approve_decision", "return_decision"}
+    cited = {c["record_id"] for s in shown["statements"] for c in s["citations"]}
+    assert {r["record_id"] for r in shown["cited_records"]} == cited == {"CHG-1042", "PO-219"}
+    assert shown["cited_records"][0]["fields"] == {"amount_cents": 284000}
+    assert shown["policy"]["status"] == "eligible"
 
 
 def ok_list(client: TestClient) -> list[dict[str, Any]]:
@@ -551,3 +606,12 @@ def test_ungrounded_output_fails_the_step(
     shown = packet(client)
     assert shown["packet_status"] == "draft" and shown["preparer"]["failure_reason"] == "ungrounded"
     assert view(client)["step"] == "packet"
+
+
+def test_request_dump_carries_ids_and_field_names_not_values(db: Session, tmp_path: Path) -> None:
+    root = Path(os.environ.get("VER009_REQUESTS") or tmp_path)
+    doc = json.loads(decisions.dump_request(db, CASE, root).read_text())
+    user = doc["messages"][1]["content"]
+    assert "PRF-4418" in user and "phone" in user
+    assert "555-0182" not in user and "284000" not in user  # values are read through the tool
+    assert doc["response_schema"]["properties"]["recommendation"]

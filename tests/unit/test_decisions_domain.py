@@ -13,6 +13,9 @@ from vera_domain.enums import Role
         ("Why is credit blocked?", "credit_blocked"),
         ("issue the credit", "issue_credit"),
         ("Is the approval stale?", "stale"),
+        ("Who do I call?", "contact"),
+        ("Phone on file", "phone"),
+        ("Can we close?", "can_close"),
         ("What is the weather?", "unknown"),
     ],
 )

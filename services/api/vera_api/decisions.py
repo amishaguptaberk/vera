@@ -532,6 +532,19 @@ class ApprovalView(BaseModel):
     return_owner_id: str | None = None
 
 
+class CitedRecord(BaseModel):
+    record_id: str
+    kind: str
+    version: int
+    fields: dict[str, Any]  # only the fields the packet cites
+
+
+class PacketAction(BaseModel):
+    command: str
+    label: str
+    idempotency_key: str
+
+
 class PacketStatement(BaseModel):
     text: str
     citations: list[d.Citation]
@@ -564,18 +577,34 @@ class DecisionPacketView(BaseModel):
     policy: dict[str, Any] | None
     decision: str | None
     approval: ApprovalView | None
+    cited_records: list[CitedRecord]  # the evidence this packet cites, nothing else
+    actions: list[PacketAction]  # packet commands the server offers the caller's role now
     created_by: str
     created_at: datetime
 
 
 class AskIn(BaseModel):
     text: str
+    role: str | None = None  # informational: the session's active role is authoritative
+    last_intent: str | None = None
+
+
+class AskAction(BaseModel):
+    """A button to render. Never auto-run; a command is one the server offers this role now."""
+
+    kind: str  # navigate | command
+    label: str
+    target: str | None = None
+    command: str | None = None
 
 
 class AskOut(BaseModel):
-    answer: str
-    citations: list[d.Citation]
-    refused: bool
+    intent: str
+    title: str
+    paragraphs: list[str]
+    cites: list[d.Citation]
+    actions: list[AskAction]
+    signature: str
 
 
 router = APIRouter(prefix="/api")
@@ -583,7 +612,11 @@ router = APIRouter(prefix="/api")
 
 @router.get("/cases/{case_id}/decision-packet")
 def get_decision_packet(
-    case_id: str, session: DbSession, actor: ReaderDep, version: int | None = None
+    case_id: str,
+    request: Request,
+    session: DbSession,
+    actor: ReaderDep,
+    version: int | None = None,
 ) -> DecisionPacketView:
     evidence._require_reader(actor)
     case = evidence._case(session, case_id)
@@ -645,6 +678,12 @@ def get_decision_packet(
         missing=s["missing"],
         policy=s["policy"],
         decision=decision.decision if decision else None,
+        cited_records=_cited_records(session, case_id, content),
+        actions=[
+            PacketAction(command=a.command, label=a.label, idempotency_key=a.idempotency_key)
+            for name, a in _offered(request, session, case_id, actor).items()
+            if name in PACKET_COMMANDS
+        ],
         approval=ApprovalView(
             **_binding(approval),
             return_reason=approval.return_reason,
@@ -658,35 +697,116 @@ def get_decision_packet(
     )
 
 
-def _citations(session: Session, case_id: str, record_ids: list[str]) -> list[d.Citation]:
-    """Only records in this case's register (staff-readable), at their current version."""
-    records = {r.record_id: r for r in evidence.get_evidence_summary(session, case_id).records}
-    wanted = [i for i in record_ids if i in records] or sorted(records)[:1]
+PACKET_COMMANDS = frozenset(c.name for c in d.COMMANDS)
+
+
+def _cited_records(
+    session: Session, case_id: str, content: DecisionPacketContent | None
+) -> list[CitedRecord]:
+    if content is None:
+        return []
+    wanted: dict[str, set[str]] = {}
+    for part in (*content.statements, *content.reasons):
+        for c in part["citations"]:
+            wanted.setdefault(c["record_id"], set()).add(c["field"])
     return [
-        d.Citation(
-            record_id=i, version=records[i].current_version, field=sorted(records[i].fields)[0]
+        CitedRecord(
+            record_id=r.record_id,
+            kind=r.kind,
+            version=r.current_version,
+            fields={k: v for k, v in r.fields.items() if k in wanted[r.record_id]},
         )
-        for i in wanted
-        if records[i].fields
+        for r in evidence.get_evidence_summary(session, case_id).records
+        if r.record_id in wanted
     ]
 
 
-def _answer(session: Session, case: Case, intent: str) -> AskOut:
-    if intent == "approve":
-        return AskOut(answer=d.REFUSAL, citations=[], refused=True)
+def _cite(session: Session, case_id: str, record_id: str, field: str) -> list[d.Citation]:
+    """One statement's source: a field of a record in THIS case's register, current version."""
+    for r in evidence.get_evidence_summary(session, case_id).records:
+        if r.record_id == record_id and field in r.fields:
+            return [d.Citation(record_id=record_id, version=r.current_version, field=field)]
+    return []
+
+
+def _offered(request: Request, session: Session, case_id: str, actor: Actor) -> dict[str, Any]:
+    """Commands the server currently offers this role (never more)."""
+    from vera_api import queries
+
+    view = queries.get_case_view(
+        session,
+        case_id,
+        request.app.state.clock.now(),
+        request.app.state.settings.demo_tz,
+        (actor.user_id, actor.active_role),
+    )
+    return {a.command: a for a in view.available_actions if a.enabled}
+
+
+def _closure_items(session: Session, case: Case) -> list[str]:
+    facts = gateway.facts_for(session, case)
+    items: list[str] = []
+    conflicts = len(evidence.get_evidence_summary(session, case.id).open_conflicts)
+    if conflicts:
+        items.append(f"Open evidence conflicts: {conflicts}.")
+    if facts.decision == "none":
+        items.append("The decision is not recorded.")
+    if facts.approval_status in ("requested", "returned", "stale"):
+        items.append(f"Reviewer approval is {facts.approval_status}.")
+    if facts.final_message_status != "sent":
+        items.append("The final cardholder update is not sent.")
+    return items
+
+
+def _answer(
+    session: Session, case: Case, intent: str, offered: dict[str, Any]
+) -> tuple[str, list[str], list[d.Citation], list[AskAction]]:
     view = policy_service.latest_view(session, case.id)
     approval = latest_approval(session, case.id)
-    cites = _citations(session, case.id, list(view.evidence_used) if view else [])
-    if intent == "issue_credit":
-        if approval is not None and approval.status == "approved":
-            text = "The decision is approved. Credit is issued with the analyst action, not chat."
-        else:
-            text = "The packet is eligible for credit, but reviewer approval is still required."
-            if view is None or view.status != "eligible":
-                text = "Credit is not available: " + (
-                    view.label if view else "policy not evaluated."
-                )
-        return AskOut(answer=text, citations=cites, refused=True)
+    open_decision = AskAction(kind="navigate", label="Open decision", target="decision")
+    commands = [
+        AskAction(kind="command", label=offered[name].label, command=name)
+        for name in ("approve_decision", "return_decision")
+        if name in offered
+    ]
+    profile = {
+        r.record_id: r.fields for r in evidence.get_evidence_summary(session, case.id).records
+    }.get("PRF-4418", {})
+    name, phone = profile.get("name"), profile.get("phone")
+    policy_cites = [
+        c
+        for rid in (view.evidence_used if view else [])[:3]
+        for c in _first_field(session, case.id, str(rid))
+    ]
+    if intent == "approve":
+        return "Approval", [d.REFUSAL], [], [open_decision, *commands]
+    if intent in ("issue_credit", "credit_eligible"):
+        if case.credit_status == "issued":
+            return "Credit", [d.CREDIT_ISSUED], [], []
+        if view is not None and view.status == "eligible":
+            return "Credit", [d.CREDIT_NEEDS_APPROVAL], policy_cites, [open_decision]
+        label = view.label if view else "Policy has not been evaluated on the current evidence."
+        return "Credit", [f"Credit is not available: {label}"], policy_cites, []
+    if intent == "contact" and name and phone:
+        return (
+            "Contact",
+            [f"The approved contact is {name} · {phone}.", d.CONTACT_RULE],
+            _cite(session, case.id, "PRF-4418", "phone"),
+            [],
+        )
+    if intent == "phone" and name and phone:
+        return (
+            "Phone on file",
+            [f"The phone on file is {phone} for {name}."],
+            _cite(session, case.id, "PRF-4418", "phone"),
+            [],
+        )
+    if intent in ("can_close", "close_now"):
+        items = _closure_items(session, case)
+        if not items:
+            return "Closure", ["Yes. Every closure item is complete."], [], []
+        checklist = AskAction(kind="navigate", label="Open closure checklist", target="closure")
+        return "Closure", ["Not yet.", *items], [], [checklist]
     if intent == "stale":
         stale = approval is not None and approval.status == "stale"
         text = (
@@ -694,16 +814,27 @@ def _answer(session: Session, case: Case, intent: str) -> AskOut:
             if stale
             else "No approval is out of date."
         )
-        return AskOut(answer=text, citations=cites, refused=False)
+        return "Approval status", [text], [], [open_decision] if stale else []
     if intent in ("credit_blocked", "policy"):
         if view is None:
             text = "Policy has not been evaluated on the current evidence."
         elif view.status == "eligible" and (approval is None or approval.status != "approved"):
-            text = "The packet is eligible for credit, but reviewer approval is still required."
+            text = d.CREDIT_NEEDS_APPROVAL
         else:
             text = view.label
-        return AskOut(answer=text, citations=cites, refused=False)
-    return AskOut(answer=d.UNKNOWN, citations=[], refused=False)
+        return "Policy", [text], policy_cites, []
+    return "Vera", [d.UNKNOWN], [], []
+
+
+def _first_field(session: Session, case_id: str, record_id: str) -> list[d.Citation]:
+    for r in evidence.get_evidence_summary(session, case_id).records:
+        if r.record_id == record_id and r.fields:
+            return [
+                d.Citation(
+                    record_id=record_id, version=r.current_version, field=sorted(r.fields)[0]
+                )
+            ]
+    return []
 
 
 @router.post("/cases/{case_id}/ask")
@@ -711,20 +842,39 @@ def ask(
     case_id: str, body: AskIn, request: Request, session: DbSession, actor: ReaderDep
 ) -> AskOut:
     """Read-only: fixed answers from stored rows. No model call, no command, no audit event."""
+    import hashlib
+    import json
+
     evidence._require_reader(actor)
     case = evidence._case(session, case_id)
     if not body.text.strip():
         raise CommandError("schema_invalid", 422, "text: required.")
-    intent = d.ask_intent(body.text)
-    out = _answer(session, case, intent)
+    intent = d.ask_intent(body.text, body.last_intent)
+    title, paragraphs, cites, actions = _answer(
+        session, case, intent, _offered(request, session, case_id, actor)
+    )
+    signature = hashlib.sha256(
+        json.dumps([intent, paragraphs, [c.model_dump() for c in cites]]).encode()
+    ).hexdigest()[:16]
+    out = AskOut(
+        intent=intent,
+        title=title,
+        paragraphs=paragraphs,
+        cites=cites,
+        actions=actions,
+        signature=signature,
+    )
     clock: Clock = request.app.state.clock
     pair = session.scalars(
         select(AskPair).where(
-            AskPair.case_id == case_id, AskPair.user_id == actor.user_id, AskPair.intent == intent
+            AskPair.case_id == case_id,
+            AskPair.user_id == actor.user_id,
+            AskPair.intent == intent,
+            AskPair.signature == signature,
         )
     ).first()
     if pair is None:
-        pair = AskPair(case_id=case_id, user_id=actor.user_id, intent=intent)
+        pair = AskPair(case_id=case_id, user_id=actor.user_id, intent=intent, signature=signature)
         session.add(pair)
     pair.question, pair.answer, pair.asked_at = body.text.strip(), out.model_dump(), clock.now()
     session.commit()

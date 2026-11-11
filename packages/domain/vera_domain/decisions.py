@@ -17,7 +17,12 @@ from vera_domain.commands import (
 )
 from vera_domain.enums import CaseState, CaseStep, Role, StateKind, register_event_types
 from vera_domain.facts import CaseFacts
-from vera_domain.labels import register_event_summaries, register_labels
+from vera_domain.labels import (
+    register_blockers,
+    register_event_summaries,
+    register_labels,
+    register_wait_kinds,
+)
 from vera_domain.specialists import Finding, SpecialistSpec
 
 DecisionKind = Literal["credit", "dispute", "clear", "violation", "unresolved"]
@@ -180,35 +185,52 @@ register_event_summaries(
         "approval.reassigned": "Reviewer reassigned",
     }
 )
+# Texts from the prototype's PHASE / BLK tables (apps/web/prototype/Main.dc.html).
 register_labels(
     {
         (CaseState.DECISION_PENDING, CaseStep.PACKET): (
-            "Decision pending",
+            "Ready for decision",
             StateKind.REVIEW,
-            "Prepare decision packet",
+            "Prepare the decision packet",
         ),
         (CaseState.DECISION_PENDING, CaseStep.DECIDE): (
-            "Decision pending",
+            "Ready for decision",
             StateKind.REVIEW,
-            "Record decision",
+            "Record the decision",
+        ),
+        (CaseState.DECISION_PENDING, CaseStep.RETURNED): (
+            "Returned by reviewer",
+            StateKind.WAITING,
+            "Prepare a new packet version",
         ),
         (CaseState.REVIEWER_PENDING, CaseStep.WAITRV): (
             "Waiting on reviewer",
             StateKind.WAITING,
-            "Remind or reassign reviewer",
-        ),
-        (CaseState.DECISION_PENDING, CaseStep.RETURNED): (
-            "Returned by reviewer",
-            StateKind.BLOCKED,
-            "Prepare a new packet version",
+            "Remind or reassign the reviewer",
         ),
         (CaseState.DECISION_PENDING, CaseStep.STALE): (
             "Approval out of date",
             StateKind.BLOCKED,
             "Prepare a new packet version",
         ),
+        (CaseState.CREDIT_APPROVED, CaseStep.ISSUE): (
+            "Approved · credit ready",
+            StateKind.REVIEW,
+            "Issue the provisional credit",
+        ),
     }
 )
+register_blockers(
+    {
+        CaseStep.PACKET: "Decision needed",
+        CaseStep.DECIDE: "Decision needed",
+        CaseStep.RETURNED: "Returned by reviewer",
+        CaseStep.WAITRV: "Reviewer approval",
+        CaseStep.STALE: "Approval out of date",
+        CaseStep.ISSUE: "Credit not issued",
+    }
+)
+register_wait_kinds({CaseStep.WAITRV: "reviewer"})
 
 
 def reduce_create_packet(f: CaseFacts, p: NoPayload, ctx: ReduceContext) -> Reduction:
@@ -422,18 +444,32 @@ COMMANDS = (
 # ---- Ask Vera: deterministic intents (Handoff 3.4), explicit before generic ---------------------
 
 REFUSAL = "Approval must be recorded with the reviewer action below, not through chat."
-UNKNOWN = "I can answer questions about this case's evidence, policy and approval status."
+CREDIT_ISSUED = "Credit has already been issued for this case."
+CREDIT_NEEDS_APPROVAL = (
+    "The packet is eligible for credit, but reviewer approval is still required."
+)
+CONTACT_RULE = "Use the contact currently on file, not a number from an unverified message."
+UNKNOWN = "I can answer questions about this case's evidence, policy, contact and approval status."
 _INTENTS: tuple[tuple[str, str], ...] = (
-    ("approve", r"\bapprov(e|al)\b.*\b(it|this|that|packet|decision|credit|for me)\b|^approve\b"),
+    ("approve", r"\bapprove\b|\bsign off\b"),
     ("issue_credit", r"\bissue\b.*\bcredit\b"),
-    ("credit_blocked", r"\bcredit\b.*\b(blocked|block)\b|\bwhy\b.*\bcredit\b"),
+    ("close_now", r"\bclose (it|this|the case) now\b"),
+    ("contact", r"\bwho\b.*\b(call|contact)\b"),
+    ("phone", r"\bphone\b"),
+    ("can_close", r"\bcan (we|i)\b.*\bclose\b"),
+    ("credit_eligible", r"\bcredit\b.*\beligible\b|\beligible\b.*\bcredit\b"),
+    ("credit_blocked", r"\bcredit\b.*\bblock(ed)?\b|\bwhy\b.*\bcredit\b"),
     ("stale", r"\b(stale|out of date)\b"),
     ("policy", r"\bpolicy\b"),
 )
+_WHY = re.compile(r"^why\??$")
 
 
-def ask_intent(text: str) -> str:
+def ask_intent(text: str, last_intent: str | None = None) -> str:
     q = re.sub(r"\s+", " ", text.strip().lower())
+    known = {name for name, _ in _INTENTS}
+    if _WHY.fullmatch(q) and last_intent in known:
+        return str(last_intent)
     for intent, pattern in _INTENTS:
         if re.search(pattern, q):
             return intent

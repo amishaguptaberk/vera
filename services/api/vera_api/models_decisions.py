@@ -79,6 +79,7 @@ class AskPair(Base):
     case_id: Mapped[str] = mapped_column(ForeignKey("cases.id"))
     user_id: Mapped[str] = mapped_column(String)
     intent: Mapped[str] = mapped_column(String)
+    signature: Mapped[str] = mapped_column(String)
     question: Mapped[str] = mapped_column(String)
     answer: Mapped[dict[str, Any]] = mapped_column(JSONB)
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

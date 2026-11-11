@@ -80,10 +80,11 @@ def upgrade() -> None:
             case_id text not null references cases(id),
             user_id text not null,
             intent text not null,
+            signature text not null,
             question text not null,
             answer jsonb not null,
             asked_at timestamptz not null,
-            unique (case_id, user_id, intent)
+            unique (case_id, user_id, intent, signature)
         );
         create trigger decision_packets_append_only before update or delete on decision_packets
             for each row execute function vera_forbid_mutation();
