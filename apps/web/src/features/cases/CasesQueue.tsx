@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCases, useCasesSummary, useSession, type QueueRow } from '@/api';
+import { useQuery } from '@tanstack/react-query';
+import { ApiError, filterCountsQuery, useCases, useCasesSummary, useSession } from '@/api';
 import { Banner, Skeleton } from '@/design-system/primitives';
 import { formatMoney } from '@/lib';
-import { FILTERS, SORTS, filterCount, parseFilter, parseSort, visibleRows, type FilterId, type SortId } from './queue-filters';
+import { FILTERS, SORTS, filterCount, parseFilter, parseSort, visibleRows, type FilterId, type QueueRowExt, type SortId } from './queue-filters';
 import { summaryTiles } from './summary';
 import styles from './CasesQueue.module.css';
 
@@ -21,7 +22,7 @@ export function SummaryStrip() {
   if (summary.isPending) {
     return <Skeleton height={92} radius={12} />;
   }
-  if (!tiles.length) return null;
+  if (!tiles.length) return null; // includes a typed 403 for roles the queue is not for
   return (
     <dl className={styles.sumstrip} aria-label="Open charge exposure">
       {tiles.map((t) => (
@@ -41,7 +42,7 @@ export function SummaryStrip() {
   );
 }
 
-function Row({ r }: { r: QueueRow }) {
+function Row({ r }: { r: QueueRowExt }) {
   const name = `${r.case_id} · ${r.merchant}`;
   return (
     <tr className={r.live ? cx(styles.sel, styles.live) : styles.ex} data-openable={r.live ? 'true' : 'false'}>
@@ -59,13 +60,15 @@ function Row({ r }: { r: QueueRow }) {
           </div>
         </div>
       </td>
-      {/* QueueRow carries no blocker or next-action text yet (INTEGRATION NOTES); nothing is invented. */}
-      <td className={cx(styles.blk, styles.none)}>—</td>
+      {/* Server strings when present; "—" otherwise. Nothing is invented. */}
+      <td className={cx(styles.blk, !r.blocker && styles.none)}>{r.blocker || '—'}</td>
       <td>
-        <span className={styles.nx}>—</span>
+        <span className={styles.nx}>
+          <span>{r.next_action || '—'}</span>
+        </span>
       </td>
       <td className={styles.ow}>{r.owner.name}</td>
-      <td className={cx(styles.due, r.due?.overdue && styles.over)}>{r.due?.label ?? 'No deadline'}</td>
+      <td className={cx(styles.due, r.due?.overdue && styles.over, !r.due?.overdue && r.due_today && styles.today)}>{r.due?.label ?? 'No deadline'}</td>
     </tr>
   );
 }
@@ -79,7 +82,8 @@ export function CasesQueue() {
   const cases = useCases();
   const session = useSession();
   const me = session.data?.user.id ?? null;
-  const rows = cases.data ?? [];
+  const counts = useQuery(filterCountsQuery);
+  const rows: QueueRowExt[] = cases.data ?? [];
   const shown = visibleRows(rows, filter, sort, me);
 
   const setParam = (k: 'filter' | 'sort', v: FilterId | SortId, dflt: string) => {
@@ -90,6 +94,19 @@ export function CasesQueue() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
+  // The queue is staff-only on the server: a typed 403 shows the server's message instead of the queue.
+  if (cases.error instanceof ApiError && cases.error.status === 403) {
+    return (
+      <div className={styles.ov}>
+        <div className={styles.pgH}>
+          <h1 className={styles.pgT}>Cases</h1>
+        </div>
+        <Banner tone="info" title="The case queue is not available in this view">
+          {cases.error.message}
+        </Banner>
+      </div>
+    );
+  }
   return (
     <div className={styles.ov}>
       <div className={styles.pgH}>
@@ -98,7 +115,7 @@ export function CasesQueue() {
       <SummaryStrip />
       {cases.isError ? (
         <Banner tone="bad" title="Could not refresh the queue" action={{ label: 'Retry', onClick: () => void cases.refetch() }}>
-          {cases.error.message}
+          {(cases.error as Error).message}
           {cases.data ? ' Showing the last loaded cases.' : ''}
         </Banner>
       ) : null}
@@ -119,7 +136,7 @@ export function CasesQueue() {
             {FILTERS.map((f) => (
               <button key={f.id} type="button" className={cx(styles.fb, filter === f.id && styles.on)} aria-pressed={filter === f.id} onClick={() => setParam('filter', f.id, 'all')}>
                 {f.label}
-                {f.id !== 'all' && cases.data ? <span className={styles.fc}>{filterCount(rows, f.id, me)}</span> : null}
+                {f.id !== 'all' && cases.data ? <span className={styles.fc}>{filterCount(counts.data, rows, f.id, me)}</span> : null}
               </button>
             ))}
           </div>
