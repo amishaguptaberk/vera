@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from vera_domain.errors import CommandError
@@ -74,6 +74,7 @@ router = APIRouter(prefix="/api")
 @router.get("/cases/filter-counts")
 def get_filter_counts(request: Request, session: DbSession, actor: ActorDep) -> FilterCounts:
     """Counts for the queue filter chips; `mine` is relative to the session user."""
+    require_staff(actor, "the case queue")
     settings: Settings = request.app.state.settings
     clock = request.app.state.clock
     return queries.filter_counts(session, clock.now(), settings.demo_tz, actor.user_id)
@@ -81,7 +82,10 @@ def get_filter_counts(request: Request, session: DbSession, actor: ActorDep) -> 
 
 @router.get("/cases/{case_id}/activity")
 def get_activity(
-    case_id: str, session: DbSession, actor: ActorDep, after: int | None = None
+    case_id: str,
+    session: DbSession,
+    actor: ActorDep,
+    after: Annotated[int | None, Query(ge=0, le=2**63 - 1)] = None,
 ) -> ActivityFeed:
     """Audit events for the case, oldest first; `after` = last event id seen (polling)."""
     require_staff(actor, "case activity")
