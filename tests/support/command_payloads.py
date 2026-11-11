@@ -23,6 +23,11 @@ TEST_PAYLOADS: dict[str, dict[str, Any]] = {
     "evaluate_policy": {},
     "start_investigation": {},
     "retry_specialist_step": {"step_key": "charge_investigator", "mode": "replay"},
+    "review_related_charge": {
+        "record_id": "CHG-1051",
+        "decision": "not_related",
+        "reason": "Different cost centre",
+    },
 }
 
 TEST_USER_INPUTS: dict[str, dict[str, Any]] = {
@@ -45,6 +50,7 @@ def register_test_payloads(
 REDUCER_EXTRAS: dict[str, dict[str, Any]] = {
     "start_investigation": {"run": {"run_id": "r", "mode": "replay"}},
     "retry_specialist_step": {"run": {"run_id": "r", "mode": "replay"}},
+    "review_related_charge": {"status": "not_relevant"},
     "evaluate_policy": {
         "policy": {
             "status": "eligible",

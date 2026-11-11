@@ -1,16 +1,18 @@
 import re
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from vera_domain.commands import REGISTRY, available_actions, recovery_actions
+from vera_domain.commands import REGISTRY, available_actions, recovery_actions, resolve_key
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.exposure import CreditStatus, ExposureRow, case_impact, compute_exposure
 from vera_domain.facts import Hold, derive_step
 from vera_domain.labels import BLOCKER_BY_STEP, WAIT_KIND_BY_STEP, describe
 from vera_domain.models import (
+    ActionView,
     CardholderView,
     CaseView,
     ChargeImpact,
@@ -28,7 +30,7 @@ from vera_domain.progress import ProgressStep, progress_steps
 
 from vera_api import auth, investigation
 from vera_api import policy as policy_service
-from vera_api.gateway import approval_binding, approval_state, facts_for
+from vera_api.gateway import KEY_CONTEXTS, approval_binding, approval_state, facts_for
 from vera_api.models import Cardholder, CardTransaction, Case, Merchant, Report, User
 
 
@@ -46,6 +48,19 @@ def _due(due_at: datetime | None, now: datetime, tz: str) -> Due | None:
     local = due_at.astimezone(ZoneInfo(tz))
     label = f"{local:%b} {local.day}, {local.hour % 12 or 12}:{local:%M} {local:%p}"
     return Due(at=due_at, label=label, overdue=due_at < now)
+
+
+def _with_feature_key(session: Session, case: Case, action: ActionView) -> ActionView:
+    """Fill the key fields a feature supplies (its gateway key context: verification id, attempt,
+    packet version, approval id...), so the offered key is exactly what the gateway expects."""
+    ctx = KEY_CONTEXTS.get(action.command)
+    if ctx is None or "{" not in action.idempotency_key:
+        return action
+    body = dict(action.payload_defaults)
+    # The offered key already carries case, version, user and policy fields; fill the rest.
+    partial = replace(REGISTRY[action.command], key_template=action.idempotency_key)
+    key = resolve_key(partial, {**ctx(session, case, body), **body})
+    return action.model_copy(update={"idempotency_key": key})
 
 
 def _person(session: Session, user_id: str) -> Person:
@@ -259,7 +274,7 @@ def get_case_view(
             ),
         ),
         charge_impact=ChargeImpact(**vars(case_impact(_exposure_row(case, txn)))),
-        available_actions=enabled,
+        available_actions=[_with_feature_key(session, case, a) for a in enabled],
         blocked_actions=blocked,
         recovery_actions=(
             recovery_actions(

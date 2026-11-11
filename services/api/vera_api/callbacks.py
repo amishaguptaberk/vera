@@ -119,9 +119,13 @@ register_labels(
 
 # The cardholder side of the simulated call, per selectable outcome (synthetic).
 _SCRIPTS: dict[str, list[tuple[str, str]]] = {
-    "confirmed": [
+    "confirmed": [  # the cardholder is reached and answers: she did not authorize it
         ("contact", "Hello, this is Priya."),
-        ("contact", "Yes, I placed the Northstar Equipment order and I authorize the charge."),
+        (
+            "contact",
+            "No. I did not place the Northstar Equipment order; a colleague used my card"
+            " without my approval, so I did not authorize this charge.",
+        ),
     ],
     "contradicted": [
         ("contact", "Hello, this is Priya."),
@@ -304,6 +308,21 @@ def _record_effect(
     return {"result": row.result}
 
 
+def _record_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    p: Any,
+    now: datetime,
+    ctx: EffectContext,
+    out: gateway.Outcome,
+) -> None:
+    """A confirmed call is the structured verification the open conflicts were waiting on:
+    each open conflict finding is resolved by this callback (resolve_finding)."""
+    if p.outcome == "confirmed":
+        evidence.resolve_open_conflicts(session, case, p.callback_id, SERVICE, now)
+
+
 def _note_effect(
     session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: EffectContext
 ) -> dict[str, Any]:
@@ -388,6 +407,7 @@ gateway.register_commands(
     human={START.name: START, NOTE.name: NOTE},
     service={RECORD.name: RECORD},
     effects={START.name: _start_effect, RECORD.name: _record_effect, NOTE.name: _note_effect},
+    after_effects={RECORD.name: _record_after},
     key_context=_keys,
 )
 gateway.register_fact_provider(_facts)

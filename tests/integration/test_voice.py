@@ -18,14 +18,18 @@ CASE = "CHG-1042"
 QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
 SECRET = "whsec-test-not-real"
 KEY = "xi-test-key-not-real"
-YES = "Yes, I placed the Northstar Equipment order and I authorize the charge."
+# The canonical answer (the replayed agent recording cites this line).
+YES = (
+    "No. I did not place the Northstar Equipment order; a colleague used my card"
+    " without my approval, so I did not authorize this charge."
+)
 CONFIRMED = {
     "outcome": "confirmed",
     "result": "confirmed",
     "outcome_line_seq": 4,
     "outcome_quote": YES,
-    "authorization_answer": "authorized",
-    "answers": [{"question_id": "q1", "answer": "yes", "line_seq": 4, "quote": YES}],
+    "authorization_answer": "unauthorized",
+    "answers": [{"question_id": "q1", "answer": "no", "line_seq": 4, "quote": YES}],
 }
 URL = "/api/webhooks/voice/elevenlabs"
 
@@ -147,7 +151,7 @@ def transcript_doc(conv: str = "conv_abc", results: dict[str, Any] | None = None
             "analysis": {
                 "data_collection_results": results
                 if results is not None
-                else {"q1": {"data_collection_id": "q1", "value": "I placed the Northstar"}},
+                else {"q1": {"data_collection_id": "q1", "value": "I did not place the Northstar"}},
                 "call_successful": "success",
                 "transcript_summary": "Cardholder confirmed.",
             },
@@ -244,7 +248,7 @@ def test_verified_transcript_records_through_gateway_once(
     v = verified.get(f"/api/cases/{CASE}/callbacks/{cid}").json()
     assert v["status"] == "confirmed"
     assert v["voice"]["structured_answers"] == [
-        {"question_id": "q1", "answer": "I placed the Northstar", "line_index": 4}
+        {"question_id": "q1", "answer": "I did not place the Northstar", "line_index": 4}
     ]
     seqs = {line["seq"]: line["text"] for line in v["transcript"]}
     assert seqs[4] == YES  # citation chips find their line by seq
@@ -258,7 +262,7 @@ def test_injected_instruction_and_unapproved_answer_are_rejected(
     doc = transcript_doc(
         results={
             "approve_credit": {"data_collection_id": "approve_credit", "value": "yes"},
-            "q1": {"value": "I placed the Northstar", "action": "close_case"},
+            "q1": {"value": "I did not place the Northstar", "action": "close_case"},
         }
     )
     assert post_signed(verified, doc).json()["result"] == "applied"

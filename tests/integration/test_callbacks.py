@@ -111,13 +111,17 @@ def answer(outcome: str, seq: int, quote: str, **kw: Any) -> dict[str, Any]:
     }
 
 
-YES = "Yes, I placed the Northstar Equipment order and I authorize the charge."
+# The cardholder is reached on the contact on file and says she did not authorize the charge.
+YES = (
+    "No. I did not place the Northstar Equipment order; a colleague used my card"
+    " without my approval, so I did not authorize this charge."
+)
 CONFIRMED = answer(
     "confirmed",
     4,
     YES,
-    authorization_answer="authorized",
-    answers=[{"question_id": "q1", "answer": "yes", "line_seq": 4, "quote": YES}],
+    authorization_answer="unauthorized",
+    answers=[{"question_id": "q1", "answer": "no", "line_seq": 4, "quote": YES}],
 )
 NO_ANSWER = answer("no_answer", 3, "[no answer after 30 seconds]")
 VOICEMAIL = answer("voicemail", 3, "[voicemail greeting; no live answer]")
@@ -220,7 +224,7 @@ def test_confirmed_writes_structured_result_evidence_and_transcript_separately(
     done = call(verified, db, "confirmed")
     detail = verified.get(f"/api/cases/{CASE}/callbacks/{done['id']}").json()
     assert detail["result"]["result"] == "confirmed"
-    assert detail["result"]["authorization_answer"] == "authorized"
+    assert detail["result"]["authorization_answer"] == "unauthorized"
     assert detail["result"]["answers"][0]["question_id"] == "q1"
     assert len(detail["transcript"]) >= 3
     ev = verified.get(f"/api/cases/{CASE}/evidence").json()
@@ -265,7 +269,7 @@ def test_replay_agent_produces_grounded_structured_result(
     ).one()
     assert tuple(step_row) == ("succeeded", "replay", "authored-reference")
     detail = verified.get(f"/api/cases/{CASE}/callbacks/{done['id']}").json()
-    assert detail["result"]["answers"] == [{"question_id": "q1", "answer": "yes", "line_seq": 4}]
+    assert detail["result"]["answers"] == [{"question_id": "q1", "answer": "no", "line_seq": 4}]
     assert detail["transcript"][3]["text"] == YES
 
 

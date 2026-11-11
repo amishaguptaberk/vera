@@ -1,8 +1,10 @@
 """Evidence domain: statuses, record kinds, material fields, snapshot hash, service commands.
 
-Service commands (link_evidence, record_claim, record_finding, append_evidence_version) live in
-SERVICE_REGISTRY, not REGISTRY: they are never offered to a human role and never listed in
-available_actions. The gateway resolves a command from either registry and runs the same gates.
+Service commands (link_evidence, record_claim, record_finding, append_evidence_version,
+set_record_status, resolve_finding) live in SERVICE_REGISTRY, not REGISTRY: they are never
+offered to a human role and never listed in available_actions. The gateway resolves a command
+from either registry and runs the same gates. review_related_charge is the analyst's command
+that decides a pending related charge; its effect runs set_record_status.
 """
 
 import hashlib
@@ -22,8 +24,9 @@ from vera_domain.commands import (
     StepSet,
     register_commands,
 )
-from vera_domain.enums import EventType, Role
+from vera_domain.enums import CaseState, CaseStep, EventType, Role, register_event_types
 from vera_domain.facts import CaseFacts
+from vera_domain.labels import register_event_summaries
 
 RECEIPT_THRESHOLD_CENTS = 7500  # policy v1: receipt required above $75
 
@@ -100,15 +103,20 @@ def content_hash(kind: str, fields: dict[str, Any]) -> str:
 
 
 def compute_snapshot_hash(
-    evidence_versions: list[tuple[str, int, str]], policy_material: dict[str, Any]
+    evidence_versions: list[tuple[str, int, str]],
+    policy_material: dict[str, Any],
+    review: dict[str, Any] | None = None,
 ) -> str:
-    """Pure, deterministic, order-independent sha256 hex over current versions and policy fields."""
-    body = json.dumps(
-        {"evidence": sorted([r, v, h] for r, v, h in evidence_versions), "policy": policy_material},
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    )
+    """Pure, deterministic, order-independent sha256 hex over current versions and policy fields.
+    `review` (record statuses, open conflict findings) is part of the hash when given: a review
+    decision changes what the Policy Controller reads, so it is a new snapshot."""
+    doc: dict[str, Any] = {
+        "evidence": sorted([r, v, h] for r, v, h in evidence_versions),
+        "policy": policy_material,
+    }
+    if review is not None:
+        doc["review"] = review
+    body = json.dumps(doc, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(body.encode()).hexdigest()
 
 
@@ -198,6 +206,28 @@ class AppendVersionPayload(Payload):
     attachment: AttachmentIn | None = None
 
 
+# Statuses a review may set on a stored record. `conflicting` is derived from open conflict
+# findings and `superseded` from versions; neither is ever stored by a review.
+ReviewStatus = Literal["supporting", "pending_review", "not_relevant", "missing"]
+
+
+class SetRecordStatusPayload(Payload):
+    record_id: Ident
+    status: ReviewStatus
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class ResolveFindingPayload(Payload):
+    finding_id: Ident
+    resolved_by: Ident  # the record or result that resolves it (e.g. a callback id)
+
+
+class ReviewRelatedChargePayload(Payload):
+    record_id: Ident
+    decision: Literal["related", "not_related"]
+    reason: str = Field(min_length=1, max_length=500)
+
+
 def _reduce_link(f: CaseFacts, p: LinkEvidencePayload, ctx: ReduceContext) -> Reduction:
     return Reduction(
         facts=f,
@@ -263,6 +293,69 @@ def _reduce_version(f: CaseFacts, p: AppendVersionPayload, ctx: ReduceContext) -
     )
 
 
+def _reduce_status(f: CaseFacts, p: SetRecordStatusPayload, ctx: ReduceContext) -> Reduction:
+    prior = ctx.extra["prior_status"]
+    return Reduction(
+        facts=f,
+        reason="Evidence status changed",
+        events=[
+            EventDraft(
+                "evidence.status_changed",
+                f"{p.record_id}: {prior.replace('_', ' ')} -> {p.status.replace('_', ' ')}",
+                [p.record_id],
+                {"prior_status": prior, "status": p.status, "reason": p.reason},
+            )
+        ],
+        result={"record_id": p.record_id, "prior_status": prior, "status": p.status},
+    )
+
+
+def _reduce_resolve(f: CaseFacts, p: ResolveFindingPayload, ctx: ReduceContext) -> Reduction:
+    return Reduction(
+        facts=f,
+        reason="Finding resolved",
+        events=[
+            EventDraft(
+                "finding.resolved",
+                f"Finding {p.finding_id} resolved by {p.resolved_by}",
+                [p.finding_id, p.resolved_by, *ctx.extra["record_ids"]],
+                {"resolved_by": p.resolved_by, "record_ids": ctx.extra["record_ids"]},
+            )
+        ],
+        result={
+            "finding_id": p.finding_id,
+            "resolved_by": p.resolved_by,
+            "record_ids": ctx.extra["record_ids"],
+        },
+    )
+
+
+def _reduce_related(f: CaseFacts, p: ReviewRelatedChargePayload, ctx: ReduceContext) -> Reduction:
+    word = "related" if p.decision == "related" else "not related"
+    return Reduction(
+        facts=f,
+        reason="Related charge reviewed",
+        events=[
+            EventDraft(
+                "evidence.related_reviewed",
+                f"{p.record_id} reviewed: {word} to this charge",
+                [p.record_id],
+                {"decision": p.decision, "reason": p.reason, "status": ctx.extra["status"]},
+            )
+        ],
+        result={"record_id": p.record_id, "decision": p.decision, "status": ctx.extra["status"]},
+    )
+
+
+register_event_types("evidence.status_changed", "finding.resolved", "evidence.related_reviewed")
+register_event_summaries(
+    {
+        "evidence.status_changed": "Evidence status changed",
+        "finding.resolved": "Finding resolved",
+        "evidence.related_reviewed": "Related charge reviewed",
+    }
+)
+
 _SERVICE = frozenset({Role.SYSTEM, Role.SPECIALIST})
 _ANY = StepSet()
 
@@ -314,7 +407,65 @@ SERVICE_REGISTRY: dict[str, CommandSpec] = {
             "Add evidence version",
             "ghost",
         ),
+        # Review outcomes. Run by a service principal: the evidence register on behalf of the
+        # analyst's review, or the callback result. Never offered to a human role.
+        CommandSpec(
+            "set_record_status",
+            _SERVICE,
+            SetRecordStatusPayload,
+            _ANY,
+            "recstatus:{case_id}:{record_id}:{status}",
+            _reduce_status,
+            ("evidence.status_changed",),
+            "Set evidence status",
+            "ghost",
+        ),
+        CommandSpec(
+            "resolve_finding",
+            _SERVICE,
+            ResolveFindingPayload,
+            _ANY,
+            "resolve:{finding_id}",
+            _reduce_resolve,
+            ("finding.resolved",),
+            "Resolve finding",
+            "ghost",
+        ),
     )
 }
 
-register_commands("vera_domain.evidence", service=SERVICE_REGISTRY)
+# Investigation through the decision: the analyst decides each pending related charge.
+_W = CaseState.WAITING_ON_CARDHOLDER
+_CB = CaseState.CALLBACK_PENDING
+_DP = CaseState.DECISION_PENDING
+RELATED_REVIEW_STEPS = StepSet(
+    include=frozenset(
+        {
+            (CaseState.INVESTIGATING, CaseStep.DRAFT),
+            (_W, CaseStep.WAITING),
+            (_W, CaseStep.NORESP1),
+            (_W, CaseStep.NORESP2),
+            (CaseState.RESPONSE_RECEIVED, CaseStep.RESPONSE),
+            (_CB, CaseStep.IDV),
+            (_CB, CaseStep.VERIFY),
+            (_CB, CaseStep.WORKING),
+            (_CB, CaseStep.CALLFAIL),
+            (_DP, CaseStep.PACKET),
+            (_DP, CaseStep.DECIDE),
+        }
+    )
+)
+REVIEW_RELATED = CommandSpec(
+    "review_related_charge",
+    frozenset({Role.ANALYST}),
+    ReviewRelatedChargePayload,
+    RELATED_REVIEW_STEPS,
+    "related:{case_id}:{case_version}",
+    _reduce_related,
+    ("evidence.related_reviewed",),
+    "Review related charge",
+    "secondary",
+)
+HUMAN_REGISTRY: dict[str, CommandSpec] = {REVIEW_RELATED.name: REVIEW_RELATED}
+
+register_commands("vera_domain.evidence", human=HUMAN_REGISTRY, service=SERVICE_REGISTRY)

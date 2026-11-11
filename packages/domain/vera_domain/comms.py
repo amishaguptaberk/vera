@@ -231,6 +231,9 @@ class SubmitResponsePayload(Payload):
 class ReviewResponsePayload(Payload):
     outcome: Literal["complete", "incomplete", "conflicting"]
     note: str = Field(default="", max_length=1000)
+    # The attached receipt is accepted as evidence. A complete review accepts it; on an
+    # incomplete or conflicting review it stays pending review unless the analyst accepts it.
+    receipt_accepted: bool = False
 
 
 def _r(event: str, summary: str, update: dict[str, object]) -> object:

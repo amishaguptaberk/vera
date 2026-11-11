@@ -477,6 +477,45 @@ def _review(
     }
 
 
+def _review_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    p: Any,
+    now: datetime,
+    ctx: EffectContext,
+    out: gateway.Outcome,
+) -> None:
+    """The review is the analyst's reading of the initial report and the attached receipt:
+    the register records it through set_record_status (initial report reviewed; receipt
+    accepted when the review is complete or the analyst accepts it)."""
+    row = _require(session, case)
+    for rep in session.scalars(
+        select(EvidenceRecord.id).where(
+            EvidenceRecord.case_id == case.id,
+            EvidenceRecord.kind == "initial_report",
+            EvidenceRecord.status == "pending_review",
+        )
+    ).all():
+        evidence.set_status_once(
+            session, case, rep, "supporting", f"Reviewed with the reply to {row.id}", now
+        )
+    rsp = session.scalars(
+        select(CommunicationResponse).where(CommunicationResponse.communication_id == row.id)
+    ).first()
+    if rsp is None or rsp.evidence_record_id is None:
+        return
+    if p.outcome == "complete" or p.receipt_accepted:
+        evidence.set_status_once(
+            session,
+            case,
+            rsp.evidence_record_id,
+            "supporting",
+            f"Receipt accepted in the review of {rsp.id} ({p.outcome})",
+            now,
+        )
+
+
 def _request_key(session: Session, case: Case, body: dict[str, Any]) -> dict[str, object]:
     row = latest_communication(session, case.id)
     run = _inv().latest_run(session, case.id)
@@ -499,6 +538,7 @@ gateway.register_commands(
         "review_cardholder_response": _review,
         "mark_deadline_missed": _deadline,
     },
+    after_effects={"review_cardholder_response": _review_after},
     key_context=_request_key,
 )
 gateway.register_fact_provider(_facts)

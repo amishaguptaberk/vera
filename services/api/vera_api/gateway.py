@@ -29,7 +29,10 @@ from vera_domain.commands import (
 )
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.errors import CommandError
-from vera_domain.evidence import SERVICE_REGISTRY  # registers the evidence service commands
+
+# Registers the evidence service commands and review_related_charge.
+from vera_domain.evidence import HUMAN_REGISTRY as EVIDENCE_HUMAN
+from vera_domain.evidence import SERVICE_REGISTRY
 from vera_domain.facts import CaseFacts, Hold, derive_step
 from vera_domain.policy import PolicyResult
 
@@ -602,6 +605,28 @@ def _evidence_after(
     )
 
 
+def _related_effect(
+    session: Session, case: Case, actor: Actor, model: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    from vera_api.evidence import related_effect
+
+    return related_effect(session, case, actor, model, now, ctx)
+
+
+def _related_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    model: Any,
+    now: datetime,
+    ctx: EffectContext,
+    out: Outcome,
+) -> None:
+    from vera_api.evidence import related_after
+
+    related_after(session, case, actor, model, now, ctx, out)
+
+
 def _investigation_effect(
     session: Session, case: Case, actor: Actor, model: Any, now: datetime, ctx: EffectContext
 ) -> dict[str, Any]:
@@ -629,14 +654,19 @@ def _investigation_keys(session: Session, case: Case, body: dict[str, Any]) -> M
 _INVESTIGATION = {"start_investigation", "retry_specialist_step", "complete_investigation"}
 _register_handlers(
     __name__,
-    {"link_report", "evaluate_policy", *SERVICE_REGISTRY, *_INVESTIGATION},
+    {"link_report", "evaluate_policy", *SERVICE_REGISTRY, *EVIDENCE_HUMAN, *_INVESTIGATION},
     {
         "link_report": _link_report_effect,
         "evaluate_policy": _policy_effect,
         **{name: _evidence_effect for name in SERVICE_REGISTRY},
+        "review_related_charge": _related_effect,
         **{name: _investigation_effect for name in _INVESTIGATION},
     },
-    {"evaluate_policy": _policy_after, **{name: _evidence_after for name in SERVICE_REGISTRY}},
+    {
+        "evaluate_policy": _policy_after,
+        **{name: _evidence_after for name in SERVICE_REGISTRY},
+        "review_related_charge": _related_after,
+    },
 )
 KEY_CONTEXTS["evaluate_policy"] = _policy_keys
 KEY_CONTEXTS["retry_specialist_step"] = _investigation_keys

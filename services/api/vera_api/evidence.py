@@ -3,13 +3,14 @@
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from vera_domain.clock import Clock
+from vera_domain.commands import check_role, resolve_key
 from vera_domain.enums import EventType, Role
 from vera_domain.errors import CommandError
 from vera_domain.evidence import (
@@ -33,6 +34,9 @@ from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
 from vera_api.intake import _emit
 from vera_api.models import CardTransaction, Case, Claim, Report
+
+if TYPE_CHECKING:
+    from vera_api.gateway import EffectContext, Outcome
 from vera_api.models_evidence import (
     Attachment,
     EvidenceCheck,
@@ -44,6 +48,11 @@ from vera_api.models_evidence import (
 
 SNAPSHOT_PREFIX = "sha256:"
 SEED_CASE = "CHG-1042"
+# The service principal that applies review outcomes (an analyst's response review, a related
+# charge decision) to the register. The analyst's own command carries the human actor.
+REGISTER = Actor(
+    "svc-evidence-register", "Evidence register", Role.SYSTEM, frozenset({Role.SYSTEM})
+)
 
 # Hook for the approvals ticket: (session, case, new_snapshot_hash) -> ids of approvals marked
 # stale. Each returned id gets an `approval.stale` event. Empty until approvals exist.
@@ -77,10 +86,28 @@ def _current(session: Session, case_id: str) -> list[tuple[EvidenceRecord, Evide
     return [(r, v) for r, v in rows]
 
 
+def _review_material(session: Session, case_id: str) -> dict[str, Any]:
+    """Stored record statuses and open conflict findings: what a review decision changes."""
+    conflicts = session.scalars(
+        select(Finding.id).where(
+            Finding.case_id == case_id,
+            Finding.kind == "conflict",
+            Finding.status == FindingStatus.OPEN.value,
+        )
+    ).all()
+    return {
+        "statuses": {r.id: r.status for r, _ in _current(session, case_id)},
+        "open_conflicts": sorted(conflicts),
+    }
+
+
 def recompute_snapshot(session: Session, case: Case) -> str:
-    """Store and return the bare hex hash over current material versions and policy fields."""
+    """Store and return the bare hex hash over current material versions, policy fields and
+    review state (record statuses, open conflicts)."""
     triples = [(r.id, v.material_version, v.content_hash) for r, v in _current(session, case.id)]
-    digest = compute_snapshot_hash(triples, policy_material(case))
+    digest = compute_snapshot_hash(
+        triples, policy_material(case), _review_material(session, case.id)
+    )
     case.evidence_snapshot = SNAPSHOT_PREFIX + digest
     return digest
 
@@ -424,6 +451,41 @@ def _effect_finding(
     return {}
 
 
+def _effect_status(
+    session: Session, case: Case, p: Any, now: datetime, actor_id: str
+) -> dict[str, Any]:
+    rec = session.get(EvidenceRecord, p.record_id)
+    if rec is None or rec.case_id != case.id:
+        raise CommandError("evidence_not_found", 404, f"No evidence record '{p.record_id}'.")
+    prior = rec.status
+    if prior == p.status:
+        raise CommandError("evidence_status_unchanged", 409, f"{rec.id} is already {prior}.")
+    rec.status = p.status
+    session.flush()
+    recompute_snapshot(session, case)
+    return {"prior_status": prior}
+
+
+def _effect_resolve(
+    session: Session, case: Case, p: Any, now: datetime, actor_id: str
+) -> dict[str, Any]:
+    finding = _own_finding(session, case.id, p.finding_id)
+    if finding.status != FindingStatus.OPEN.value:
+        raise CommandError(
+            "finding_not_open", 409, f"Finding {finding.id} is {finding.status}, not open."
+        )
+    finding.status = FindingStatus.RESOLVED.value
+    finding.resolved_by = p.resolved_by
+    links = session.scalars(
+        select(FindingLink.record_id).where(FindingLink.finding_id == finding.id)
+    ).all()
+    session.flush()
+    recompute_snapshot(session, case)
+    # A linked record reads `conflicting` only while an open conflict cites it, so it returns
+    # to its stored status (supporting) once no other open conflict references it.
+    return {"record_ids": list(dict.fromkeys(links))}
+
+
 def _effect_version(
     session: Session, case: Case, p: Any, now: datetime, actor_id: str, actor_role: Role
 ) -> dict[str, Any]:
@@ -523,6 +585,11 @@ def after_effect(
 ) -> None:
     """Runs after the command's own event (evidence.version_added), same transaction, so the
     audit order is version_added -> finding.stale -> approval.stale -> policy.evaluated."""
+    if command in ("set_record_status", "resolve_finding"):
+        # A review decision is a new snapshot: re-evaluate a case that has been evaluated.
+        if policy_service.has_evaluation(session, case.id):
+            policy_service.reevaluate_on_evidence_change(session, case.id, now)
+        return
     if command != "append_evidence_version" or not extra["result"]["material"]:
         return
     res = extra["result"]
@@ -573,8 +640,128 @@ def run_effect(
         "link_evidence": _effect_link,
         "record_claim": _effect_claim,
         "record_finding": _effect_finding,
+        "set_record_status": _effect_status,
+        "resolve_finding": _effect_resolve,
     }
     return simple[command](session, case, model, now, actor_id)
+
+
+def run_service_command(
+    session: Session,
+    case: Case,
+    command: str,
+    payload: dict[str, Any],
+    *,
+    actor: Actor,
+    now: datetime,
+    request_id: str,
+) -> "Outcome":
+    """An evidence service command run by another command's after-effect, inside that command's
+    transaction on the already locked case. Same role, schema, key and replay rules as the
+    gateway; the write itself is the gateway's stage 9 (write_command), so it gets its own
+    idempotency key, event, version and state transition."""
+    spec = SERVICE_REGISTRY[command]
+    check_role(spec, actor.active_role)
+    model = spec.payload_model.model_validate(payload)
+    body = model.model_dump(mode="json")
+    key = resolve_key(spec, {"case_id": case.id, "case_version": case.case_version, **body})
+    req_hash = gateway.request_hash(spec.name, actor.user_id, actor.active_role, body)
+    existing = gateway.find_key(session, key, case.id, spec.name, req_hash)
+    if existing is not None:
+        return gateway.replay(existing, now)
+    return gateway.write_command(
+        session,
+        case,
+        spec,
+        model,
+        key=key,
+        req_hash=req_hash,
+        actor_id=actor.user_id,
+        actor_name=actor.name,
+        actor_role=actor.active_role,
+        request_id=request_id,
+        now=now,
+    )
+
+
+def set_status_once(
+    session: Session, case: Case, record_id: str, status: str, reason: str, now: datetime
+) -> bool:
+    """set_record_status unless the record already holds that status. True if it changed."""
+    rec = session.get(EvidenceRecord, record_id)
+    if rec is None or rec.case_id != case.id or rec.status == status:
+        return False
+    run_service_command(
+        session,
+        case,
+        "set_record_status",
+        {"record_id": record_id, "status": status, "reason": reason},
+        actor=REGISTER,
+        now=now,
+        request_id=f"evidence:{record_id}:{status}",
+    )
+    return True
+
+
+def resolve_open_conflicts(
+    session: Session, case: Case, resolved_by: str, actor: Actor, now: datetime
+) -> list[str]:
+    """resolve_finding for every open conflict finding on the case; returns their ids."""
+    ids = session.scalars(
+        select(Finding.id)
+        .where(
+            Finding.case_id == case.id,
+            Finding.kind == "conflict",
+            Finding.status == FindingStatus.OPEN.value,
+        )
+        .order_by(Finding.created_at, Finding.id)
+    ).all()
+    for finding_id in ids:
+        run_service_command(
+            session,
+            case,
+            "resolve_finding",
+            {"finding_id": finding_id, "resolved_by": resolved_by},
+            actor=actor,
+            now=now,
+            request_id=f"resolve:{finding_id}",
+        )
+    return list(ids)
+
+
+# ---- review_related_charge (analyst; registered with the gateway's built-in handlers) ------------
+
+
+def related_effect(
+    session: Session, case: Case, actor: Actor, p: Any, now: datetime, ctx: "EffectContext"
+) -> dict[str, Any]:
+    rec = session.get(EvidenceRecord, p.record_id)
+    if rec is None or rec.case_id != case.id or rec.kind != "related_charge":
+        raise CommandError(
+            "evidence_not_found", 404, f"No related charge '{p.record_id}' on this case."
+        )
+    if rec.status != EvidenceStatus.PENDING_REVIEW.value:
+        raise CommandError(
+            "related_charge_reviewed", 409, f"{rec.id} was already reviewed ({rec.status})."
+        )
+    status = "supporting" if p.decision == "related" else "not_relevant"
+    return {"status": status}
+
+
+def related_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    p: Any,
+    now: datetime,
+    ctx: "EffectContext",
+    out: "Outcome",
+) -> None:
+    status = str(ctx.extra["status"])
+    word = "related" if p.decision == "related" else "not related"
+    set_status_once(
+        session, case, p.record_id, status, f"{actor.name}: {word} · {p.reason}"[:500], now
+    )
 
 
 # ---- seed ---------------------------------------------------------------------------------------

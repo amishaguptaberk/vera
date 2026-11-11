@@ -2,15 +2,15 @@
   "content": {
     "outcome": "confirmed",
     "result": "confirmed",
-    "authorization_answer": "authorized",
+    "authorization_answer": "unauthorized",
     "outcome_line_seq": 4,
-    "outcome_quote": "Yes, I placed the Northstar Equipment order and I authorize the charge.",
+    "outcome_quote": "No. I did not place the Northstar Equipment order; a colleague used my card without my approval, so I did not authorize this charge.",
     "answers": [
       {
         "question_id": "q1",
-        "answer": "yes",
+        "answer": "no",
         "line_seq": 4,
-        "quote": "Yes, I placed the Northstar Equipment order and I authorize the charge."
+        "quote": "No. I did not place the Northstar Equipment order; a colleague used my card without my approval, so I did not authorize this charge."
       }
     ]
   },
