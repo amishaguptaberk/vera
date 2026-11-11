@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-010",
+  "fixture": 33,
+  "title": "Dispute status sequence",
+  "description": "Fixture 33: Dispute status sequence. prepared -> ready_for_review -> ready_to_submit -> submitted; task/button/chat/activity agree"
+}

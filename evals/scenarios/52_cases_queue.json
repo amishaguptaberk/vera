@@ -1,0 +1,20 @@
+{
+  "title": "Cases queue is staff-readable and totals match the seed",
+  "steps": [
+    {
+      "get": "/api/cases",
+      "as": "analyst",
+      "json": {
+        "0.case_id": "CHG-1029"
+      }
+    },
+    {
+      "get": "/api/cases/summary",
+      "as": "analyst",
+      "json": {
+        "gross_exposure.amount_cents": 1122000,
+        "gross_exposure.count": 6
+      }
+    }
+  ]
+}

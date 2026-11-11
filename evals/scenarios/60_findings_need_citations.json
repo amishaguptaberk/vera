@@ -1,0 +1,52 @@
+{
+  "title": "Findings must cite a record version and field",
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "findings": {
+          "count": 6,
+          "all_cited": true
+        }
+      }
+    },
+    {
+      "service": "record_finding",
+      "payload": {
+        "finding_id": "FND-X",
+        "kind": "note",
+        "statement": "x",
+        "links": [
+          {
+            "record_id": "NOPE-1",
+            "version": 1,
+            "field": "x"
+          }
+        ]
+      },
+      "expect_error": "schema_invalid",
+      "note": "a finding citing a record that does not exist is rejected"
+    },
+    {
+      "service": "record_finding",
+      "payload": {
+        "finding_id": "FND-Y",
+        "kind": "note",
+        "statement": "x",
+        "links": []
+      },
+      "expect_error": "schema_invalid",
+      "note": "a finding with no citation is rejected"
+    }
+  ]
+}

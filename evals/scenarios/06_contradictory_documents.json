@@ -1,0 +1,58 @@
+{
+  "fixture": 6,
+  "title": "Contradictory purchase order / delivery record opens a conflict and blocks policy",
+  "steps": [
+    {
+      "service": "record_finding",
+      "payload": {
+        "finding_id": "FND-Q",
+        "kind": "conflict",
+        "statement": "The purchase order approves one unit but the delivery record shows two.",
+        "conflict_field": "quantity",
+        "links": [
+          {
+            "record_id": "PO-219",
+            "version": 1,
+            "field": "approved_quantity"
+          },
+          {
+            "record_id": "DLV-882",
+            "version": 1,
+            "field": "received_quantity"
+          }
+        ]
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "evaluate_policy",
+      "assert": {
+        "evidence": {
+          "open_conflicts": 1
+        },
+        "policy": {
+          "status": "blocked",
+          "code": "EVIDENCE_CONFLICT"
+        },
+        "findings": {
+          "expect": [
+            {
+              "kind": "conflict",
+              "cites": [
+                [
+                  "PO-219",
+                  "approved_quantity"
+                ],
+                [
+                  "DLV-882",
+                  "received_quantity"
+                ]
+              ],
+              "status": "open"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
