@@ -498,7 +498,7 @@ export interface components {
              * Recovery Actions
              * @default []
              */
-            recovery_actions: string[];
+            recovery_actions: components["schemas"]["ActionView"][];
             hold?: components["schemas"]["Hold"] | null;
             policy?: components["schemas"]["PolicyView"] | null;
             /**
@@ -942,6 +942,11 @@ export interface components {
             started_at: string | null;
             /** Finished At */
             finished_at: string | null;
+            /**
+             * Replayed
+             * @default false
+             */
+            replayed: boolean;
         };
         /** Summary */
         Summary: {

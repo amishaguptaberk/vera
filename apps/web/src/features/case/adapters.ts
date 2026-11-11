@@ -7,11 +7,9 @@ export function caseSteps(c: CaseView): CaseView['steps'] | null {
   return c.steps.length ? c.steps : null;
 }
 
-/** `recovery_actions` entries the client can execute: full ActionView objects only (plain strings are not executable). */
+/** The server's recovery actions (ActionView[]), in order. */
 export function recoveryActions(c: CaseView): ActionView[] {
-  const raw = (c as unknown as { recovery_actions?: unknown }).recovery_actions;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((a): a is ActionView => typeof a === 'object' && a !== null && typeof (a as ActionView).command === 'string' && typeof (a as ActionView).idempotency_key === 'string');
+  return c.recovery_actions ?? [];
 }
 
 /** State kind → the prototype's status slot. */
@@ -27,9 +25,8 @@ export const AUTHORED_REFERENCE = 'authored-reference';
 
 /** How a run step is labelled in Run details. Values are the server's; only the wording is chosen here. */
 export function stepLabels(s: StepOut): { mode: string | null; replayed: boolean; slot: SlotState } {
-  const replayedFlag = (s as unknown as { replayed?: unknown }).replayed === true;
   const mode = s.execution_mode ? s.execution_mode.toUpperCase() : null;
-  const replayed = replayedFlag || (s.execution_mode === 'replay' && s.attempts > 1);
+  const replayed = s.replayed === true;
   const slot: SlotState = s.status === 'running' || s.status === 'queued' ? 'work' : s.status === 'failed' ? 'block' : s.status === 'succeeded' || s.status === 'completed' || s.status === 'done' ? 'done' : 'idle';
   return { mode, replayed, slot };
 }
