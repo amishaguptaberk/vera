@@ -75,6 +75,14 @@ test('journey: follow-up → cardholder reply with attachment → analyst review
     await expect.poll(async () => (await caseView(request)).case_version, { timeout: 15_000 }).toBeGreaterThan(before);
     const moved = await caseView(request);
     await expect(page.getByTestId('case-state')).toHaveText(moved.state_label);
+    // Dispute track, one server-offered step at a time.
+    const money = page.getByTestId('task-block-money');
+    for (const name of ['Open dispute packet', 'Mark reviewed', 'Record submission — simulated']) {
+      const v0 = (await caseView(request)).case_version;
+      await money.getByRole('button', { name }).click();
+      await expect.poll(async () => (await caseView(request)).case_version, { timeout: 15_000 }).toBeGreaterThan(v0);
+    }
+    expect((await caseView(request)).step).toBe('ctl_prep');
   }
   test.info().annotations.push({ type: 'reached', description: `${decided.state} / ${decided.step}: ${decided.available_actions.map((a: { command: string }) => a.command).join(', ')}` });
 });
