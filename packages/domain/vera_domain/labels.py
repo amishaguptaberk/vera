@@ -14,6 +14,16 @@ _LABELS: dict[tuple[CaseState, CaseStep], tuple[str, StateKind, str]] = {
         StateKind.WORKING,
         "Start the investigation",
     ),
+    (CaseState.INVESTIGATING, CaseStep.WORKING): (
+        "Investigating",
+        StateKind.WORKING,
+        "Specialists are reviewing the charge",
+    ),
+    (CaseState.INVESTIGATING, CaseStep.DRAFT): (
+        "Investigation complete",
+        StateKind.REVIEW,
+        "Review the findings and draft the cardholder request",
+    ),
     (CaseState.HELD, CaseStep.ONHOLD): (
         "On hold",
         StateKind.WAITING,
@@ -91,6 +101,11 @@ EVENT_SUMMARIES: dict[str, str] = {
     "finding.stale": "Finding marked out of date",
     "approval.stale": "Approval marked out of date",
     "policy.evaluated": "Policy evaluated",
+    "investigation.started": "Investigation started",
+    "investigation.completed": "Investigation complete",
+    "specialist.retried": "Specialist step retried",
+    "specialist.failed": "Specialist step failed",
+    "specialist.replayed": "Replayed result (recorded reference output)",
     "run.step_started": "Specialist step started",
     "run.step_succeeded": "Specialist step finished",
     "run.step_failed": "Specialist step failed",

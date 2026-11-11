@@ -22,6 +22,10 @@ from vera_api.models_runs import Job
 Touch = Callable[[], bool]  # heartbeat: refresh this job's lock; False if no longer ours
 Handler = Callable[[Session, dict[str, Any], Touch], None]
 HANDLERS: dict[str, Handler] = {}
+# Called (own transaction) when a job of that kind is about to be marked `failed` for good, so
+# the domain can record an explicit failure instead of leaving work silently `running`.
+FailureHook = Callable[[Session, dict[str, Any], str], None]
+FAILURE_HOOKS: dict[str, FailureHook] = {}
 
 VISIBILITY_TIMEOUT = timedelta(minutes=5)
 MAX_ATTEMPTS = 3
@@ -124,6 +128,13 @@ def run_once(
         job.locked_at = None
         if attempts >= MAX_ATTEMPTS or kind not in handlers:
             job.status = "failed"
+            hook = FAILURE_HOOKS.get(kind)
+            if hook is not None:
+                session.commit()
+                hook(session, payload, job.last_error or "")
+                session.rollback()
+                job = session.get(Job, job_id)
+                assert job is not None
         else:
             job.status = "queued"
             job.run_after = now + RETRY_DELAY
@@ -140,6 +151,8 @@ def run_once(
 
 
 def main() -> None:
+    from vera_api import investigation  # noqa: F401  (registers specialist_runner)
+
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     factory = sessionmaker(make_engine(Settings().database_url), expire_on_commit=False)
     while True:

@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from vera_domain.commands import (
+    INVESTIGATION_SERVICE_REGISTRY,
     REGISTRY,
     CommandSpec,
     ReduceContext,
@@ -241,7 +242,11 @@ def _execute(
     actor: Actor,
     request_id: str,
 ) -> Outcome:
-    spec = REGISTRY.get(command) or SERVICE_REGISTRY.get(command)
+    spec = (
+        REGISTRY.get(command)
+        or SERVICE_REGISTRY.get(command)
+        or INVESTIGATION_SERVICE_REGISTRY.get(command)
+    )
     if spec is None:
         raise CommandError("unknown_command", 404, f"Unknown command '{command}'.")
     # 1 role
@@ -291,6 +296,11 @@ def _execute(
                 if "{snapshot_hash}" in spec.key_template
                 else {}
             ),
+            **(
+                _investigation_keys(session, case, body)
+                if "{attempt_no}" in spec.key_template
+                else {}
+            ),
             **body,
         },
     )
@@ -313,6 +323,21 @@ def _execute(
     )
     session.commit()
     return out
+
+
+def _investigation_keys(session: Session, case: Case, body: dict[str, Any]) -> dict[str, object]:
+    from vera_api import investigation
+
+    return investigation.key_context(session, case, str(body.get("step_key", "")))
+
+
+def facts_with_runs(session: Session, case: Case) -> CaseFacts:
+    """facts_of plus facts read from stored run rows (never from model output)."""
+    from vera_api import investigation
+
+    return facts_of(case).model_copy(
+        update={"investigation_run_status": investigation.run_status(session, case.id)}
+    )
 
 
 def write_command(
@@ -343,6 +368,10 @@ def write_command(
         extra = run_effect(
             session, case, spec.name, model, now=now, actor_id=actor_id, actor_role=actor_role
         )
+    from vera_api import investigation
+
+    if spec.name in investigation.COMMANDS:  # run/job rows written inside this transaction
+        extra = investigation.run_effect(session, case, spec.name, model)
     ctx = ReduceContext(
         case_id=case.id,
         actor_id=actor_id,
@@ -355,7 +384,7 @@ def write_command(
     )
     if spec.name == "evaluate_policy":
         ctx.extra["policy"] = policy_service.compute(session, case).model_dump(mode="json")
-    red = spec.reducer(facts_of(case), model, ctx)
+    red = spec.reducer(facts_with_runs(session, case), model, ctx)
     out = apply_reduction(
         session,
         case,

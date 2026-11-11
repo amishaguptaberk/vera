@@ -93,6 +93,11 @@ class EventType(StrEnum):
     FINDING_STALE = "finding.stale"
     APPROVAL_STALE = "approval.stale"
     POLICY_EVALUATED = "policy.evaluated"
+    INVESTIGATION_STARTED = "investigation.started"
+    INVESTIGATION_COMPLETED = "investigation.completed"
+    SPECIALIST_RETRIED = "specialist.retried"
+    SPECIALIST_FAILED = "specialist.failed"
+    SPECIALIST_REPLAYED = "specialist.replayed"
 
 
 class RunEventType(StrEnum):

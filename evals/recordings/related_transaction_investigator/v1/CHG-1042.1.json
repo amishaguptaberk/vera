@@ -1,0 +1,52 @@
+{
+  "content": {
+    "findings": [
+      {
+        "citations": [
+          {
+            "field": "merchant",
+            "record_id": "CHG-1051",
+            "value": "Northstar Equipment",
+            "version": 1
+          },
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1051",
+            "value": 120000,
+            "version": 1
+          },
+          {
+            "field": "merchant",
+            "record_id": "CHG-1042",
+            "value": "Northstar Equipment",
+            "version": 1
+          }
+        ],
+        "kind": "related_charge",
+        "statement": "Transaction CHG-1051 at Northstar Equipment for $1,200.00 shares its merchant, Northstar Equipment, with CHG-1042, so it is judged related. Linked on transaction id, merchant and amount, not on card digits."
+      },
+      {
+        "citations": [
+          {
+            "field": "amount_cents",
+            "record_id": "CHG-1048",
+            "value": 62000,
+            "version": 1
+          }
+        ],
+        "kind": "note",
+        "statement": "Transaction CHG-1048 ($620.00) has no merchant on record, so relatedness to CHG-1042 is not supported by the sources; not linked."
+      }
+    ],
+    "related_transaction_ids": [
+      "CHG-1051"
+    ],
+    "ruled_out_transaction_ids": [
+      "CHG-1048"
+    ]
+  },
+  "model_id": "authored-reference",
+  "provenance": "authored-reference",
+  "tool_calls": [],
+  "usage": {}
+}

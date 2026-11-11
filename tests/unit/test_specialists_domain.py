@@ -21,6 +21,7 @@ def test_enums_have_contract_values() -> None:
     assert {r.value for r in FailureReason} == {
         "schema_invalid",
         "ungrounded",
+        "apply_failed",
         "timeout",
         "provider_error",
         "scope_violation",
