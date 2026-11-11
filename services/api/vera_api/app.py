@@ -22,6 +22,7 @@ from vera_api.gateway import execute_command
 from vera_api.intake import CaseNotOpenableError, UnknownTransactionError, submit_report
 from vera_api.models import ALL_TABLES
 from vera_api.policy import router as policy_router
+from vera_api.runs import router as runs_router
 from vera_api.seed import reset_database
 
 
@@ -49,7 +50,10 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 def get_actor(request: Request, session: DbSession, settings: SettingsDep) -> Actor:
     return auth.load_actor(
-        session, settings.secret(), request.cookies.get(auth.COOKIE), settings.synthetic
+        session,
+        settings.secret(),
+        auth.session_cookie(request.headers.getlist("cookie")),
+        settings.synthetic,
     )
 
 
@@ -283,6 +287,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.include_router(cases)
     app.include_router(policy_router)
     app.include_router(session_router)
+    app.include_router(runs_router)
     if settings.synthetic:
         app.include_router(role_router)
         app.include_router(demo)
