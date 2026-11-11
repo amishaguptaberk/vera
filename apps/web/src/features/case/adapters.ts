@@ -3,12 +3,8 @@ import type { SlotState } from '@/design-system/primitives';
 
 // Tolerant readers for fields a backend ticket is adding. Render if present; never invent.
 
-export type CaseStepItem = { key: string; label: string; status: 'done' | 'current' | 'upcoming' | 'blocked' };
-export function caseSteps(c: CaseView): CaseStepItem[] | null {
-  const raw = (c as unknown as { steps?: unknown }).steps;
-  if (!Array.isArray(raw)) return null;
-  const ok = raw.filter((s): s is CaseStepItem => typeof s === 'object' && s !== null && typeof (s as CaseStepItem).key === 'string' && typeof (s as CaseStepItem).label === 'string');
-  return ok.length ? ok : null;
+export function caseSteps(c: CaseView): CaseView['steps'] | null {
+  return c.steps.length ? c.steps : null;
 }
 
 /** `recovery_actions` entries the client can execute: full ActionView objects only (plain strings are not executable). */

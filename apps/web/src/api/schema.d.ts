@@ -4,6 +4,83 @@
  */
 
 export interface paths {
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/filter-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Filter Counts
+         * @description Counts for the queue filter chips; `mine` is relative to the session user.
+         */
+        get: operations["get_filter_counts_api_cases_filter_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Activity
+         * @description Audit events for the case, oldest first; `after` = last event id seen (polling).
+         */
+        get: operations["get_activity_api_cases__case_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Users
+         * @description Staff who can own a case. Only `assignable=true` is supported (the default).
+         */
+        get: operations["get_users_api_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases": {
         parameters: {
             query?: never;
@@ -317,6 +394,45 @@ export interface components {
             /** Key Template */
             key_template?: string | null;
         };
+        /** ActivityEvent */
+        ActivityEvent: {
+            /** Id */
+            id: number;
+            /** Type */
+            type: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Actor Name */
+            actor_name: string;
+            /** Actor Role */
+            actor_role: string;
+            /** Summary */
+            summary: string;
+            /** Record Ids */
+            record_ids: string[];
+        };
+        /** ActivityFeed */
+        ActivityFeed: {
+            /** Events */
+            events: components["schemas"]["ActivityEvent"][];
+        };
+        /** AssignableUser */
+        AssignableUser: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Roles */
+            roles: components["schemas"]["Role"][];
+        };
+        /** AssignableUsers */
+        AssignableUsers: {
+            /** Users */
+            users: components["schemas"]["AssignableUser"][];
+        };
         /**
          * Basis
          * @enum {string}
@@ -385,6 +501,11 @@ export interface components {
             recovery_actions: string[];
             hold?: components["schemas"]["Hold"] | null;
             policy?: components["schemas"]["PolicyView"] | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["ProgressStep"][];
         };
         /** ChargeImpact */
         ChargeImpact: {
@@ -505,6 +626,24 @@ export interface components {
             /** Missing */
             missing: string[];
         };
+        /**
+         * FilterCounts
+         * @description Counts for the queue filter chips (prototype `FL`), computed with the demo clock.
+         */
+        FilterCounts: {
+            /** All */
+            all: number;
+            /** Due Today */
+            due_today: number;
+            /** Overdue */
+            overdue: number;
+            /** Mine */
+            mine: number;
+            /** Cardholder */
+            cardholder: number;
+            /** Reviewer */
+            reviewer: number;
+        };
         /** FindingView */
         FindingView: {
             /** Finding Id */
@@ -526,6 +665,14 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Health */
+        Health: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
         };
         /** Hold */
         Hold: {
@@ -632,6 +779,18 @@ export interface components {
              */
             evaluated_at: string;
         };
+        /** ProgressStep */
+        ProgressStep: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "done" | "current" | "upcoming" | "blocked";
+        };
         /** QueueRow */
         QueueRow: {
             /** Case Id */
@@ -652,6 +811,19 @@ export interface components {
             credit_cents: number;
             /** Live */
             live: boolean;
+            /** Next Action */
+            next_action?: string | null;
+            /** Waiting On */
+            waiting_on?: string | null;
+            /** Blocker */
+            blocker?: string | null;
+            /** Wait Kind */
+            wait_kind?: ("cardholder" | "reviewer") | null;
+            /**
+             * Due Today
+             * @default false
+             */
+            due_today: boolean;
         };
         /** RecordDetail */
         RecordDetail: {
@@ -860,6 +1032,110 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    health_api_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    get_filter_counts_api_cases_filter_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilterCounts"];
+                };
+            };
+        };
+    };
+    get_activity_api_cases__case_id__activity_get: {
+        parameters: {
+            query?: {
+                after?: number | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityFeed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_users_api_users_get: {
+        parameters: {
+            query?: {
+                assignable?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignableUsers"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_cases_api_cases_get: {
         parameters: {
             query?: never;

@@ -1,0 +1,26 @@
+{
+    "events": [
+        {
+            "id": 1,
+            "type": "report.received",
+            "at": "2026-11-10T16:52:00Z",
+            "actor_name": "Priya Shah",
+            "actor_role": "cardholder",
+            "summary": "Report received from the cardholder",
+            "record_ids": [
+                "REP-1042"
+            ]
+        },
+        {
+            "id": 2,
+            "type": "case.created",
+            "at": "2026-11-10T16:52:00Z",
+            "actor_name": "Priya Shah",
+            "actor_role": "cardholder",
+            "summary": "Case created",
+            "record_ids": [
+                "CHG-1042"
+            ]
+        }
+    ]
+}
