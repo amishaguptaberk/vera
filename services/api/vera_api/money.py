@@ -128,13 +128,73 @@ def _issue_effect(
 def _lookup_effect(
     session: Session, case: Case, actor: Actor, payload: Any, now: datetime, ctx: EffectContext
 ) -> dict[str, Any]:
+    missing = CommandError("execution_not_found", 404, "No execution with that key on this case.")
+    execution = session.scalars(
+        select(AdapterExecution).where(
+            AdapterExecution.idempotency_key == payload.idempotency_key,
+            AdapterExecution.case_id == case.id,
+        )
+    ).first()
+    if execution is not None and execution.adapter == "dispute":
+        return _lookup_dispute(session, case, payload.idempotency_key, now, missing)
+    if execution is not None and execution.adapter == "card_controls":
+        return _lookup_controls(session, case, actor, payload.idempotency_key, now, missing)
     row = _one(session, ProvisionalCredit, case.id)
     if row is None or row.execution_key != payload.idempotency_key:
-        raise CommandError("execution_not_found", 404, "No execution with that key on this case.")
+        raise missing
     out = adapters.lookup(session, row.execution_key, now)
     if out is None:
         raise CommandError("execution_not_found", 404, "No execution with that key on this case.")
     return {"found": True, **_settle_credit(case, row, out, now)}
+
+
+def _lookup_dispute(
+    session: Session, case: Case, key: str, now: datetime, missing: CommandError
+) -> dict[str, Any]:
+    row = _one(session, DisputePacket, case.id)
+    if row is None or key != f"dsp-sub:DSP-{row.id}":
+        raise missing
+    out = adapters.lookup(session, key, now)
+    if out is None:
+        raise missing
+    row.updated_at = now
+    if out.status == "succeeded" and row.status != "submitted":
+        row.status, row.submitted_at = "submitted", now
+        row.submission_reference = str(out.result["reference"])
+    return {
+        "found": True,
+        "dispute_status": row.status,
+        "dispute_id": f"DSP-{row.id}",
+        "submission_id": row.submission_reference,
+        "submitted_at": row.submitted_at.isoformat() if row.submitted_at else None,
+        "execution_status": out.status,
+        "idempotency_key": key,
+        "simulated": True,
+    }
+
+
+def _lookup_controls(
+    session: Session, case: Case, actor: Actor, key: str, now: datetime, missing: CommandError
+) -> dict[str, Any]:
+    row = _one(session, ControlPlan, case.id)
+    if row is None or key != f"ctl-apply:{row.id}":
+        raise missing
+    out = adapters.lookup(session, key, now)
+    if out is None:
+        raise missing
+    applied: list[str] = []
+    if out.status == "succeeded" and row.status == "approved":
+        _record_applied(session, case, row, actor, str(out.result["reference"]), now)
+        applied = list(row.controls)
+    return {
+        "found": True,
+        "controls_status": row.status,
+        "plan_id": row.id,
+        "applied": applied,
+        "execution_status": out.status,
+        "idempotency_key": key,
+        "simulated": True,
+    }
 
 
 def _credit_after(event: str, summary: str):  # type: ignore[no-untyped-def]
@@ -147,7 +207,7 @@ def _credit_after(event: str, summary: str):  # type: ignore[no-untyped-def]
         ctx: EffectContext,
         outcome: Outcome,
     ) -> None:
-        if ctx.extra["credit_status"] == "issued":
+        if ctx.extra.get("credit_status") == "issued":
             ref = ctx.extra["credit_id"]
             _emit(
                 session,
@@ -279,6 +339,24 @@ def _plan_effect(expected: tuple[str, ...], new: str):  # type: ignore[no-untype
     return effect
 
 
+def _record_applied(
+    session: Session, case: Case, row: ControlPlan, actor: Actor, reference: str, now: datetime
+) -> None:
+    for control in row.controls:
+        session.add(
+            CardControl(
+                case_id=case.id,
+                plan_id=row.id,
+                control=control,
+                reference=reference,
+                applied_by=actor.user_id,
+                applied_at=now,
+            )
+        )
+    row.status, row.updated_at = "applied", now
+    session.flush()
+
+
 def _apply_effect(
     session: Session, case: Case, actor: Actor, payload: Any, now: datetime, ctx: EffectContext
 ) -> dict[str, Any]:
@@ -297,19 +375,8 @@ def _apply_effect(
     )
     applied: list[str] = []
     if out.status == "succeeded":
-        for control in row.controls:
-            session.add(
-                CardControl(
-                    case_id=case.id,
-                    plan_id=row.id,
-                    control=control,
-                    reference=str(out.result["reference"]),
-                    applied_by=actor.user_id,
-                    applied_at=now,
-                )
-            )
-        row.status, row.updated_at, applied = "applied", now, list(row.controls)
-        session.flush()
+        _record_applied(session, case, row, actor, str(out.result["reference"]), now)
+        applied = list(row.controls)
     return {
         "controls_status": row.status,
         "plan_id": row.id,

@@ -138,13 +138,35 @@ ISSUE = CommandSpec(
     adapter="credit",
 )
 _CHECK = StepSet(include=frozenset({(CaseState.CREDIT_APPROVED, CaseStep.CREDIT_CHECK)}))
+# An uncertain dispute submission or controls apply (parallel tracks, so any track step) is
+# resolved by the same lookup; the effect routes it by the stored execution's adapter.
+_LOOKUP_STEPS = StepSet(include=_CHECK.include | TRACKS.include)  # type: ignore[operator]
+_EXECUTION_FACTS = ("credit_status", "dispute_status", "controls_status")
+
+
+def _lookup_reducer(event: str, reason: str):  # type: ignore[no-untyped-def]
+    """Mirrors whichever track fact the routed lookup returned in ctx.extra."""
+
+    def reduce(f: CaseFacts, p: Payload, ctx: ReduceContext) -> Reduction:
+        result = dict(ctx.extra)
+        update = {k: result[k] for k in _EXECUTION_FACTS if k in result}
+        return Reduction(
+            facts=f.model_copy(update=update),
+            reason=reason,
+            events=[EventDraft(event, reason, [ctx.case_id], update)],
+            result=result,
+        )
+
+    return reduce
+
+
 LOOKUP = CommandSpec(
     "lookup_execution_result",
     ANALYST,
     LookupPayload,
-    _CHECK,
+    _LOOKUP_STEPS,
     "lookup:{case_id}:{case_version}",
-    _reducer("credit_status", "execution.looked_up", "Existing result looked up"),
+    _lookup_reducer("execution.looked_up", "Existing result looked up"),
     ("execution.looked_up",),
     "Look up existing result",
     "primary",

@@ -392,6 +392,52 @@ def test_failed_dispute_submission_retries_to_one_submission(
     assert money.dispute_summary(db, CASE).status == "submitted"
 
 
+def test_uncertain_dispute_submission_is_resolved_by_lookup_without_resending(
+    client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = Calls(monkeypatch, "dispute")
+    issue(client)
+    ok(client, "skip_card_controls", {"reason": "Card already replaced"})
+    for command in ("prepare_dispute_packet", "open_dispute_packet", "review_dispute_packet"):
+        ok(client, command)
+    adapters.inject_fault(db, "dispute", "submit", "uncertain", 1)
+    db.commit()
+    assert ok(client, "submit_dispute")["result"]["execution_status"] == "uncertain"
+    assert step(client) == ("dispute_prepared", "dsp_failed")
+    assert "lookup_execution_result" in offered(client)
+    key = db.execute(
+        text("select idempotency_key from adapter_executions where adapter='dispute'")
+    ).scalar_one()
+    found = ok(client, "lookup_execution_result", {"idempotency_key": key})["result"]
+    assert found["dispute_status"] == "submitted" and found["submission_id"] == "DSPSUB-1042"
+    assert calls.n == 1
+    assert step(client) == ("remediation_pending", "finalprep")
+    assert money.dispute_summary(db, CASE).status == "submitted"
+
+
+def test_uncertain_controls_apply_is_resolved_by_lookup_without_reapplying(
+    client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = Calls(monkeypatch, "card_controls")
+    issue(client)
+    ok(client, "propose_card_controls", {"controls": ["lock"]})
+    switch(client, Role.CARD_ADMIN)
+    ok(client, "approve_card_controls")
+    adapters.inject_fault(db, "card_controls", "apply", "uncertain", 1)
+    db.commit()
+    assert ok(client, "apply_card_controls")["result"]["execution_status"] == "uncertain"
+    assert count(db, "select count(*) from card_controls") == 0
+    switch(client, Role.ANALYST)
+    key = db.execute(
+        text("select idempotency_key from adapter_executions where adapter='card_controls'")
+    ).scalar_one()
+    found = ok(client, "lookup_execution_result", {"idempotency_key": key})["result"]
+    assert found["controls_status"] == "applied" and found["applied"] == ["lock"]
+    assert calls.n == 1
+    assert count(db, "select count(*) from card_controls") == 1
+    assert money.controls_summary(db, CASE).status == "applied"
+
+
 def test_card_admin_approves_and_applies_once_and_other_roles_get_403(
     client: TestClient, db: Session, approved: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
