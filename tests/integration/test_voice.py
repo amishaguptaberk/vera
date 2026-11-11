@@ -306,3 +306,23 @@ def test_signature_scheme_matches_provider_sdk() -> None:
     sdk = ElevenLabs(api_key="unused-not-real")
     event = sdk.webhooks.construct_event(body.decode(), header, SECRET)
     assert event["data"]["conversation_id"] == "conv_abc"
+
+
+def test_key_and_full_number_never_logged(
+    verified: TestClient,
+    db: Session,
+    provider_calls: list[httpx.Request],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("DEBUG")
+    cid = start(verified)
+    number = json.loads(provider_calls[0].content)["to_number"]
+    live_agent(monkeypatch, CONFIRMED)
+    post_signed(verified, transcript_doc())
+    drain(db)
+    listing = verified.get(f"/api/cases/{CASE}/callbacks").text
+    detail = verified.get(f"/api/cases/{CASE}/callbacks/{cid}").text
+    for blob in (caplog.text, listing, detail):
+        assert KEY not in blob and SECRET not in blob and number[2:] not in blob
+    assert KEY not in repr(voice.ElevenLabsConfig.from_env())
