@@ -3,3 +3,4 @@ export { ControlPlan, type ControlItem, type ControlPlanProps } from './ControlP
 export { FinalDraft, type FinalDraftProps } from './FinalDraft';
 export { SimulatedNote, TaskNote, TaskParas } from './MoneyText';
 export { ParallelTracks, type ParallelTracksProps, type TrackRow } from './ParallelTracks';
+export { TaskFrame } from './TaskFrame';

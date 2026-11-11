@@ -5,3 +5,4 @@ export { closureChecklistQuery, executionsQuery, useClosureChecklist, useExecuti
 
 /** No new case-workspace tabs: the money screens render inside the task region. */
 export const tabs: readonly { key: string; label: string; Panel: () => null }[] = [];
+export { previewStates } from './preview';

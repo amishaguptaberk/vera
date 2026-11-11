@@ -36,3 +36,9 @@
 @media (prefers-reduced-motion: reduce) {
   .trkR, .cl .bx { transition: none; }
 }
+
+/* Task frame (prototype .focus 85/1196, .focus-in 86, .f-state 1197, .focus-in .f-title 1204) — used by previews. */
+.focus { border: 1px solid #d9d6d1; border-radius: 12px; background: #fff; overflow: hidden; }
+.focusIn { padding: 22px 24px 20px; }
+.fState { display: flex; align-items: center; gap: 8px; min-height: 24px; margin-bottom: 6px; font: 500 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .05em; text-transform: uppercase; color: var(--ink); }
+.fTitle { max-width: 720px; overflow-wrap: break-word; font-size: 20px; font-weight: 550; letter-spacing: -0.015em; line-height: 1.3; margin: 0 0 6px; }
