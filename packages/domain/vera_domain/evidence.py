@@ -20,6 +20,7 @@ from vera_domain.commands import (
     Reduction,
     ReportId,
     StepSet,
+    register_commands,
 )
 from vera_domain.enums import EventType, Role
 from vera_domain.facts import CaseFacts
@@ -315,3 +316,5 @@ SERVICE_REGISTRY: dict[str, CommandSpec] = {
         ),
     )
 }
+
+register_commands("vera_domain.evidence", service=SERVICE_REGISTRY)

@@ -1,4 +1,5 @@
-from typing import Literal
+from collections.abc import Mapping
+from typing import Any, Literal
 
 from vera_domain.enums import CaseState, CaseStep, StateKind
 
@@ -109,7 +110,37 @@ EVENT_SUMMARIES: dict[str, str] = {
     "run.step_started": "Specialist step started",
     "run.step_succeeded": "Specialist step finished",
     "run.step_failed": "Specialist step failed",
+    "adapter.succeeded": "External action completed",
+    "adapter.failed": "External action failed before taking effect",
+    "adapter.uncertain": "External action result is being checked",
 }
+
+
+def _register(table: dict[Any, Any], entries: Mapping[Any, Any], what: str) -> None:
+    for key, value in entries.items():
+        if key in table and table[key] != value:
+            raise ValueError(f"{what} '{key}' is already registered")
+        table[key] = value
+
+
+def register_event_summaries(entries: Mapping[str, str]) -> None:
+    """Activity-feed sentence per event type. A feature module calls this at import."""
+    _register(EVENT_SUMMARIES, entries, "event summary")
+
+
+def register_blockers(entries: Mapping[CaseStep, str]) -> None:
+    _register(BLOCKER_BY_STEP, entries, "blocker")
+
+
+def register_wait_kinds(entries: Mapping[CaseStep, WaitKind]) -> None:
+    _register(WAIT_KIND_BY_STEP, entries, "wait kind")
+
+
+def register_labels(
+    entries: Mapping[tuple[CaseState, CaseStep], tuple[str, StateKind, str]],
+) -> None:
+    """(state, step) -> (state_label, state_kind, next_action)."""
+    _register(_LABELS, entries, "state label")
 
 
 def event_summary(event_type: str) -> str:

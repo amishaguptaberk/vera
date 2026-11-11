@@ -106,3 +106,21 @@ class RunEventType(StrEnum):
     RUN_STEP_STARTED = "run.step_started"
     RUN_STEP_SUCCEEDED = "run.step_succeeded"
     RUN_STEP_FAILED = "run.step_failed"
+
+
+# Every audit/stream event type that may be emitted. Feature modules add theirs with
+# register_event_types (no edit to this file); _emit rejects anything unregistered.
+EVENT_TYPES: set[str] = {str(m) for m in (*EventType, *RunEventType)}
+
+
+def register_event_types(*names: str) -> None:
+    for name in names:
+        subject, dot, verb = name.partition(".")
+        if not (dot and subject and verb):
+            raise ValueError(f"event type '{name}' must look like 'subject.verb'")
+        if name in EVENT_TYPES:
+            raise ValueError(f"event type '{name}' is already registered")
+        EVENT_TYPES.add(name)
+
+
+register_event_types("adapter.succeeded", "adapter.failed", "adapter.uncertain")

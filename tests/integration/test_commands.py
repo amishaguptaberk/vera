@@ -4,36 +4,17 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from command_payloads import TEST_PAYLOADS, TEST_USER_INPUTS
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from vera_domain.commands import RECOVERY_ONLY, REGISTRY
+from vera_domain.commands import RECOVERY_ONLY, REGISTRY, SERVICE_COMMANDS
 from vera_domain.enums import Role
 
 HUMAN_ROLES = [Role.ANALYST, Role.OPS_ADMIN, Role.REVIEWER, Role.CARD_ADMIN, Role.CARDHOLDER]
 CASE = "CHG-1042"
 
-PAYLOADS: dict[str, dict[str, Any]] = {
-    "open_case": {},
-    "hold_case": {"reason": "Waiting for the bank", "next_owner": "usr-dana-okafor"},
-    "resume_case": {},
-    "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
-    "link_report": {"report_id": "REP-1047", "statement": "Second call about the same charge."},
-    "evaluate_policy": {},
-    "start_investigation": {},
-    "retry_specialist_step": {"step_key": "charge_investigator", "mode": "replay"},
-}
-
-
-USER_INPUTS: dict[str, dict[str, Any]] = {
-    "open_case": {},
-    "hold_case": {"reason": "Waiting for the bank", "next_owner": "usr-dana-okafor"},
-    "resume_case": {},
-    "reassign_case": {"to": "usr-dana-okafor", "reason": "Card program owns this"},
-    "link_report": {"statement": "Second call about the same charge."},
-    "evaluate_policy": {},
-    "start_investigation": {},
-    "retry_specialist_step": {"step_key": "charge_investigator", "mode": "replay"},
-}
+PAYLOADS = TEST_PAYLOADS  # plug-in test modules extend these (command_payloads.py)
+USER_INPUTS = TEST_USER_INPUTS
 
 
 def switch(client: TestClient, role: Role) -> None:
@@ -103,7 +84,10 @@ def snap(db_url: str) -> Iterator[Any]:
 
 
 def forbidden_pairs() -> list[tuple[str, Role]]:
-    return [(n, r) for n, s in REGISTRY.items() for r in Role if r not in s.roles]
+    import vera_api.gateway  # noqa: F401  (loads every feature module's commands)
+
+    live = {**REGISTRY, **SERVICE_COMMANDS}  # the live registries, plug-ins included
+    return [(n, r) for n, s in live.items() for r in Role if r not in s.roles]
 
 
 @pytest.mark.parametrize(("command", "role"), forbidden_pairs())
@@ -113,7 +97,7 @@ def test_role_that_does_not_hold_command_gets_403_and_nothing_is_written(
     before = snap()
     if role in HUMAN_ROLES:
         switch(client, role)
-        resp = send(client, command, key=f"k-{command}-{role}")
+        resp = send(client, command, key=f"k-{command}-{role}", payload=PAYLOADS.get(command, {}))
         assert resp.status_code == 403
         assert resp.json()["code"] == "role_forbidden"
     else:
@@ -135,7 +119,7 @@ def test_role_that_does_not_hold_command_gets_403_and_nothing_is_written(
                 command=command,
                 key=f"k-{command}-{role}",
                 expected_version=before["case"][0],
-                payload=PAYLOADS[command],
+                payload=PAYLOADS.get(command, {}),
                 actor=actor,
                 request_id="t",
             )
