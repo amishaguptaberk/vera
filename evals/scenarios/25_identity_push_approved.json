@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-006",
+  "fixture": 25,
+  "title": "Identity: push approved",
+  "description": "Fixture 25: Identity: push approved. `verify` step, method recorded, policy outcome unchanged"
+}

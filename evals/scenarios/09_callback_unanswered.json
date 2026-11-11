@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-007",
+  "fixture": 9,
+  "title": "Callback unanswered",
+  "description": "Fixture 9: Callback unanswered. ToSpec 15.9"
+}

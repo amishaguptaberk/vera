@@ -1,0 +1,29 @@
+{
+  "title": "Exposure: gross, temporary credit and net on the seed; finalizing credit reduces net",
+  "steps": [
+    {
+      "as": "analyst",
+      "get": "/api/cases/summary",
+      "json": {
+        "gross_exposure.amount_cents": 1122000,
+        "temporary_credit.amount_cents": 396000,
+        "net_exposure.amount_cents": 1122000,
+        "confirmed_recoveries.amount_cents": 0
+      }
+    },
+    {
+      "service": "sql",
+      "query": "update cases set credit_status='finalized', credit_finalized_at=now() where id='CHG-1036'"
+    },
+    {
+      "as": "analyst",
+      "get": "/api/cases/summary",
+      "json": {
+        "gross_exposure.amount_cents": 1122000,
+        "temporary_credit.amount_cents": 0,
+        "confirmed_recoveries.amount_cents": 396000,
+        "net_exposure.amount_cents": 726000
+      }
+    }
+  ]
+}

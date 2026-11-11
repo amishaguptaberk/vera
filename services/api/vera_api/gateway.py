@@ -1,32 +1,39 @@
-"""Command gateway: role -> schema -> replay -> version -> closed -> step -> policy -> permission
--> transaction. Every case write goes through execute_command (or apply_reduction for intake)."""
+"""Command gateway: role -> schema -> replay -> version -> closed -> step -> policy -> approval
+-> key -> transaction. Every case write goes through execute_command (or apply_reduction for
+intake). Feature modules plug in through register_commands, FACT_PROVIDERS and APPROVAL_PROVIDER
+(docs/extension-seams.md); they never edit the gate sequence in _execute."""
 
 import hashlib
 import json
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from vera_domain import commands as domain_commands
 from vera_domain.commands import (
-    INVESTIGATION_SERVICE_REGISTRY,
-    REGISTRY,
+    ApprovalBinding,
+    ApprovalState,
     CommandSpec,
     ReduceContext,
     Reduction,
+    approval_gate,
     blocked_reason,
     check_role,
+    find_spec,
     policy_gate,
     resolve_key,
 )
 from vera_domain.enums import CaseState, CaseStep, Role
 from vera_domain.errors import CommandError
-from vera_domain.evidence import SERVICE_REGISTRY
+from vera_domain.evidence import SERVICE_REGISTRY  # registers the evidence service commands
 from vera_domain.facts import CaseFacts, Hold, derive_step
 from vera_domain.policy import PolicyResult
 
+from vera_api import plugins
 from vera_api import policy as policy_service
 from vera_api.auth import HUMAN_ROLES, STAFF_ROLES, Actor
 from vera_api.intake import _emit
@@ -48,7 +55,104 @@ class Outcome:
     event_ids: list[str]
 
 
+@dataclass(frozen=True)
+class EffectContext:
+    """What an effect may read besides its arguments. `extra` is the effect's own output when
+    an after-effect runs."""
+
+    command: str
+    key: str
+    first_report: Report | None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+
+# effect(session, case, actor, payload, now, ctx) -> dict: DB writes inside the command's
+# transaction, BEFORE the reducer. The dict becomes ReduceContext.extra.
+Effect = Callable[[Session, Case, Actor, Any, datetime, EffectContext], dict[str, Any]]
+# after_effect(session, case, actor, payload, now, ctx, outcome): follow-on writes and events
+# AFTER the command's own event, same transaction. ctx.extra is the effect's dict.
+AfterEffect = Callable[[Session, Case, Actor, Any, datetime, EffectContext, "Outcome"], None]
+# key_context(session, case, body) -> extra fields for the command's key template.
+KeyContext = Callable[[Session, Case, dict[str, Any]], Mapping[str, object]]
+FactProvider = Callable[[Session, Case], dict[str, Any]]
+ApprovalProvider = Callable[[Session, Case], ApprovalState | None]
+
+EFFECTS: dict[str, Effect] = {}
+AFTER_EFFECTS: dict[str, AfterEffect] = {}
+KEY_CONTEXTS: dict[str, KeyContext] = {}
+# Each provider returns CaseFacts fields read from stored rows. Two providers may not return
+# the same field.
+FACT_PROVIDERS: list[FactProvider] = []
+# Stage 8. None = no approval feature installed: every requires_approval command is blocked.
+APPROVAL_PROVIDER: ApprovalProvider | None = None
+
+
+def register_commands(
+    module_name: str,
+    *,
+    human: Mapping[str, CommandSpec] | None = None,
+    service: Mapping[str, CommandSpec] | None = None,
+    effects: Mapping[str, Effect] | None = None,
+    after_effects: Mapping[str, AfterEffect] | None = None,
+    key_context: KeyContext | None = None,
+) -> None:
+    """The one call a feature module makes for its commands. Duplicate names raise at import.
+    `key_context` applies to every command named in `human` and `service`."""
+    domain_commands.register_commands(module_name, human=human, service=service)
+    names = {*(human or {}), *(service or {})}
+    _register_handlers(module_name, names, effects, after_effects)
+    if key_context is not None:
+        for name in names:
+            KEY_CONTEXTS[name] = key_context
+
+
+def _register_handlers(
+    module_name: str,
+    names: set[str],
+    effects: Mapping[str, Effect] | None,
+    after_effects: Mapping[str, AfterEffect] | None,
+) -> None:
+    tables: tuple[tuple[dict[str, Any], Mapping[str, Any]], ...] = (
+        (EFFECTS, effects or {}),
+        (AFTER_EFFECTS, after_effects or {}),
+    )
+    for table, handlers in tables:
+        for name, handler in handlers.items():
+            if name not in names:
+                raise ValueError(f"{module_name}: handler for '{name}', not one of its commands")
+            if name in table:
+                raise ValueError(f"{module_name}: '{name}' already has a handler")
+            table[name] = handler
+
+
+def register_fact_provider(provider: FactProvider) -> None:
+    if provider not in FACT_PROVIDERS:
+        FACT_PROVIDERS.append(provider)
+
+
+def set_approval_provider(provider: ApprovalProvider) -> None:
+    global APPROVAL_PROVIDER
+    if APPROVAL_PROVIDER is not None and APPROVAL_PROVIDER is not provider:
+        raise ValueError("an approval provider is already registered")
+    APPROVAL_PROVIDER = provider
+
+
+def approval_state(session: Session, case: Case) -> ApprovalState | None:
+    return APPROVAL_PROVIDER(session, case) if APPROVAL_PROVIDER is not None else None
+
+
+def approval_binding(case: Case) -> ApprovalBinding:
+    """What an approval must match: the case's current pins and its transaction."""
+    return ApprovalBinding(
+        snapshot_hash=case.evidence_snapshot,
+        policy_version=case.policy_version,
+        workflow_version=case.workflow_version,
+        transaction_id=case.transaction_id,
+    )
+
+
 def facts_of(case: Case) -> CaseFacts:
+    """Base facts from the case row only. Derive state/step from facts_for, not from this."""
     return CaseFacts(
         opened_at=case.opened_at,
         closed=case.state == CaseState.CLOSED.value,
@@ -56,6 +160,37 @@ def facts_of(case: Case) -> CaseFacts:
         owner_id=case.owner_id,
         due_at=case.due_at,
     )
+
+
+# Facts read from the case row itself. No provider may return them: a provider that could set
+# `closed` or `hold` could un-close or un-hold a case.
+BASE_FACTS = frozenset({"opened_at", "closed", "hold", "owner_id", "due_at"})
+
+
+def _check_fact_name(provider: FactProvider, name: str, merged: Mapping[str, Any]) -> None:
+    who = (
+        f"fact provider {getattr(provider, '__module__', '?')}.{getattr(provider, '__name__', '?')}"
+    )
+    if name in BASE_FACTS:
+        raise RuntimeError(f"{who}: '{name}' is a reserved case-row fact")
+    if name not in CaseFacts.model_fields:
+        raise RuntimeError(f"{who}: unknown fact '{name}'")
+    if name in merged:
+        raise RuntimeError(f"{who}: duplicate fact '{name}' (owned by an earlier provider)")
+
+
+def facts_for(session: Session, case: Case) -> CaseFacts:
+    """Base facts plus every registered provider's facts (stored rows, never model output)."""
+    merged: dict[str, Any] = {}
+    for provider in FACT_PROVIDERS:
+        for name, value in provider(session, case).items():
+            _check_fact_name(provider, name, merged)
+            merged[name] = value
+    # Validate (model_copy would not): a provider returning an unknown value fails loudly.
+    return CaseFacts.model_validate({**facts_of(case).model_dump(), **merged})
+
+
+facts_with_runs = facts_for  # kept for existing callers
 
 
 def _lock_case(session: Session, case_id: str) -> Case:
@@ -242,11 +377,7 @@ def _execute(
     actor: Actor,
     request_id: str,
 ) -> Outcome:
-    spec = (
-        REGISTRY.get(command)
-        or SERVICE_REGISTRY.get(command)
-        or INVESTIGATION_SERVICE_REGISTRY.get(command)
-    )
+    spec = find_spec(command)
     if spec is None:
         raise CommandError("unknown_command", 404, f"Unknown command '{command}'.")
     # 1 role
@@ -276,12 +407,16 @@ def _execute(
             "The case changed since you loaded it. Refresh and review before retrying.",
             case_version=case.case_version,
         )
-    # 5-8 closed, step; policy and permission are no-op hooks for now
+    # 5-6 closed, step
     gate = blocked_reason(spec, CaseState(case.state), CaseStep(case.step))
     if gate is not None:
         raise gate
     if spec.requires_policy is not None:  # stage 7
         gate = policy_gate(spec, policy_service.current_state(session, case))
+        if gate is not None:
+            raise gate
+    if spec.requires_approval:  # stage 8
+        gate = approval_gate(spec, approval_state(session, case), approval_binding(case))
         if gate is not None:
             raise gate
     # The client key must equal the server-resolved template (case, actor, payload).
@@ -291,16 +426,7 @@ def _execute(
             "case_id": case.id,
             "case_version": case.case_version,
             "user_id": actor.user_id,
-            **(
-                policy_service.key_context(session, case)
-                if "{snapshot_hash}" in spec.key_template
-                else {}
-            ),
-            **(
-                _investigation_keys(session, case, body)
-                if "{attempt_no}" in spec.key_template
-                else {}
-            ),
+            **(KEY_CONTEXTS[spec.name](session, case, body) if spec.name in KEY_CONTEXTS else {}),
             **body,
         },
     )
@@ -325,21 +451,6 @@ def _execute(
     return out
 
 
-def _investigation_keys(session: Session, case: Case, body: dict[str, Any]) -> dict[str, object]:
-    from vera_api import investigation
-
-    return investigation.key_context(session, case, str(body.get("step_key", "")))
-
-
-def facts_with_runs(session: Session, case: Case) -> CaseFacts:
-    """facts_of plus facts read from stored run rows (never from model output)."""
-    from vera_api import investigation
-
-    return facts_of(case).model_copy(
-        update={"investigation_run_status": investigation.run_status(session, case.id)}
-    )
-
-
 def write_command(
     session: Session,
     case: Case,
@@ -359,19 +470,12 @@ def write_command(
     if gate is not None:
         raise gate
     first_report = _first_report(session, case.id)
-    if spec.name == "link_report":
-        _record_linked_report(session, case, model, first_report, now)
-    extra: dict[str, Any] = {}
-    if spec.name in SERVICE_REGISTRY:  # evidence side effects run inside this transaction
-        from vera_api.evidence import run_effect
-
-        extra = run_effect(
-            session, case, spec.name, model, now=now, actor_id=actor_id, actor_role=actor_role
-        )
-    from vera_api import investigation
-
-    if spec.name in investigation.COMMANDS:  # run/job rows written inside this transaction
-        extra = investigation.run_effect(session, case, spec.name, model)
+    actor = Actor(actor_id, actor_name, actor_role, frozenset({actor_role}))
+    ectx = EffectContext(command=spec.name, key=key, first_report=first_report)
+    effect = EFFECTS.get(spec.name)
+    if effect is not None:  # side effects run inside this transaction, before the reducer
+        ectx.extra.update(effect(session, case, actor, model, now, ectx))
+    extra = ectx.extra
     ctx = ReduceContext(
         case_id=case.id,
         actor_id=actor_id,
@@ -382,9 +486,7 @@ def write_command(
         first_report_id=first_report.id if first_report else None,
         extra=extra,
     )
-    if spec.name == "evaluate_policy":
-        ctx.extra["policy"] = policy_service.compute(session, case).model_dump(mode="json")
-    red = spec.reducer(facts_with_runs(session, case), model, ctx)
+    red = spec.reducer(facts_for(session, case), model, ctx)
     out = apply_reduction(
         session,
         case,
@@ -397,20 +499,9 @@ def write_command(
         request_id=request_id,
         now=now,
     )
-    if spec.name in SERVICE_REGISTRY:  # follow-on events after the command's own event
-        from vera_api.evidence import after_effect
-
-        after_effect(
-            session, case, spec.name, extra, now=now, actor_id=actor_id, actor_role=actor_role
-        )
-    if spec.name == "evaluate_policy":
-        policy_service.store(
-            session,
-            case,
-            PolicyResult.model_validate(ctx.extra["policy"]),
-            int(out.event_ids[0][4:]),
-            now,
-        )
+    after = AFTER_EFFECTS.get(spec.name)
+    if after is not None:  # follow-on writes and events after the command's own event
+        after(session, case, actor, model, now, ectx, out)
     return out
 
 
@@ -442,3 +533,113 @@ def _record_linked_report(
         )
     )
     session.flush()
+
+
+# --- Built-in effects, registered through the same tables feature modules use. ---
+
+
+def _link_report_effect(
+    session: Session, case: Case, actor: Actor, model: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    _record_linked_report(session, case, model, ctx.first_report, now)
+    return {}
+
+
+def _policy_effect(
+    session: Session, case: Case, actor: Actor, model: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    return {"policy": policy_service.compute(session, case).model_dump(mode="json")}
+
+
+def _policy_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    model: Any,
+    now: datetime,
+    ctx: EffectContext,
+    out: Outcome,
+) -> None:
+    result = PolicyResult.model_validate(ctx.extra["policy"])
+    policy_service.store(session, case, result, int(out.event_ids[0][4:]), now)
+
+
+def _evidence_effect(
+    session: Session, case: Case, actor: Actor, model: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    from vera_api.evidence import run_effect
+
+    return run_effect(
+        session,
+        case,
+        ctx.command,
+        model,
+        now=now,
+        actor_id=actor.user_id,
+        actor_role=actor.active_role,
+    )
+
+
+def _evidence_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    model: Any,
+    now: datetime,
+    ctx: EffectContext,
+    out: Outcome,
+) -> None:
+    from vera_api.evidence import after_effect
+
+    after_effect(
+        session,
+        case,
+        ctx.command,
+        ctx.extra,
+        now=now,
+        actor_id=actor.user_id,
+        actor_role=actor.active_role,
+    )
+
+
+def _investigation_effect(
+    session: Session, case: Case, actor: Actor, model: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    from vera_api import investigation
+
+    return investigation.run_effect(session, case, ctx.command, model)
+
+
+def _investigation_facts(session: Session, case: Case) -> dict[str, Any]:
+    from vera_api import investigation
+
+    return {"investigation_run_status": investigation.run_status(session, case.id)}
+
+
+def _policy_keys(session: Session, case: Case, body: dict[str, Any]) -> Mapping[str, object]:
+    return policy_service.key_context(session, case)
+
+
+def _investigation_keys(session: Session, case: Case, body: dict[str, Any]) -> Mapping[str, object]:
+    from vera_api import investigation
+
+    return investigation.key_context(session, case, str(body.get("step_key", "")))
+
+
+_INVESTIGATION = {"start_investigation", "retry_specialist_step", "complete_investigation"}
+_register_handlers(
+    __name__,
+    {"link_report", "evaluate_policy", *SERVICE_REGISTRY, *_INVESTIGATION},
+    {
+        "link_report": _link_report_effect,
+        "evaluate_policy": _policy_effect,
+        **{name: _evidence_effect for name in SERVICE_REGISTRY},
+        **{name: _investigation_effect for name in _INVESTIGATION},
+    },
+    {"evaluate_policy": _policy_after, **{name: _evidence_after for name in SERVICE_REGISTRY}},
+)
+KEY_CONTEXTS["evaluate_policy"] = _policy_keys
+KEY_CONTEXTS["retry_specialist_step"] = _investigation_keys
+register_fact_provider(_investigation_facts)
+
+plugins.load_features()  # last: feature modules import this module's registration functions

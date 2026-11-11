@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-005",
+  "fixture": 5,
+  "title": "Conflicting cardholder statements",
+  "description": "Fixture 5: Conflicting cardholder statements. ToSpec 15.5"
+}

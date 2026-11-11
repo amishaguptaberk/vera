@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from vera_domain.enums import CaseState, CaseStep, EventType, Role
+from vera_domain.enums import EVENT_TYPES, CaseState, CaseStep, EventType, Role
 from vera_domain.errors import CommandError
 from vera_domain.facts import CaseFacts, Hold
 from vera_domain.labels import describe
@@ -77,7 +77,7 @@ class StepSet:
 
 @dataclass(frozen=True)
 class EventDraft:
-    type: EventType
+    type: str  # an EventType member or a string registered in enums.EVENT_TYPES
     summary: str
     record_ids: list[str]
     detail: dict[str, Any] = field(default_factory=dict)
@@ -114,11 +114,17 @@ class CommandSpec:
     allowed_steps: StepSet
     key_template: str
     reducer: Reducer
-    events: tuple[EventType, ...]
+    events: tuple[str, ...]
     label: str
     style: Literal["primary", "secondary", "dark", "ghost"]
     # Stage 7: policy statuses under which the command may run (None = ungated).
     requires_policy: frozenset[str] | None = None
+    # Stage 8: the command needs an APPROVED approval bound to the case's current pins.
+    requires_approval: bool = False
+    # Name of the adapter (vera_api.adapters.ADAPTERS) the command's effect dispatches to.
+    adapter: str | None = None
+    # One command for a human role AND a service principal. Reserved for DUAL_COMMANDS.
+    dual: bool = False
 
 
 def _user(ctx: ReduceContext, ref: str, field_name: str) -> tuple[str, str]:
@@ -358,6 +364,7 @@ REGISTRY: dict[str, CommandSpec] = {
             (EventType.POLICY_EVALUATED,),
             "Evaluate policy",
             "ghost",
+            dual=True,
         ),
         CommandSpec(
             "start_investigation",
@@ -398,6 +405,74 @@ INVESTIGATION_SERVICE_REGISTRY: dict[str, CommandSpec] = {
         "ghost",
     )
 }
+
+# Every service-principal command (never offered to a human, never in available_actions).
+SERVICE_COMMANDS: dict[str, CommandSpec] = {}
+_OWNERS: dict[str, str] = {}
+HUMAN_ROLES = frozenset(
+    {Role.ANALYST, Role.OPS_ADMIN, Role.REVIEWER, Role.CARD_ADMIN, Role.CARDHOLDER}
+)
+# The only commands a human role and a service principal share (the analyst and the Policy
+# Controller both evaluate policy). Do not add to this without a security review.
+DUAL_COMMANDS = frozenset({"evaluate_policy"})
+
+
+def check_spec_roles(module_name: str, spec: CommandSpec, *, service: bool) -> None:
+    """A service command lists NO human role; a human command lists ONLY human roles."""
+    if spec.dual:
+        if service or spec.name not in DUAL_COMMANDS:
+            raise ValueError(f"{module_name}: '{spec.name}' may not be dual (DUAL_COMMANDS)")
+        return
+    if not spec.roles:
+        raise ValueError(f"{module_name}: command '{spec.name}' lists no role")
+    wrong = sorted(
+        r.value for r in (spec.roles & HUMAN_ROLES if service else spec.roles - HUMAN_ROLES)
+    )
+    if wrong:
+        kind, other = ("service", "human") if service else ("human", "service")
+        raise ValueError(
+            f"{module_name}: {kind} command '{spec.name}' lists {other} role(s) {wrong}"
+        )
+
+
+for _spec in REGISTRY.values():  # the built-in human commands obey the same rule
+    check_spec_roles(__name__, _spec, service=False)
+
+
+def register_commands(
+    module_name: str,
+    *,
+    human: Mapping[str, CommandSpec] | None = None,
+    service: Mapping[str, CommandSpec] | None = None,
+) -> None:
+    """Add a module's commands. `human` commands go through the same gates and appear in
+    available_actions; `service` commands are for service principals only. A name registered
+    twice (by any module, in either table) raises at import."""
+    for table, specs in ((REGISTRY, human or {}), (SERVICE_COMMANDS, service or {})):
+        for name, spec in specs.items():
+            if name != spec.name:
+                raise ValueError(f"{module_name}: key '{name}' != spec name '{spec.name}'")
+            if name in REGISTRY or name in SERVICE_COMMANDS:
+                owner = _OWNERS.get(name, "vera_domain.commands")
+                raise ValueError(f"{module_name}: command '{name}' already registered by {owner}")
+            unknown = [e for e in spec.events if str(e) not in EVENT_TYPES]
+            if unknown:
+                raise ValueError(f"{module_name}: {name} declares unregistered events {unknown}")
+            check_spec_roles(module_name, spec, service=table is SERVICE_COMMANDS)
+    # Nothing is registered unless every spec in the call is valid.
+    for table, specs in ((REGISTRY, human or {}), (SERVICE_COMMANDS, service or {})):
+        for name, spec in specs.items():
+            if name in REGISTRY or name in SERVICE_COMMANDS:  # same name in human and service
+                raise ValueError(f"{module_name}: command '{name}' registered twice")
+            table[name] = spec
+            _OWNERS[name] = module_name
+
+
+def find_spec(command: str) -> CommandSpec | None:
+    return REGISTRY.get(command) or SERVICE_COMMANDS.get(command)
+
+
+register_commands("vera_domain.commands", service=INVESTIGATION_SERVICE_REGISTRY)
 
 RECOVERY_ONLY = frozenset({"retry_specialist_step"})
 RETRY_NOTE = (
@@ -447,6 +522,55 @@ def policy_gate(spec: CommandSpec, current: PolicyState | None) -> CommandError 
     return None
 
 
+@dataclass(frozen=True)
+class ApprovalBinding:
+    """What an approval must be bound to: the case's CURRENT pins and transaction."""
+
+    snapshot_hash: str
+    policy_version: int
+    workflow_version: int
+    transaction_id: str
+
+
+@dataclass(frozen=True)
+class ApprovalState(ApprovalBinding):
+    """The case's latest approval as stored (stage 8 reads this through APPROVAL_PROVIDER)."""
+
+    approval_id: str = ""
+    status: str = "requested"  # requested | approved | returned | stale
+
+
+NO_APPROVAL = "No approval recorded"
+APPROVAL_STALE = (
+    "Approval out of date: the evidence, policy, workflow or transaction changed after approval."
+)
+
+
+def approval_gate(
+    spec: CommandSpec, current: ApprovalState | None, binding: ApprovalBinding | None
+) -> CommandError | None:
+    """Stage 8, pure: shared by the gateway and available_actions. Blocks unless an APPROVED
+    approval is bound to the current snapshot, policy version, workflow version, transaction."""
+    if not spec.requires_approval:
+        return None
+    if current is None or binding is None:
+        return CommandError("approval_required", 422, NO_APPROVAL, blocked_reason=NO_APPROVAL)
+    if current.status == "stale":
+        return CommandError("approval_stale", 409, APPROVAL_STALE, blocked_reason=APPROVAL_STALE)
+    if current.status != "approved":
+        reason = f"Approval {current.approval_id} is {current.status}, not approved."
+        return CommandError("approval_required", 422, reason, blocked_reason=reason)
+    bound = ApprovalBinding(
+        current.snapshot_hash,
+        current.policy_version,
+        current.workflow_version,
+        current.transaction_id,
+    )
+    if bound != binding:
+        return CommandError("approval_stale", 409, APPROVAL_STALE, blocked_reason=APPROVAL_STALE)
+    return None
+
+
 def resolve_key(spec: CommandSpec, ctx: Mapping[str, object]) -> str:
     """Fill the key template. Unknown fields (payload) stay literal."""
 
@@ -468,6 +592,8 @@ def available_actions(
     next_report_id: str,
     policy_state: PolicyState | None = None,
     key_context: Mapping[str, object] | None = None,
+    approval: ApprovalState | None = None,
+    approval_binding: ApprovalBinding | None = None,
 ) -> tuple[list[ActionView], list[BlockedAction]]:
     enabled: list[ActionView] = []
     blocked: list[BlockedAction] = []
@@ -480,7 +606,11 @@ def available_actions(
     for spec in REGISTRY.values():
         if role not in spec.roles or spec.name in RECOVERY_ONLY:
             continue
-        err = blocked_reason(spec, state, step) or policy_gate(spec, policy_state)
+        err = (
+            blocked_reason(spec, state, step)
+            or policy_gate(spec, policy_state)
+            or approval_gate(spec, approval, approval_binding)
+        )
         if err is not None:
             reason = err.blocked_reason or err.message
             blocked.append(

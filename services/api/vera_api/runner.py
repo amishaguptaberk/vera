@@ -373,7 +373,7 @@ class SpecialistRunner:
     ) -> None:
         _emit(
             session,
-            type_,  # type: ignore[arg-type]
+            type_,
             case,
             f"specialist:{spec.name}",
             Role.SPECIALIST,

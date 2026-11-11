@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from vera_domain.enums import EventType, Role
+from vera_domain.enums import EVENT_TYPES, EventType, Role
 from vera_domain.facts import CaseFacts, derive_step
 
 from vera_api.models import (
@@ -47,9 +47,17 @@ def case_id_for(transaction_id: str) -> str:
     return "CHG-" + transaction_id.removeprefix("TXN-")
 
 
+def _event_type(type_: str) -> str:
+    """An EventType member or a string registered in enums.EVENT_TYPES; anything else raises."""
+    name = str(type_)
+    if name not in EVENT_TYPES:
+        raise ValueError(f"event type '{name}' is not registered (enums.register_event_types)")
+    return name
+
+
 def _emit(
     session: Session,
-    type_: EventType,
+    type_: str,
     case: Case,
     actor_id: str,
     actor_role: Role,
@@ -59,7 +67,7 @@ def _emit(
     detail: dict[str, Any] | None = None,
 ) -> int:
     event = AuditEvent(
-        type=type_.value,
+        type=_event_type(type_),
         case_id=case.id,
         case_version=case.case_version,
         at=at,

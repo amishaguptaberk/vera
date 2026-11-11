@@ -1,0 +1,39 @@
+{
+  "fixture": 37,
+  "title": "Role switching writes no command, no event and keeps the same case_version",
+  "steps": [
+    {
+      "service": "snapshot",
+      "name": "s"
+    },
+    {
+      "as": "reviewer",
+      "get": "/api/session",
+      "json": {
+        "active_role": "reviewer"
+      }
+    },
+    {
+      "as": "cardholder",
+      "get": "/api/session",
+      "json": {
+        "active_role": "cardholder"
+      }
+    },
+    {
+      "as": "card_admin",
+      "get": "/api/session",
+      "json": {
+        "active_role": "card_admin"
+      }
+    },
+    {
+      "as": "analyst",
+      "get": "/api/session",
+      "assert": {
+        "unchanged_since": "s",
+        "version": 1
+      }
+    }
+  ]
+}

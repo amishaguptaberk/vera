@@ -1,5 +1,21 @@
 # Contributing
 
+## Parallel feature tickets
+
+Feature tickets build in parallel on top of migration `0009` and plug in through the seams in
+[docs/extension-seams.md](docs/extension-seams.md). Each ticket adds ONE migration file with its
+reserved number and `down_revision = "0009"`; the integrator re-chains them at merge.
+
+| Ticket | Revision | Ticket | Revision |
+|---|---|---|---|
+| VER-005 | `0010` | VER-010 | `0014` |
+| VER-006 | `0011` | VER-011 | `0015` |
+| VER-007 | `0012` | VER-014 | `0016` |
+| VER-009 | `0013` | | |
+
+The only shared file a feature ticket edits is `services/api/vera_api/plugins.py` (one line in
+`FEATURES`). On a feature branch `alembic heads` shows your revision only; never edit `0009`.
+
 ## Setup
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
@@ -123,3 +139,57 @@ LIVE requests use `response_format: {"type": "json_object"}` with the output JSO
 the prompt (not provider-side schema enforcement); every reply is validated after the fact by the
 runner (pydantic schema, then grounding against the cited source fields), with two validation
 retries.
+
+<!-- VER-013:begin -->
+## Checks (VER-013)
+
+Backend (needs Postgres on `127.0.0.1:54329`, see Database; everything runs in REPLAY, no provider key):
+
+```bash
+uv sync --frozen
+uv run ruff check . && uv run ruff format --check .
+uv run mypy packages services
+uv run alembic upgrade head
+uv run pytest -q                      # unit, integration, contract, evals
+```
+
+Evaluation scenarios (data in `evals/scenarios/NN_name.json`, index in `evals/FIXTURES.md`):
+
+```bash
+uv run python -m evals.harness            # per-scenario PASS / FAIL / SKIPPED (pending) table
+uv run python -m evals.harness --only 62  # one scenario
+```
+
+The harness RESETS the database it uses: `VERA_EVAL_DATABASE_URL`, else `VERA_TEST_DATABASE_URL`,
+else `vera_test`. A failure names the scenario, case, workflow version, step and the broken
+invariant. A scenario with `"status": "pending"` and `"requires": "VER-0xx"` is reported as
+SKIPPED; the ticket that lands the stage replaces it with real steps and assertions.
+
+Contract snapshot (API drift): `tests/contract/openapi.snapshot.json` must equal
+`create_app().openapi()`. After an intentional API change regenerate and commit it:
+
+```bash
+uv run python -m evals.snapshot_openapi
+```
+
+Frontend (`apps/web`):
+
+```bash
+cd apps/web && npm ci
+npm run typecheck && npm run lint && npm test && npm run build
+npx playwright install --with-deps chromium && npm run test:parity   # needs a prior build
+```
+
+CI is `.github/workflows/ci.yml` (jobs `backend`, `frontend`, `frontend-browser`).
+
+## Resettable demo seed
+
+`POST /api/demo/reset` (only when `VERA_ENV=synthetic`) truncates every application table
+(`ALL_TABLES`, with `restart identity cascade`; the append-only triggers stay in place), then
+re-seeds the canonical data: users and roles, cardholders, merchants, transactions, the seeded
+cases (CHG-1042 is the live case), reports and claims, evidence records and versions, and policy
+v1. It also clears workflow runs, steps, queued jobs and LangGraph checkpoints, so a
+mid-investigation reset leaves nothing behind. Case versions return to 1 and the demo clock is
+fixed at 2026-11-10 09:08 (`VERA_DEMO_TZ`). Reset never calls a provider; the evals call it before
+every scenario.
+<!-- VER-013:end -->

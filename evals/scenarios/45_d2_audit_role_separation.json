@@ -1,0 +1,7 @@
+{
+  "status": "pending",
+  "requires": "VER-010",
+  "fixture": 45,
+  "title": "D2 audit role separation",
+  "description": "Fixture 45: D2 audit role separation. SIGN approval event role=reviewer; CTL approve/apply events role=card_admin; same actor Dana Okafor (needs VER-009 approval too)"
+}
