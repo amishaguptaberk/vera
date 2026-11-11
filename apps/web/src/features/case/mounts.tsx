@@ -1,9 +1,11 @@
 // The one place feature modules are mounted into the case workspace (see registry.ts and each feature's README).
 import { CommsPanel, commandForms as commsForms, FollowupTask, isFollowupStep } from '@/features/comms';
 import { CallPanel, CardholderVerifyPanel, commandForms as verifyForms, IdentityPanel } from '@/features/verify';
+import { useQuery } from '@tanstack/react-query';
+import { DecisionPanel as PacketPanel, decisionPacketQuery, commandForms as decisionForms, ReviewerPanel, VeraButton, VeraRailPanel } from '@/features/decision';
 import { commandForms as moneyForms, MONEY_STEPS, MoneyTask } from '@/features/money';
 import { COMMAND_FORMS } from './command-forms';
-import type { CaseRegistry, CaseSlotProps } from './registry';
+import type { CaseRegistry, CaseRole, CaseSlotProps, RailProps } from './registry';
 
 function MoneyBlock({ caseId, c, onSelectRecord }: CaseSlotProps) {
   return <MoneyTask caseId={caseId} c={c} onOpenRecord={onSelectRecord} />;
@@ -25,6 +27,26 @@ function CallTab({ caseId, onSelectRecord }: CaseSlotProps) {
 function CardholderVerifyBlock({ caseId }: CaseSlotProps) {
   return <CardholderVerifyPanel caseId={caseId} />;
 }
+// Decision tab: the packet stacks under the policy block, only once the server serves one (a 404 says so honestly).
+function PacketTab({ c, sel, onSelectRecord }: CaseSlotProps) {
+  const packet = useQuery(decisionPacketQuery(c.case_id));
+  if (packet.isPending) return null;
+  if (!Array.isArray(packet.data?.statements)) return <p style={{ margin: '0 16px 16px', fontSize: 13, color: 'var(--mute)' }}>Decision packet: not available yet.</p>;
+  return <PacketPanel c={c} selected={sel} onSelectRecord={onSelectRecord} />;
+}
+const REVIEWER_COMMANDS = new Set(['approve_decision', 'return_decision']);
+function ReviewerBlock({ c, sel, onSelectRecord }: CaseSlotProps) {
+  return <ReviewerPanel c={c} selected={sel} onSelectRecord={onSelectRecord} />;
+}
+// Vera rail: staff only (the cardholder has no rail).
+const railRole = (role: CaseRole | null) => (role === 'analyst' || role === 'reviewer' ? role : null);
+function Rail({ c, role, open, onClose, sel, onSelectRecord, onNavigate }: RailProps) {
+  const r = railRole(role);
+  return r ? <VeraRailPanel c={c} role={r} open={open} onClose={onClose} selected={sel} onSelectRecord={onSelectRecord} onNavigate={onNavigate} /> : null;
+}
+function RailToggle({ role, open, onToggle }: { role: CaseRole | null; open: boolean; onToggle: () => void }) {
+  return railRole(role) ? <VeraButton open={open} onToggle={onToggle} /> : null;
+}
 
 export const caseRegistry: CaseRegistry = {
   // Communications (prototype): messages, then the identity verification and verification call items.
@@ -32,8 +54,16 @@ export const caseRegistry: CaseRegistry = {
     { tab: 'comms', key: 'comms', Panel: CommsTab },
     { tab: 'comms', key: 'identity', Panel: IdentityTab },
     { tab: 'comms', key: 'call', Panel: CallTab },
+    { tab: 'decision', key: 'packet', Panel: PacketTab },
   ],
   taskBlocks: [
+    // Reviewer / card admin with a decision to approve or return (server-offered): the reviewer controls.
+    {
+      key: 'reviewer',
+      match: (c, role) => role === 'reviewer' && [...c.available_actions, ...c.blocked_actions].some((a) => REVIEWER_COMMANDS.has(a.command)),
+      Block: ReviewerBlock,
+      ownsActions: true,
+    },
     // Cardholder "Verify it's you" (step idv): the panel renders the code entry / push approve itself.
     { key: 'verify-cardholder', match: (c, role) => role === 'cardholder' && c.step === 'idv', Block: CardholderVerifyBlock, ownsActions: true },
     // Money steps (credit, tracks, dispute, card controls, closure): MoneyTask renders the server's actions itself.
@@ -41,6 +71,6 @@ export const caseRegistry: CaseRegistry = {
     // Follow-up steps (draft → waiting → no response → response): actions stay in the generic ActionBar.
     { key: 'followup', match: (c) => isFollowupStep(c.step), Block: FollowupBlock, ownsActions: false },
   ],
-  commandForms: { ...COMMAND_FORMS, ...commsForms, ...verifyForms, ...moneyForms },
-  rail: null,
+  commandForms: { ...COMMAND_FORMS, ...commsForms, ...verifyForms, ...decisionForms, ...moneyForms },
+  rail: { Rail, Toggle: RailToggle },
 };

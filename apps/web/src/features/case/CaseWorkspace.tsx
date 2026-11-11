@@ -320,7 +320,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                 Workflow v{c.pins.workflow_version} · Run details
               </button>
             )}
-            {rail ? <rail.Toggle open={railOpen} onToggle={() => setRailOpen((o) => !o)} /> : null}
+            {rail ? <rail.Toggle role={role} open={railOpen} onToggle={() => setRailOpen((o) => !o)} /> : null}
           </div>
         </div>
         <dl className={styles.cstate} aria-label="Case status" style={{ margin: 0 }}>
@@ -417,7 +417,8 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                   <p className={styles.rd}>Not available yet.</p>
                 </div>
               ) : null}
-              {tab === 'decision' && !mounted.length ? <DecisionPanel c={c} /> : null}
+              {/* The policy block always shows; a mounted decision packet stacks below it. */}
+              {tab === 'decision' ? <DecisionPanel c={c} /> : null}
               {tab === 'trace' ? <RunDetails c={c} ev={evidence.data} recovery={recovery} onRecovery={onAction} /> : null}
               {mounted.map((m) => (
                 <div key={m.key} data-testid={`tab-panel-${m.key}`}>

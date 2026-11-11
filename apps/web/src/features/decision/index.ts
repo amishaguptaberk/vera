@@ -12,4 +12,3 @@ export { VeraButton } from '@/components/decision';
 
 /** Case-workspace tabs this feature provides (replaces the inline DecisionPanel in CaseWorkspace.tsx). */
 export const tabs = [{ key: 'decision', label: 'Decision', Panel: DecisionPanel }] as const;
-export { previewStates } from './preview';

@@ -35,7 +35,7 @@ export type TabPanelMount = { tab: CaseTabId; key: string; Panel: ComponentType<
 export type TaskBlockMount = { key: string; match: (c: CaseView, role: CaseRole | null) => boolean; Block: ComponentType<CaseSlotProps>; ownsActions: boolean };
 
 export type RailProps = CaseSlotProps & { open: boolean; onClose: () => void; onNavigate: (target: string) => void };
-export type RailMount = { Rail: ComponentType<RailProps>; Toggle: ComponentType<{ open: boolean; onToggle: () => void }> };
+export type RailMount = { Rail: ComponentType<RailProps>; Toggle: ComponentType<{ role: CaseRole | null; open: boolean; onToggle: () => void }> };
 
 export type CaseRegistry = {
   tabPanels: readonly TabPanelMount[];
