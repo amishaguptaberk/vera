@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from vera_api import adapters, gateway, plugins
 from vera_api.auth import Actor
 from vera_api.models import Case
-from vera_domain.adapters import AdapterResult
+from vera_domain.adapters import AdapterResult, SimulatedAdapter
 from vera_domain.clock import default_demo_clock
 from vera_domain.commands import (
     REGISTRY,
@@ -71,8 +71,19 @@ def events(db: Session) -> list[str]:
     return [r[0] for r in rows]
 
 
-def test_no_adapter_is_registered_outside_tests() -> None:
-    assert adapters.ADAPTERS == {}
+def test_registered_adapters_are_simulated_and_declared_by_feature_modules() -> None:
+    """Features register their simulated adapters at import; test adapters never leak."""
+    assert "echo" not in adapters.ADAPTERS
+    for name, adapter in adapters.ADAPTERS.items():
+        assert isinstance(adapter, SimulatedAdapter), name
+        assert type(adapter).__module__ in plugins.FEATURES, (name, type(adapter).__module__)
+
+
+def test_registering_an_adapter_name_twice_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(adapters, "ADAPTERS", dict(adapters.ADAPTERS))
+    adapters.register_adapter("t_once", Echo())
+    with pytest.raises(ValueError, match="already registered"):
+        adapters.register_adapter("t_once", Echo())
 
 
 def test_execute_is_exactly_once_by_key_and_replays_the_stored_result(
@@ -166,6 +177,9 @@ def test_facts_for_merges_providers_and_rejects_duplicates(
     assert case is not None
     assert gateway.facts_for(db, case).investigation_run_status == "none"
     assert gateway.facts_with_runs is gateway.facts_for
+    assert gateway._investigation_facts in gateway.FACT_PROVIDERS
+    # Features may own followup_status once loaded: start from the built-in provider only.
+    monkeypatch.setattr(gateway, "FACT_PROVIDERS", [gateway._investigation_facts])
 
     def followup(session: Session, c: Case) -> dict[str, Any]:
         return {"followup_status": "sent"}
@@ -173,7 +187,7 @@ def test_facts_for_merges_providers_and_rejects_duplicates(
     monkeypatch.setattr(gateway, "FACT_PROVIDERS", [*gateway.FACT_PROVIDERS, followup])
     assert gateway.facts_for(db, case).followup_status == "sent"
     monkeypatch.setattr(gateway, "FACT_PROVIDERS", [*gateway.FACT_PROVIDERS, followup])
-    with pytest.raises(RuntimeError, match="duplicate fact 'followup_status'"):
+    with pytest.raises(RuntimeError, match="duplicate fact .followup_status."):
         gateway.facts_for(db, case)
     monkeypatch.setattr(gateway, "FACT_PROVIDERS", [lambda s, c: {"followup_status": "bogus"}])
     with pytest.raises(ValueError):
@@ -235,7 +249,7 @@ def test_plugged_command_runs_effect_before_reducer_and_after_effect_after_event
 
     monkeypatch.setitem(gateway.EFFECTS, "t_plugged", effect)
     monkeypatch.setitem(gateway.AFTER_EFFECTS, "t_plugged", after)
-    monkeypatch.setattr(gateway, "FACT_PROVIDERS", [*gateway.FACT_PROVIDERS, provider])
+    monkeypatch.setattr(gateway, "FACT_PROVIDERS", [gateway._investigation_facts, provider])
     out = execute(db, "t_plugged", f"t_plugged:{CASE}:1")
     assert seen[0] == ("effect", "usr-sam-rivera", "t_plugged", f"t_plugged:{CASE}:1", 1)
     assert seen[1] == ("after", {"sent": True}, out.event_ids, 2)
@@ -276,7 +290,7 @@ def test_requires_approval_blocks_without_a_provider_and_writes_nothing(
     client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plug(monkeypatch, "t_approved", requires_approval=True)
-    assert gateway.APPROVAL_PROVIDER is None
+    monkeypatch.setattr(gateway, "APPROVAL_PROVIDER", None)  # a feature may have registered one
     with pytest.raises(CommandError) as err:
         execute(db, "t_approved", f"t_approved:{CASE}:1")
     assert (err.value.code, err.value.http_status) == ("approval_required", 422)
@@ -319,3 +333,74 @@ def test_requires_approval_passes_with_an_approval_bound_to_the_current_pins(
     monkeypatch.setattr(gateway, "APPROVAL_PROVIDER", lambda s, c: bound(c))
     assert blocked_reason(client, "t_approved") is None
     assert execute(db, "t_approved", f"t_approved:{CASE}:1").status == "recorded"
+
+
+@pytest.mark.parametrize(
+    "override",
+    [{"closed": False}, {"hold": None}, {"opened_at": None}, {"owner_id": "x"}, {"due_at": None}],
+)
+def test_a_provider_cannot_override_the_case_rows_own_facts(
+    db: Session, monkeypatch: pytest.MonkeyPatch, override: dict[str, Any]
+) -> None:
+    case = db.get(Case, CASE)
+    assert case is not None
+    case.state, case.step = "closed", "closed"
+    case.hold = {
+        "reason": "waiting",
+        "next_owner_id": "u",
+        "held_by": "u",
+        "held_at": NOW.isoformat(),
+    }
+    assert gateway.facts_for(db, case).closed and gateway.facts_for(db, case).hold is not None
+    monkeypatch.setattr(gateway, "FACT_PROVIDERS", [*gateway.FACT_PROVIDERS, lambda s, c: override])
+    with pytest.raises(RuntimeError, match="reserved"):
+        gateway.facts_for(db, case)
+    db.rollback()
+
+
+def test_a_provider_cannot_return_an_unknown_fact(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = db.get(Case, CASE)
+    assert case is not None
+    monkeypatch.setattr(gateway, "FACT_PROVIDERS", [lambda s, c: {"not_a_fact": 1}])
+    with pytest.raises(RuntimeError, match="unknown"):
+        gateway.facts_for(db, case)
+
+
+def test_concurrent_first_calls_with_one_key_dispatch_once_and_both_replay(
+    client: TestClient, db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+    import time
+
+    class Slow(Echo):
+        def call(self, operation: str, request: dict[str, Any]) -> AdapterResult:
+            time.sleep(0.3)
+            return super().call(operation, request)
+
+    slow = Slow()
+    monkeypatch.setitem(adapters.ADAPTERS, "echo", slow)
+    engine = create_engine(db_url)
+    barrier = threading.Barrier(2)
+    results: list[Any] = []
+
+    def worker() -> None:
+        with sessionmaker(engine)() as s:
+            barrier.wait()
+            try:
+                out = run(s, key="echo:race")
+                s.commit()
+                results.append((out.status, out.result, out.execution_id))
+            except Exception as exc:  # noqa: BLE001
+                results.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    engine.dispose()
+    assert slow.calls == 1
+    assert len(results) == 2 and results[0] == results[1], results
+    assert results[0][0] == "succeeded"

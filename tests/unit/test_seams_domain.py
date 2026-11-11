@@ -1,5 +1,7 @@
 """Pure extension seams: command registration, approval gate, event types, labels."""
 
+import dataclasses
+
 import pytest
 from vera_domain import commands, enums, labels
 from vera_domain.commands import (
@@ -45,10 +47,10 @@ def clean(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_register_commands_adds_human_and_service_and_rejects_duplicates(clean: None) -> None:
-    register_commands("feat", human={"t_h": spec("t_h")}, service={"t_s": spec("t_s")})
+    register_commands("feat", human={"t_h": spec("t_h")}, service={"t_s": svc("t_s")})
     assert "t_h" in REGISTRY and "t_s" in SERVICE_COMMANDS and "t_s" not in REGISTRY
     with pytest.raises(ValueError, match="already registered by feat"):
-        register_commands("other", service={"t_h": spec("t_h")})
+        register_commands("other", service={"t_h": svc("t_h")})
     with pytest.raises(ValueError, match="already registered"):
         register_commands("other", human={"open_case": spec("open_case")})
 
@@ -130,3 +132,37 @@ def test_label_registration_rejects_a_conflicting_entry() -> None:
         labels.register_blockers({CaseStep.INTAKE: "Other"})
     with pytest.raises(ValueError, match="already registered"):
         labels.register_wait_kinds({CaseStep.WAITING: "reviewer"})
+
+
+def svc(name: str, *roles: Role, **kw: object) -> CommandSpec:
+    return dataclasses.replace(spec(name, **kw), roles=frozenset(roles or {Role.SYSTEM}))
+
+
+def test_service_spec_with_a_human_role_is_rejected(clean: None) -> None:
+    with pytest.raises(ValueError, match="service command 't_s' lists human role"):
+        register_commands("feat", service={"t_s": svc("t_s", Role.SYSTEM, Role.ANALYST)})
+    assert "t_s" not in SERVICE_COMMANDS
+
+
+@pytest.mark.parametrize(
+    "role", [Role.SYSTEM, Role.ADAPTER, Role.SPECIALIST, Role.POLICY_CONTROLLER]
+)
+def test_human_spec_with_a_service_role_is_rejected(clean: None, role: Role) -> None:
+    with pytest.raises(ValueError, match="human command 't_h' lists service role"):
+        register_commands("feat", human={"t_h": svc("t_h", Role.ANALYST, role)})
+    assert "t_h" not in REGISTRY
+
+
+def test_dual_is_reserved_for_evaluate_policy(clean: None) -> None:
+    with pytest.raises(ValueError, match="dual"):
+        register_commands("feat", human={"t_h": svc("t_h", Role.ANALYST, Role.SYSTEM, dual=True)})
+    policy = REGISTRY["evaluate_policy"]
+    assert policy.dual and policy.roles == frozenset({Role.POLICY_CONTROLLER, Role.ANALYST})
+    assert "evaluate_policy" not in SERVICE_COMMANDS
+
+
+def test_every_existing_registration_satisfies_the_role_rule() -> None:
+    for name, s in REGISTRY.items():
+        assert s.dual or s.roles <= commands.HUMAN_ROLES, name
+    for name, s in SERVICE_COMMANDS.items():
+        assert not s.roles & commands.HUMAN_ROLES, name
