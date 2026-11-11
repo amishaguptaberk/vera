@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
-import { Button, RefChip } from '@/design-system/primitives';
-import styles from './Verify.module.css';
+import type { ReactNode } from "react";
+import { Button, RefChip } from "@/design-system/primitives";
+import styles from "./Verify.module.css";
 
 export type KV = { k: string; v: string };
 
@@ -23,11 +23,26 @@ export type IdentityDetailProps = {
 };
 
 /** Communications → identity verification detail (prototype `cm.isCall` with `it.kind === 'idv'`). */
-export function IdentityDetail({ rows, history, result, resultRows, sources, onOpenSource, cooldown, message, actions, onBack }: IdentityDetailProps) {
+export function IdentityDetail({
+  rows,
+  history,
+  result,
+  resultRows,
+  sources,
+  onOpenSource,
+  cooldown,
+  message,
+  actions,
+  onBack,
+}: IdentityDetailProps) {
   return (
     <div data-testid="identity-detail">
       {onBack ? (
-        <Button variant={['sm', 'ghost']} className={styles.back} onClick={onBack}>
+        <Button
+          variant={["sm", "ghost"]}
+          className={styles.back}
+          onClick={onBack}
+        >
           ← All communications
         </Button>
       ) : null}
@@ -59,7 +74,10 @@ export function IdentityDetail({ rows, history, result, resultRows, sources, onO
         <div className={styles.src}>
           <span>Sources</span>
           {sources.map((id) => (
-            <RefChip key={id} onClick={onOpenSource ? () => onOpenSource(id) : undefined}>
+            <RefChip
+              key={id}
+              onClick={onOpenSource ? () => onOpenSource(id) : undefined}
+            >
               {id}
             </RefChip>
           ))}

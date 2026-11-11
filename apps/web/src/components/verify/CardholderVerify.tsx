@@ -1,11 +1,11 @@
-import { Button } from '@/design-system/primitives';
-import styles from './Verify.module.css';
+import { Button } from "@/design-system/primitives";
+import styles from "./Verify.module.css";
 
 export type CardholderVerifyProps = {
   heading: string;
   /** Charge header lines (from the case view). */
   meta: readonly string[];
-  channel: 'otp' | 'push';
+  channel: "otp" | "push";
   /** Supporting copy under the question. */
   text: string;
   /**
@@ -48,17 +48,26 @@ export function CardholderVerify(p: CardholderVerifyProps) {
           <div className={styles.cb} aria-live="polite">
             <div>
               <div className={styles.ck}>Verify it’s you</div>
-              <p className={styles.cq}>{p.channel === 'push' ? 'Did you ask Finance to verify you?' : 'Enter the code sent to your phone'}</p>
+              <p className={styles.cq}>
+                {p.channel === "push"
+                  ? "Did you ask Finance to verify you?"
+                  : "Enter the code sent to your phone"}
+              </p>
               <p className={`${styles.rd} ${styles.ctext}`}>{p.text}</p>
             </div>
-            {p.channel === 'otp' ? (
+            {p.channel === "otp" ? (
               <>
                 {p.demo ? (
-                  <div className={styles.demoBox} data-testid="cardholder-demo-outbox">
+                  <div
+                    className={styles.demoBox}
+                    data-testid="cardholder-demo-outbox"
+                  >
                     <div className={styles.dt}>{p.demo.label}</div>
                     {p.demo.code ? (
                       <p className={styles.dp}>
-                        Ramp: <b className={styles.tnum}>{p.demo.code}</b> is your verification code for a Finance review of your card. Ramp Finance will never ask you for it.
+                        Ramp: <b className={styles.tnum}>{p.demo.code}</b> is
+                        your verification code for a Finance review of your
+                        card. Ramp Finance will never ask you for it.
                       </p>
                     ) : (
                       <p className={styles.dp}>No active message.</p>
@@ -74,9 +83,11 @@ export function CardholderVerify(p: CardholderVerifyProps) {
                     autoComplete="one-time-code"
                     maxLength={6}
                     value={p.value}
-                    onChange={(e) => p.onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) =>
+                      p.onChange(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         e.preventDefault();
                         p.onSubmit();
                       }

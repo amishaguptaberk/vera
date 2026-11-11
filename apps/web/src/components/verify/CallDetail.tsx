@@ -1,9 +1,14 @@
-import type { ReactNode } from 'react';
-import { Button, RefChip } from '@/design-system/primitives';
-import { KVRow, type KV } from './IdentityDetail';
-import styles from './Verify.module.css';
+import type { ReactNode } from "react";
+import { Button, RefChip } from "@/design-system/primitives";
+import { KVRow, type KV } from "./IdentityDetail";
+import styles from "./Verify.module.css";
 
-export type TranscriptLine = { key: string | number; who: string; text: string; system?: boolean };
+export type TranscriptLine = {
+  key: string | number;
+  who: string;
+  text: string;
+  system?: boolean;
+};
 
 export type CallResultBlock = {
   /** Headline sentence of the structured result. */
@@ -14,7 +19,14 @@ export type CallResultBlock = {
   effect: readonly KV[];
 };
 
-export type CallNotes = { value: string; onChange: (v: string) => void; onSave: () => void; saved?: string; busy?: boolean; canSave: boolean };
+export type CallNotes = {
+  value: string;
+  onChange: (v: string) => void;
+  onSave: () => void;
+  saved?: string;
+  busy?: boolean;
+  canSave: boolean;
+};
 
 export type CallDetailProps = {
   title: string;
@@ -38,11 +50,16 @@ export type CallDetailProps = {
 
 /** Communications → verification call (prototype `cm.isCall`: proposed / in progress / complete / call failed). */
 export function CallDetail(p: CallDetailProps) {
-  const open = (id: string) => (p.onOpenSource ? () => p.onOpenSource!(id) : undefined);
+  const open = (id: string) =>
+    p.onOpenSource ? () => p.onOpenSource!(id) : undefined;
   return (
     <div data-testid="call-detail">
       {p.onBack ? (
-        <Button variant={['sm', 'ghost']} className={styles.back} onClick={p.onBack}>
+        <Button
+          variant={["sm", "ghost"]}
+          className={styles.back}
+          onClick={p.onBack}
+        >
           ← All communications
         </Button>
       ) : null}
@@ -61,10 +78,13 @@ export function CallDetail(p: CallDetailProps) {
           <>
             <dt>Target</dt>
             <dd>
-              {p.target.text}{' '}
-              <RefChip onClick={open(p.target.recordId)} aria-label={`Source record ${p.target.recordId}`}>
+              {p.target.text}{" "}
+              <RefChip
+                onClick={open(p.target.recordId)}
+                aria-label={`Source record ${p.target.recordId}`}
+              >
                 {p.target.recordId}
-                {p.target.field ? ` · ${p.target.field}` : ''}
+                {p.target.field ? ` · ${p.target.field}` : ""}
               </RefChip>
             </dd>
           </>
@@ -83,14 +103,19 @@ export function CallDetail(p: CallDetailProps) {
       {p.transcript && p.transcript.length ? (
         <div className={styles.tr} aria-live="polite" data-testid="transcript">
           {p.transcript.map((l) => (
-            <div key={l.key} className={[styles.tl, styles.tlNew, l.system ? styles.sys : ''].filter(Boolean).join(' ')}>
+            <div
+              key={l.key}
+              className={[styles.tl, styles.tlNew, l.system ? styles.sys : ""]
+                .filter(Boolean)
+                .join(" ")}
+            >
               <div className={styles.tw}>{l.who}</div>
               <div className={styles.tt}>{l.text}</div>
             </div>
           ))}
         </div>
       ) : (
-        <p className={styles.rd}>{p.noTranscriptText ?? 'Not started.'}</p>
+        <p className={styles.rd}>{p.noTranscriptText ?? "Not started."}</p>
       )}
       {p.result ? (
         <div className={styles.res} data-testid="structured-result">
@@ -112,13 +137,23 @@ export function CallDetail(p: CallDetailProps) {
             <>
               <div className={styles.noteField}>
                 <label htmlFor="cnote">Reviewer notes</label>
-                <textarea id="cnote" className={styles.ta} value={p.notes.value} onChange={(e) => p.notes!.onChange(e.target.value)} placeholder="Add context for the reviewer" />
+                <textarea
+                  id="cnote"
+                  className={styles.ta}
+                  value={p.notes.value}
+                  onChange={(e) => p.notes!.onChange(e.target.value)}
+                  placeholder="Add context for the reviewer"
+                />
               </div>
               <div className={styles.row}>
-                <Button variant="sm" onClick={p.notes.onSave} disabled={!p.notes.canSave || p.notes.busy}>
+                <Button
+                  variant="sm"
+                  onClick={p.notes.onSave}
+                  disabled={!p.notes.canSave || p.notes.busy}
+                >
                   Save note
                 </Button>
-                <span className={styles.meta}>{p.notes.saved ?? ''}</span>
+                <span className={styles.meta}>{p.notes.saved ?? ""}</span>
               </div>
             </>
           ) : null}
