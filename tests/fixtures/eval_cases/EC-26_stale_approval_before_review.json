@@ -1,0 +1,172 @@
+{
+  "id": "EC-26",
+  "title": "Evidence changes while the approval request waits: the reviewer's approve is refused as stale and nothing moves money",
+  "synthetic": true,
+  "categories": [
+    "financial_safety"
+  ],
+  "covers": [
+    "stale_reviewer_approval"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true,
+    "current_versions": {
+      "DLV-882": 2
+    }
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "eligible"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "stale"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "reviewer",
+      "command": "approve_decision",
+      "expect_code": "approval_stale"
+    },
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit",
+      "expect_code": "invalid_step"
+    },
+    {
+      "as": "analyst",
+      "command": "request_reviewer_approval",
+      "expect_code": "invalid_step"
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "approval.requested",
+      "evidence.version_added",
+      "approval.stale"
+    ],
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "stale",
+    "temporary_credit_cents": 0,
+    "approval": [
+      "stale"
+    ]
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "post": "/api/demo/material-change",
+      "body": {
+        "record_id": "DLV-882"
+      }
+    }
+  ]
+}

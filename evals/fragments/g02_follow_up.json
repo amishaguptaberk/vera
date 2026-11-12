@@ -1,0 +1,12 @@
+{
+  "title": "From a fresh seed through: Follow-up drafted by the specialist, then approved and sent by the analyst",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    }
+  ]
+}

@@ -97,7 +97,7 @@ export const previewStates: { name: string; render: () => ReactNode }[] = [
     render: () => (
       <CardholderRequestCard
         request={{ questions: cardholderRequest.questions, dueLabel: `Please respond by ${fmtDay(cardholderRequest.due_at)}`, responded: false }}
-        initial={{ answer: 'did', note: 'Ordered for the Plant Ops line.', fileError: 'Bayline_invoice_scan.pdf is over 10 MB.' }}
+        initial={{ answer: 'did', note: 'Ordered for the Plant Ops line.', fileError: 'Northstar_invoice_scan.pdf is over 10 MB.' }}
         onSubmit={noop}
       />
     ),

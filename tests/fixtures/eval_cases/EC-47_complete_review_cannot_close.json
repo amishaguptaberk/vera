@@ -1,0 +1,240 @@
+{
+  "id": "EC-47",
+  "title": "Reply reviewed as complete while purchase-record conflicts are open: no credit, decision recorded, but closure stays refused because only a verification call resolves conflicts",
+  "synthetic": true,
+  "categories": [
+    "financial_safety",
+    "workflow"
+  ],
+  "covers": [
+    "closure_with_incomplete_work"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "open"
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ],
+      "status": "open"
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [
+      "amount",
+      "quantity"
+    ]
+  },
+  "missing_evidence": [
+    "receipt"
+  ],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "response_reviewer": {
+      "status": "failed",
+      "failure_reason": "missing_recording"
+    },
+    "_response_review": "complete"
+  },
+  "expected_policy": {
+    "status": "blocked",
+    "code": "EVIDENCE_CONFLICT"
+  },
+  "expected_workflow_state": {
+    "state": "remediation_pending",
+    "step": "close"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "hold_case"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "expect_code": "invalid_step",
+      "payload": {
+        "consent_recorded": true,
+        "questions": [
+          {
+            "id": "q1",
+            "text": "Did you place the order?"
+          }
+        ]
+      }
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "communication.reviewed",
+      "decision.recorded",
+      "final_message.sent"
+    ],
+    "absent": [
+      "case.closed",
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "remediation_pending",
+    "step": "close",
+    "temporary_credit_cents": 0,
+    "decision": "clear"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "as": "cardholder",
+      "get": "/api/requests",
+      "capture": {
+        "rid": "requests.0.request_id"
+      }
+    },
+    {
+      "as": "cardholder",
+      "post": "/api/requests/${rid}/responses",
+      "body": {
+        "text": "Yes, I recognize this charge. I ordered the pumps from Northstar Equipment for the warehouse."
+      }
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "review_cardholder_response",
+      "payload": {
+        "outcome": "complete",
+        "note": "Cardholder recognizes the order."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "create_decision_packet"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "record_decision",
+      "payload": {
+        "decision": "clear",
+        "rationale": "Cardholder recognizes the order; no credit."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "draft_final_message"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "send_final_message"
+    },
+    {
+      "probe": [
+        {
+          "as": "analyst",
+          "command": "close_case",
+          "expect_code": "closure_incomplete",
+          "payload": {
+            "outcome": "no_action",
+            "reason": "Cardholder confirmed."
+          },
+          "may_be_offered": true
+        }
+      ]
+    }
+  ]
+}

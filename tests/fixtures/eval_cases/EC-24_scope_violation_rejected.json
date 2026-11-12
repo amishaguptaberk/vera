@@ -1,0 +1,137 @@
+{
+  "id": "EC-24",
+  "title": "A specialist tries to read the cardholder's phone number, outside its scope: recorded as a scope violation, nothing stored",
+  "synthetic": true,
+  "categories": [
+    "evidence",
+    "financial_safety"
+  ],
+  "covers": [],
+  "trace": true,
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "related_charge",
+      "cites": [
+        [
+          "CHG-1051",
+          "merchant"
+        ],
+        [
+          "CHG-1051",
+          "amount_cents"
+        ]
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [
+    "receipt"
+  ],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "failed",
+      "failure_reason": "scope_violation",
+      "findings": 0
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": null
+  },
+  "expected_policy": {
+    "evaluated": false
+  },
+  "expected_workflow_state": {
+    "state": "investigating",
+    "step": "working"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "retry_specialist_step",
+      "hold_case"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "draft_follow_up",
+      "expect_code": "invalid_step"
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "run.step_started",
+      "run.step_failed"
+    ],
+    "absent": [
+      "investigation.completed",
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "investigating",
+    "step": "working"
+  },
+  "steps": [
+    {
+      "service": "recordings",
+      "variant": "scope_violation"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

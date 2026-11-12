@@ -1,0 +1,17 @@
+{
+  "title": "Open CHG-1042 and run the three investigation specialists (replay)",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

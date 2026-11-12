@@ -68,7 +68,7 @@ DISPLAY_ROWS = [
     ),
     DisplayRow(
         "CHG-1051",
-        "Bayline Industrial Supply",
+        "Northstar Equipment",
         120000,
         "Needs investigation",
         CaseState.INVESTIGATING,
@@ -159,7 +159,7 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
     session.add(User(id=PRIYA_USER, name="Priya Shah", cardholder_id=PRIYA))
     session.flush()
     session.add(UserRole(user_id=PRIYA_USER, role=Role.CARDHOLDER.value))
-    names = {"Bayline Industrial Supply"} | {r.merchant for r in DISPLAY_ROWS}
+    names = {"Northstar Equipment"} | {r.merchant for r in DISPLAY_ROWS}
     session.add_all([Merchant(id=_merchant_id(n), name=n) for n in sorted(names)])
     session.flush()
 
@@ -167,7 +167,7 @@ def _seed(session: Session, clock: Clock, tz: str) -> None:
     session.add(
         CardTransaction(
             id="TXN-1042",
-            merchant_id=_merchant_id("Bayline Industrial Supply"),
+            merchant_id=_merchant_id("Northstar Equipment"),
             cardholder_id=PRIYA,
             amount_cents=284000,
             currency="USD",

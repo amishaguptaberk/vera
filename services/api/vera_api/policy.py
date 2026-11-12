@@ -143,13 +143,19 @@ def store(
 def evaluate_and_store(
     session: Session, case_id: str, actor: Actor, now: datetime | None = None
 ) -> PolicyResult:
-    """Evaluate on the current snapshot. A snapshot+version already evaluated writes nothing."""
+    """Evaluate on the current snapshot. A snapshot+version already evaluated to the same
+    verdict writes nothing. Inputs that are not evidence (a verified cardholder) can change the
+    verdict on an unchanged snapshot; that writes a new evaluation instead of keeping the old."""
     case = session.get(Case, case_id)
     if case is None:
         raise CommandError("case_not_found", 404, "No such case.")
     result = compute(session, case)
     prior = _latest(session, case_id, result.snapshot_hash)
-    if prior is not None and prior.policy_version == result.policy_version:
+    if (
+        prior is not None
+        and prior.policy_version == result.policy_version
+        and _same_verdict(PolicyResult.model_validate(prior.result), result)
+    ):
         return PolicyResult.model_validate(prior.result)
     at = now or default_demo_clock().now()
     event_id = _emit(
@@ -171,6 +177,15 @@ def evaluate_and_store(
     )
     store(session, case, result, event_id, at)
     return result
+
+
+def _same_verdict(a: PolicyResult, b: PolicyResult) -> bool:
+    return (a.status, a.code, sorted(a.rules_passed), sorted(a.rules_failed)) == (
+        b.status,
+        b.code,
+        sorted(b.rules_passed),
+        sorted(b.rules_failed),
+    )
 
 
 def reevaluate_on_evidence_change(

@@ -1,0 +1,15 @@
+{
+  "title": "From a fresh seed through: Cardholder replies with a receipt; the Response Reviewer runs (replay)",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    }
+  ]
+}

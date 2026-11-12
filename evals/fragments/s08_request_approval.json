@@ -1,0 +1,18 @@
+{
+  "title": "Analyst records a credit decision and requests reviewer approval",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "record_decision",
+      "payload": {
+        "decision": "credit",
+        "rationale": "Cardholder confirmed on the call that she did not authorize the charge."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "request_reviewer_approval"
+    }
+  ]
+}

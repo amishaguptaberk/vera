@@ -19,11 +19,11 @@
     "pins": {
         "workflow_version": 3,
         "policy_version": 1,
-        "evidence_snapshot": "sha256:43aa1b74586685e8c58b4872ebf31fa10880de0fa8aa77b336568861e2a788ea"
+        "evidence_snapshot": "sha256:dfe95ea3b14a08b15a3881c80d32510a8d8e0fafd634bf0b479fd2feda5e55d2"
     },
     "transaction": {
         "id": "TXN-1042",
-        "merchant": "Bayline Industrial Supply",
+        "merchant": "Northstar Equipment",
         "amount_cents": 284000,
         "currency": "USD",
         "card_last4": "4418",
@@ -127,7 +127,7 @@
             "expected_step": "intake",
             "safe_note": "Safe to retry \u00b7 the same key replays the original result",
             "confirm": null,
-            "idempotency_key": "policy:CHG-1042:43aa1b74586685e8c58b4872ebf31fa10880de0fa8aa77b336568861e2a788ea:1",
+            "idempotency_key": "policy:CHG-1042:dfe95ea3b14a08b15a3881c80d32510a8d8e0fafd634bf0b479fd2feda5e55d2:1",
             "payload_defaults": {},
             "key_template": "policy:{case_id}:{snapshot_hash}:{policy_version}"
         }

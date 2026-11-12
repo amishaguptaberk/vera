@@ -1,0 +1,161 @@
+{
+  "id": "EC-37",
+  "title": "Dana holds reviewer and card-admin roles: while acting as reviewer she cannot approve or apply card controls",
+  "synthetic": true,
+  "categories": [
+    "financial_safety"
+  ],
+  "covers": [
+    "reviewer_card_admin_action"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "eligible",
+    "code": "CREDIT_ELIGIBLE"
+  },
+  "expected_workflow_state": {
+    "state": "dispute_prepared",
+    "step": "dsp_prepare"
+  },
+  "allowed_next_commands": {
+    "card_admin": [
+      "approve_card_controls",
+      "decline_card_controls"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "reviewer",
+      "command": "approve_card_controls",
+      "expect_code": "role_forbidden"
+    },
+    {
+      "as": "reviewer",
+      "command": "apply_card_controls",
+      "expect_code": "role_forbidden"
+    },
+    {
+      "as": "reviewer",
+      "command": "decline_card_controls",
+      "expect_code": "role_forbidden",
+      "payload": {
+        "reason": "no"
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "approve_card_controls",
+      "expect_code": "role_forbidden"
+    }
+  ],
+  "expected_audit_events": {
+    "absent": [
+      "controls.approved",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "dispute_prepared",
+    "step": "dsp_prepare",
+    "temporary_credit_cents": 284000
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "fragment": "s09_approve"
+    },
+    {
+      "fragment": "s10_credit"
+    },
+    {
+      "as": "analyst",
+      "command": "propose_card_controls",
+      "payload": {
+        "controls": [
+          "lock",
+          "replace"
+        ]
+      }
+    }
+  ]
+}

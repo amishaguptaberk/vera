@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_automations.py)",
+  "requires": "partly covered by evaluation case EC-43 (published versions immutable); the check-run publish gate is covered by tests/integration/test_automations.py::test_publish_blocked_until_checks_ran_on_exact_graph",
   "fixture": 41,
   "title": "Workflow publish gates",
   "description": "Fixture 41: Workflow publish gates. blocked without checks on this draft; blocked on any failing scenario"

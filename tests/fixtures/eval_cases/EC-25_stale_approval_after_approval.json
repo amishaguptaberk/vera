@@ -1,0 +1,233 @@
+{
+  "id": "EC-25",
+  "title": "Evidence changes after the reviewer approved: the approval goes stale, credit is refused, and a fresh packet and approval issue credit exactly once",
+  "synthetic": true,
+  "categories": [
+    "financial_safety",
+    "workflow",
+    "reliability"
+  ],
+  "covers": [
+    "stale_reviewer_approval",
+    "reviewer_approves_credit"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "resolved"
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true,
+    "current_versions": {
+      "DLV-882": 2
+    }
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "decision_packet_preparer": {
+      "status": "succeeded"
+    },
+    "_packet": {
+      "status": "ready",
+      "all_statements_cited": true
+    }
+  },
+  "expected_policy": {
+    "status": "eligible",
+    "code": "CREDIT_ELIGIBLE"
+  },
+  "expected_workflow_state": {
+    "state": "dispute_prepared",
+    "step": "dsp_prepare"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "prepare_dispute_packet",
+      "propose_card_controls"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit",
+      "expect_code": "invalid_step"
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "approval.approved",
+      "evidence.version_added",
+      "approval.stale",
+      "decision_packet.created",
+      "approval.requested",
+      "approval.approved",
+      "credit.issued"
+    ],
+    "counts": {
+      "credit.issued": 1,
+      "approval.stale": 1,
+      "approval.approved": 2
+    }
+  },
+  "expected_final_outcome": {
+    "state": "dispute_prepared",
+    "step": "dsp_prepare",
+    "temporary_credit_cents": 284000,
+    "approval": [
+      "stale",
+      "approved"
+    ],
+    "executions": {
+      "credit.issue": {
+        "succeeded": 1
+      }
+    }
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "fragment": "s09_approve"
+    },
+    {
+      "post": "/api/demo/material-change",
+      "body": {
+        "record_id": "DLV-882"
+      }
+    },
+    {
+      "assert": {
+        "state": "decision_pending",
+        "step": "stale"
+      }
+    },
+    {
+      "probe": [
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "expect_code": "invalid_step"
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "expect_code": "approval_stale"
+        }
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "create_decision_packet"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "record_decision",
+      "payload": {
+        "decision": "credit",
+        "rationale": "Re-reviewed on the current evidence."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "request_reviewer_approval"
+    },
+    {
+      "as": "reviewer",
+      "command": "approve_decision"
+    },
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit"
+    }
+  ]
+}

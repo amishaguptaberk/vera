@@ -70,7 +70,7 @@ from vera_api.models_callbacks import Callback, CallbackLine, CallbackNote
 from vera_api.models_evidence import EvidenceRecord, EvidenceVersion
 from vera_api.models_runs import WorkflowRun, WorkflowStep
 from vera_api.runner import SpecialistRunner, create_run
-from vera_api.worker import Touch, enqueue, register
+from vera_api.worker import FAILURE_HOOKS, Touch, enqueue, register
 
 SERVICE = Actor("svc-telephony", "Live Verification Agent", Role.SYSTEM, frozenset({Role.SYSTEM}))
 STAFF = STAFF_ROLES
@@ -124,7 +124,7 @@ _SCRIPTS: dict[str, list[tuple[str, str]]] = {
         ("contact", "Hello, this is Priya."),
         (
             "contact",
-            "No. I did not place the Bayline Industrial Supply order; a colleague used my card"
+            "No. I did not place the Northstar Equipment order; a colleague used my card"
             " without my approval, so I did not authorize this charge.",
         ),
     ],
@@ -454,6 +454,9 @@ def _place_call(session: Session, case: Case, row: Callback, now: datetime) -> N
         now=now,
     )
     if out.status != "succeeded":  # never act on uncertain; failed retries with the same key
+        # Keep the attempt (adapter row and its audit event) before the job fails: a failed
+        # dispatch is retried under the same key, and an uncertain one is never dialled again.
+        session.commit()
         raise RuntimeError(f"telephony {out.status}")
     for i, line in enumerate(out.result["lines"], start=1):
         session.add(
@@ -579,6 +582,54 @@ def run_callback_job(session: Session, payload: dict[str, Any], touch: Touch) ->
                 {"run_id": run_id, "reason": outcome.failure_reason},
             )
             s.commit()
+
+
+CALL_FAILED_LINE = "[call could not be completed: the telephony provider failed]"
+
+
+def _call_job_failed(session: Session, payload: dict[str, Any], error: str) -> None:
+    """The call job failed for good (e.g. telephony kept failing before dispatch). Record the
+    call as incomplete through record_callback, as a provider-reported failure is, so the case
+    leaves 'in progress' for call-failed and offers a retry instead of waiting silently."""
+    case_id, callback_id = str(payload["case_id"]), str(payload["callback_id"])
+    run_id = str(payload["run_id"])
+    row = session.get(Callback, callback_id)
+    case = session.get(Case, case_id)
+    if row is None or case is None or row.status != "in_progress":
+        session.rollback()
+        return
+    now = _investigation()._clock().now()
+    seq = len(_lines(session, callback_id)) + 1
+    session.add(
+        CallbackLine(
+            callback_id=row.id, seq=seq, speaker="system", text=CALL_FAILED_LINE, created_at=now
+        )
+    )
+    _emit(
+        session,
+        "callback.line_added",
+        case,
+        SERVICE.user_id,
+        Role.SYSTEM,
+        now,
+        [row.id],
+        f"system: {CALL_FAILED_LINE}",
+        {"seq": seq, "callback_id": row.id},
+    )
+    session.commit()
+    bind = session.get_bind()
+    engine = bind.engine if not isinstance(bind, Engine) else bind
+    _investigation()._execute_retrying(
+        sessionmaker(engine, expire_on_commit=False),
+        case_id,
+        "record_callback",
+        f"callback-result:{case_id}:{callback_id}",
+        {"callback_id": callback_id, "run_id": run_id, "outcome": "incomplete", "answers": []},
+        SERVICE,
+    )
+
+
+FAILURE_HOOKS[JOB_KIND] = _call_job_failed
 
 
 def agent_step(session: Session, case_id: str) -> WorkflowStep | None:

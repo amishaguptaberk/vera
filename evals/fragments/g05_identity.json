@@ -1,0 +1,21 @@
+{
+  "title": "From a fresh seed through: One-time code sent and entered by the cardholder",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    }
+  ]
+}

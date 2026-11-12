@@ -1,0 +1,199 @@
+{
+  "id": "EC-14",
+  "title": "Telephony provider fails once before dispatch: the worker retries the same key and places exactly one call",
+  "synthetic": true,
+  "categories": [
+    "reliability",
+    "workflow"
+  ],
+  "covers": [
+    "verification_provider_failure",
+    "worker_retry_partial"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "resolved"
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ],
+      "status": "resolved"
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [],
+    "resolved_by_prefix": "CALL-1042-"
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "live_verification_agent": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "attempts": 1
+    },
+    "_verification": {
+      "attempts": 1,
+      "status": "confirmed",
+      "authorization_answer": "unauthorized",
+      "answers_quote_transcript": true
+    }
+  },
+  "expected_policy": {
+    "status": "needs_evidence"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "packet"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet",
+      "review_related_charge"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "subsequence": [
+      "callback.started",
+      "adapter.failed",
+      "adapter.succeeded",
+      "callback.recorded"
+    ],
+    "counts": {
+      "callback.recorded": 1,
+      "callback.started": 1
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "packet",
+    "executions": {
+      "telephony.call": {
+        "succeeded": 1
+      }
+    }
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "post": "/api/demo/adapter-fault",
+      "body": {
+        "adapter": "telephony",
+        "operation": "call",
+        "mode": "fail",
+        "times": 1
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "payload": {
+        "consent_recorded": true
+      }
+    },
+    {
+      "service": "drain_worker",
+      "expect_jobs": 2
+    }
+  ]
+}

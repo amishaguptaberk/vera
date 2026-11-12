@@ -20,13 +20,13 @@ CASE = "CHG-1042"
 REC = Path("evals/recordings")
 SHA = "a" * 64
 RECEIPT = {
-    "file_name": "bayline-receipt.pdf",
+    "file_name": "northstar-receipt.pdf",
     "content_type": "application/pdf",
     "size_bytes": 48213,
     "sha256": SHA,
 }
-REPLY = "Attached is the Bayline receipt. I placed this order for the warehouse myself."
-SEND = {"channel": "email", "subject": "Question about your Bayline charge", "attachments": []}
+REPLY = "Attached is the Northstar receipt. I placed this order for the warehouse myself."
+SEND = {"channel": "email", "subject": "Question about your Northstar charge", "attachments": []}
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ def test_double_send_delivers_once_then_response_stores_evidence_and_keeps_polic
     ev = q(factory, "select kind, status from evidence_records where id='RCP-2201'")
     assert ev == [("receipt", "pending_review")]
     assert q(factory, "select file_name from attachments where record_id='RCP-2201'") == [
-        ("bayline-receipt.pdf",)
+        ("northstar-receipt.pdf",)
     ]
     assert policy_result(factory) == policy_before
     assert q(factory, "select * from reports where id='REP-1042'") == report_before

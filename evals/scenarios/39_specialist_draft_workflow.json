@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_automations.py)",
+  "requires": "not yet an evaluation case; covered by tests/integration/test_automations.py::test_specialist_prohibited_tool_and_add_to_workflow",
   "fixture": 39,
   "title": "Specialist draft -> workflow",
   "description": "Fixture 39: Specialist draft -> workflow. draft created, active version unchanged, case still pinned"

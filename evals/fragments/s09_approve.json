@@ -1,0 +1,10 @@
+{
+  "title": "Reviewer approves the decision bound to the current evidence snapshot",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "reviewer",
+      "command": "approve_decision"
+    }
+  ]
+}

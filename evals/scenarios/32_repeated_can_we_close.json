@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_decisions.py)",
+  "requires": "not yet an evaluation case; covered by tests/integration/test_decisions.py::test_repeated_question_replaces_the_pair_and_answers_cite_case_records",
   "fixture": 32,
   "title": "Repeated 'Can we close?'",
   "description": "Fixture 32: Repeated 'Can we close?'. one Q&A pair, no audit events"

@@ -177,7 +177,7 @@ def s1_report(v: Vera, st: Stage) -> None:
     rec = [e for e in ev if e["type"] == "report.received"]
     check(bool(rec), "no report.received event")
     t = view["transaction"]
-    check(t["merchant"] == "Bayline Industrial Supply" and t["amount_cents"] == 284000, f"txn {t}")
+    check(t["merchant"] == "Northstar Equipment" and t["amount_cents"] == 284000, f"txn {t}")
     st.note(f"{view['state']}/{view['step']} v{view['case_version']}")
     st.note(f"{t['merchant']} {t['amount_cents'] / 100:,.2f} {t['currency']}")
     st.note(f"report.received by {rec[0]['actor_name']} {rec[0]['record_ids']}")
@@ -227,6 +227,7 @@ def s4_evidence_policy(v: Vera, st: Stage) -> None:
     v.act("evaluate_policy")
     pol = v.view().get("policy")
     check(pol is not None, "case view has no policy result after evaluate_policy")
+    assert pol is not None
     st.note("policy " + _policy_brief(pol))
     # Business rule: with conflicting purchase records and no receipt, credit is not allowed.
     check(pol["status"] == "blocked", f"policy should block credit here, got {pol['status']}")
@@ -266,7 +267,7 @@ def s5_follow_up(v: Vera, st: Stage) -> None:
 
 
 RECEIPT = {
-    "file_name": "bayline-receipt.pdf",
+    "file_name": "northstar-receipt.pdf",
     "content_type": "application/pdf",
     "size_bytes": 48213,
     "sha256": "4f" * 32,
@@ -281,7 +282,7 @@ def s6_reply(v: Vera, st: Stage) -> None:
     check(len(reqs) == 1 and not reqs[0]["responded"], f"cardholder requests {reqs}")
     rid = reqs[0]["request_id"]
     # The canonical reply (the response reviewer's reference recording reads this text).
-    text = "Attached is the Bayline receipt. I placed this order for the warehouse myself."
+    text = "Attached is the Northstar receipt. I placed this order for the warehouse myself."
     out = v.post_route(f"/api/requests/{rid}/responses", {"text": text, "attachment": RECEIPT})
     check(out["received"] is True, f"response {out}")
     v.as_role("analyst")
@@ -311,7 +312,8 @@ def s7_review(v: Vera, st: Stage) -> None:
     recs = {r["record_id"]: r["status"] for r in v.get(f"/api/cases/{CASE}/evidence")["records"]}
     receipt = next(k for k in recs if k.startswith("RCP-"))
     check(recs[receipt] == "supporting", f"receipt not accepted: {recs}")
-    check(recs["REP-1042"] == "supporting", f"initial report not reviewed: {recs}")
+    # The reply contradicts the report: REP-1042 is cited by the open conflict until the call.
+    check(recs["REP-1042"] == "conflicting", f"report not marked as contested: {recs}")
     st.note(f"{receipt}={recs[receipt]} REP-1042={recs['REP-1042']}")
     c = _moved(v, st, before, "review_cardholder_response conflicting")
     check(c["step"] == "idv", f"after review: {c['step']}")
@@ -372,7 +374,7 @@ def s10_related(v: Vera, st: Stage) -> None:
     ]
     check(sorted(pending) == ["CHG-1048", "CHG-1051"], f"pending related charges {pending}")
     reasons = {
-        "CHG-1051": "Separate Bayline order on its own PO; not part of this charge.",
+        "CHG-1051": "Separate Northstar order on its own PO; not part of this charge.",
         "CHG-1048": "Cleared last month; unrelated amount.",
     }
     for rid in sorted(pending, reverse=True):

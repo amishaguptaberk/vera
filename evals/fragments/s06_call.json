@@ -1,0 +1,19 @@
+{
+  "title": "Approved questions, consented verification call, Live Verification Agent (replay)",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "payload": {
+        "consent_recorded": true
+      },
+      "capture": {
+        "call": "result.callback_id"
+      }
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

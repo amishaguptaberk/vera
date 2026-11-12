@@ -1,0 +1,168 @@
+{
+  "id": "EC-30",
+  "title": "Credit result lost in transit (uncertain): the case waits in credit check, re-issue is refused, lookup confirms one credit",
+  "synthetic": true,
+  "categories": [
+    "reliability",
+    "financial_safety"
+  ],
+  "covers": [
+    "provider_unknown_reconcile"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "eligible",
+    "code": "CREDIT_ELIGIBLE"
+  },
+  "expected_workflow_state": {
+    "state": "dispute_prepared",
+    "step": "dsp_prepare"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "prepare_dispute_packet"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "subsequence": [
+      "adapter.uncertain",
+      "credit.requested",
+      "credit.confirmed"
+    ],
+    "counts": {
+      "credit.confirmed": 1
+    },
+    "absent": [
+      "credit.issued"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "dispute_prepared",
+    "step": "dsp_prepare",
+    "temporary_credit_cents": 284000,
+    "executions": {
+      "credit.issue": {
+        "succeeded": 1
+      }
+    }
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "fragment": "s09_approve"
+    },
+    {
+      "post": "/api/demo/adapter-fault",
+      "body": {
+        "adapter": "credit",
+        "operation": "issue",
+        "mode": "uncertain",
+        "times": 1
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit"
+    },
+    {
+      "assert": {
+        "state": "credit_approved",
+        "step": "credit_check"
+      }
+    },
+    {
+      "probe": [
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "expect_code": "invalid_step"
+        }
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "lookup_execution_result"
+    }
+  ]
+}

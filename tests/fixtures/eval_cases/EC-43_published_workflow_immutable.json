@@ -1,0 +1,195 @@
+{
+  "id": "EC-43",
+  "title": "A published workflow version cannot be edited through commands or directly in the database; the case stays pinned to v3",
+  "synthetic": true,
+  "categories": [
+    "reliability",
+    "financial_safety"
+  ],
+  "covers": [
+    "published_workflow_mutation"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [
+      "amount",
+      "quantity"
+    ]
+  },
+  "missing_evidence": [
+    "receipt"
+  ],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "blocked",
+    "code": "EVIDENCE_CONFLICT",
+    "rules_failed_include": [
+      "purchase_records_agree"
+    ]
+  },
+  "expected_workflow_state": {
+    "state": "investigating",
+    "step": "draft"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "draft_follow_up"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "investigating",
+    "step": "draft"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "get": "/api/automations/workflows/card-dispute",
+      "as": "ops_admin"
+    },
+    {
+      "post": "/api/automations/commands/update_workflow_draft",
+      "as": "ops_admin",
+      "body": {
+        "idempotency_key": "wfpatch:card-dispute:3:0",
+        "expected_version": 0,
+        "payload": {
+          "draft_version": 3,
+          "ops": [
+            {
+              "op": "update_node",
+              "key": "pc1",
+              "changes": {
+                "label": "Skip policy"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "http": 404,
+        "code": "draft_not_found"
+      }
+    },
+    {
+      "post": "/api/automations/commands/publish_workflow_version",
+      "as": "ops_admin",
+      "body": {
+        "idempotency_key": "wfpub:card-dispute:3",
+        "expected_version": 0,
+        "payload": {
+          "draft_version": 3,
+          "reason": "Republish v3"
+        }
+      },
+      "expect": {
+        "http": 404,
+        "code": "draft_not_found"
+      }
+    },
+    {
+      "service": "sql_must_fail",
+      "query": "update workflow_versions set reason='tampered' where version=3",
+      "rows_exist": "select count(*) from workflow_versions where version=3"
+    },
+    {
+      "service": "sql_must_fail",
+      "query": "delete from workflow_versions where version=3",
+      "rows_exist": "select count(*) from workflow_versions where version=3"
+    },
+    {
+      "service": "sql_must_fail",
+      "query": "update policy_versions set rules='[]' where version=1",
+      "rows_exist": "select count(*) from policy_versions where version=1"
+    },
+    {
+      "assert": {
+        "pins": {
+          "workflow_version": 3,
+          "policy_version": 1
+        }
+      }
+    }
+  ]
+}

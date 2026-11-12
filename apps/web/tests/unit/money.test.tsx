@@ -50,7 +50,7 @@ describe('MoneyTask · card controls by role', () => {
     expect(screen.getByText('Recommended controls for this case')).toBeTruthy();
     const group = screen.getByRole('group', { name: 'Case actions' });
     expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Send control plan to Dana', 'No controls needed']);
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Monitor Bayline Industrial Supply for 30 days' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Monitor Northstar Equipment for 30 days' }));
     await userEvent.click(screen.getByRole('button', { name: 'Send control plan to Dana' }));
     const post = calls.find((c) => c.method === 'POST')!;
     expect(post.url).toBe('/api/cases/CHG-1042/commands/propose_card_controls');

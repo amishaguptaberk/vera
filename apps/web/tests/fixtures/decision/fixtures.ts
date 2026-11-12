@@ -42,7 +42,7 @@ export const packet = (over: Partial<DecisionPacket> = {}): DecisionPacket => ({
   policy_version: 3,
   policy_evaluation_id: 11,
   statements: [
-    { text: 'CHG-1042 · $2,840.00 · Bayline Industrial Supply LLC', citations: [{ record_id: 'CHG-1042', version: 1, field: 'amount' }] },
+    { text: 'CHG-1042 · $2,840.00 · Northstar Equipment LLC', citations: [{ record_id: 'CHG-1042', version: 1, field: 'amount' }] },
     { text: '“I do not recognize this charge.” (claim)', citations: [{ record_id: 'REP-1042', version: 1, field: 'statement' }] },
   ],
   open_conflicts: [],

@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_identity.py)",
+  "requires": "not yet an evaluation case; covered by tests/integration/test_identity.py::test_expiry_is_recorded_once_resend_cooldown_429_and_new_send_new_key",
   "fixture": 27,
   "title": "Identity: expiry + resend",
   "description": "Fixture 27: Identity: expiry + resend. expired event once, resend cooldown enforced, new key"

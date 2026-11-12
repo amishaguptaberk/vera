@@ -1,0 +1,2089 @@
+{
+  "suite": "vera-evaluation",
+  "data": "synthetic (CHG-1042 \u00b7 Northstar Equipment \u00b7 $2,840.00); no customer records",
+  "command": "uv run python -m evals.harness",
+  "summary": {
+    "total_cases": 47,
+    "passed_cases": 47,
+    "failed_cases": 0,
+    "total_checks": 1299,
+    "failed_checks": 0,
+    "forbidden_command_probes": 81,
+    "probes_refused_without_writes": 81,
+    "permission_matrix": {
+      "commands": 65,
+      "pairs": 275,
+      "refused": 275
+    },
+    "required_behaviours": 36,
+    "required_behaviours_uncovered": [],
+    "regression_scenarios": {
+      "passed": 29,
+      "failed": 0,
+      "pending": 8
+    }
+  },
+  "counters": {
+    "policy_violations": 0,
+    "permission_failures": 0,
+    "unsupported_claims": 0,
+    "stale_approval_failures": 0,
+    "idempotency_failures": 0,
+    "recovery_failures": 0
+  },
+  "failures_by_category": {
+    "evidence": 0,
+    "workflow": 0,
+    "financial_safety": 0,
+    "reliability": 0,
+    "product_projection": 0
+  },
+  "cases_by_category": {
+    "evidence": {
+      "total": 15,
+      "passed": 15
+    },
+    "workflow": {
+      "total": 22,
+      "passed": 22
+    },
+    "financial_safety": {
+      "total": 25,
+      "passed": 25
+    },
+    "reliability": {
+      "total": 23,
+      "passed": 23
+    },
+    "product_projection": {
+      "total": 11,
+      "passed": 11
+    }
+  },
+  "probes_by_gate": {
+    "permission": {
+      "total": 22,
+      "refused": 22
+    },
+    "policy": {
+      "total": 3,
+      "refused": 3
+    },
+    "record_guard": {
+      "total": 3,
+      "refused": 3
+    },
+    "stale_approval": {
+      "total": 2,
+      "refused": 2
+    },
+    "state": {
+      "total": 50,
+      "refused": 50
+    },
+    "validation": {
+      "total": 1,
+      "refused": 1
+    }
+  },
+  "coverage": {
+    "missing_receipt": {
+      "label": "Missing receipt",
+      "cases": [
+        "EC-01",
+        "EC-02",
+        "EC-03"
+      ],
+      "passing": [
+        "EC-01",
+        "EC-02",
+        "EC-03"
+      ]
+    },
+    "po_amount_mismatch": {
+      "label": "Purchase-order amount mismatch",
+      "cases": [
+        "EC-01",
+        "EC-02"
+      ],
+      "passing": [
+        "EC-01",
+        "EC-02"
+      ]
+    },
+    "one_approved_two_delivered": {
+      "label": "One unit approved, two units delivered",
+      "cases": [
+        "EC-01",
+        "EC-02"
+      ],
+      "passing": [
+        "EC-01",
+        "EC-02"
+      ]
+    },
+    "cardholder_confirms": {
+      "label": "Cardholder confirms the charge",
+      "cases": [
+        "EC-04"
+      ],
+      "passing": [
+        "EC-04"
+      ]
+    },
+    "cardholder_denies": {
+      "label": "Cardholder denies the charge",
+      "cases": [
+        "EC-01"
+      ],
+      "passing": [
+        "EC-01"
+      ]
+    },
+    "ambiguous_reply": {
+      "label": "Ambiguous cardholder reply",
+      "cases": [
+        "EC-05"
+      ],
+      "passing": [
+        "EC-05"
+      ]
+    },
+    "no_reply": {
+      "label": "No cardholder reply",
+      "cases": [
+        "EC-06"
+      ],
+      "passing": [
+        "EC-06"
+      ]
+    },
+    "related_transaction": {
+      "label": "Related transaction discovered",
+      "cases": [
+        "EC-01",
+        "EC-02",
+        "EC-07"
+      ],
+      "passing": [
+        "EC-01",
+        "EC-02",
+        "EC-07"
+      ]
+    },
+    "duplicate_transaction": {
+      "label": "Duplicate transaction",
+      "cases": [
+        "EC-08"
+      ],
+      "passing": [
+        "EC-08"
+      ]
+    },
+    "verification_approved": {
+      "label": "Verification approved",
+      "cases": [
+        "EC-01",
+        "EC-11"
+      ],
+      "passing": [
+        "EC-01",
+        "EC-11"
+      ]
+    },
+    "verification_declined": {
+      "label": "Verification declined",
+      "cases": [
+        "EC-12",
+        "EC-13"
+      ],
+      "passing": [
+        "EC-12",
+        "EC-13"
+      ]
+    },
+    "verification_provider_failure": {
+      "label": "Verification provider failure",
+      "cases": [
+        "EC-14",
+        "EC-15",
+        "EC-17",
+        "EC-45"
+      ],
+      "passing": [
+        "EC-14",
+        "EC-15",
+        "EC-17",
+        "EC-45"
+      ]
+    },
+    "contradictory_verification": {
+      "label": "Contradictory verification answers",
+      "cases": [
+        "EC-16"
+      ],
+      "passing": [
+        "EC-16"
+      ]
+    },
+    "stale_evidence_new_reply": {
+      "label": "Stale evidence after a new reply",
+      "cases": [
+        "EC-09",
+        "EC-10"
+      ],
+      "passing": [
+        "EC-09",
+        "EC-10"
+      ]
+    },
+    "stale_reviewer_approval": {
+      "label": "Stale reviewer approval",
+      "cases": [
+        "EC-25",
+        "EC-26",
+        "EC-46"
+      ],
+      "passing": [
+        "EC-25",
+        "EC-26",
+        "EC-46"
+      ]
+    },
+    "reviewer_approves_credit": {
+      "label": "Reviewer approves credit",
+      "cases": [
+        "EC-01",
+        "EC-25"
+      ],
+      "passing": [
+        "EC-01",
+        "EC-25"
+      ]
+    },
+    "reviewer_rejects_credit": {
+      "label": "Reviewer rejects credit",
+      "cases": [
+        "EC-27"
+      ],
+      "passing": [
+        "EC-27"
+      ]
+    },
+    "card_admin_approves_controls": {
+      "label": "Card admin approves controls",
+      "cases": [
+        "EC-01"
+      ],
+      "passing": [
+        "EC-01"
+      ]
+    },
+    "card_admin_declines_controls": {
+      "label": "Card admin declines controls",
+      "cases": [
+        "EC-32"
+      ],
+      "passing": [
+        "EC-32"
+      ]
+    },
+    "duplicate_webhook": {
+      "label": "Duplicate webhook",
+      "cases": [
+        "EC-18"
+      ],
+      "passing": [
+        "EC-18"
+      ]
+    },
+    "delayed_webhook": {
+      "label": "Delayed webhook",
+      "cases": [
+        "EC-19"
+      ],
+      "passing": [
+        "EC-19"
+      ]
+    },
+    "out_of_order_events": {
+      "label": "Out-of-order events",
+      "cases": [
+        "EC-20"
+      ],
+      "passing": [
+        "EC-20"
+      ]
+    },
+    "worker_timeout": {
+      "label": "Worker timeout",
+      "cases": [
+        "EC-21"
+      ],
+      "passing": [
+        "EC-21"
+      ]
+    },
+    "worker_retry_partial": {
+      "label": "Worker retry after partial completion",
+      "cases": [
+        "EC-14",
+        "EC-22"
+      ],
+      "passing": [
+        "EC-14",
+        "EC-22"
+      ]
+    },
+    "provider_unknown_reconcile": {
+      "label": "Unknown provider result requiring reconciliation",
+      "cases": [
+        "EC-30",
+        "EC-31"
+      ],
+      "passing": [
+        "EC-30",
+        "EC-31"
+      ]
+    },
+    "unauthorized_analyst_command": {
+      "label": "Unauthorized analyst command",
+      "cases": [
+        "EC-35"
+      ],
+      "passing": [
+        "EC-35"
+      ]
+    },
+    "cardholder_analyst_action": {
+      "label": "Cardholder attempting an analyst action",
+      "cases": [
+        "EC-36"
+      ],
+      "passing": [
+        "EC-36"
+      ]
+    },
+    "reviewer_card_admin_action": {
+      "label": "Reviewer attempting a card-admin action",
+      "cases": [
+        "EC-37"
+      ],
+      "passing": [
+        "EC-37"
+      ]
+    },
+    "credit_while_policy_blocked": {
+      "label": "Credit attempted while policy is blocked",
+      "cases": [
+        "EC-04",
+        "EC-28"
+      ],
+      "passing": [
+        "EC-04",
+        "EC-28"
+      ]
+    },
+    "closure_with_incomplete_work": {
+      "label": "Closure attempted with required work incomplete",
+      "cases": [
+        "EC-33",
+        "EC-47"
+      ],
+      "passing": [
+        "EC-33",
+        "EC-47"
+      ]
+    },
+    "published_workflow_mutation": {
+      "label": "Published workflow mutation attempt",
+      "cases": [
+        "EC-43"
+      ],
+      "passing": [
+        "EC-43"
+      ]
+    },
+    "invalid_attachment_type": {
+      "label": "Invalid attachment type",
+      "cases": [
+        "EC-39"
+      ],
+      "passing": [
+        "EC-39"
+      ]
+    },
+    "oversized_attachment": {
+      "label": "Oversized attachment",
+      "cases": [
+        "EC-40"
+      ],
+      "passing": [
+        "EC-40"
+      ]
+    },
+    "duplicate_command": {
+      "label": "Duplicate command with the same idempotency key",
+      "cases": [
+        "EC-29",
+        "EC-41",
+        "EC-42"
+      ],
+      "passing": [
+        "EC-29",
+        "EC-41",
+        "EC-42"
+      ]
+    },
+    "complete_successful_investigation": {
+      "label": "Complete successful investigation",
+      "cases": [
+        "EC-01"
+      ],
+      "passing": [
+        "EC-01"
+      ]
+    },
+    "rejection_or_unresolved": {
+      "label": "Complete investigation that ends in rejection or unresolved",
+      "cases": [
+        "EC-04",
+        "EC-34"
+      ],
+      "passing": [
+        "EC-04",
+        "EC-34"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "EC-01",
+      "title": "Golden case CHG-1042: unrecognized $2,840 Northstar Equipment charge, investigated to credit, dispute, controls and close",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-01_golden_chg1042_end_to_end.json",
+      "categories": [
+        "evidence",
+        "workflow",
+        "financial_safety",
+        "reliability",
+        "product_projection"
+      ],
+      "covers": [
+        "golden_case",
+        "complete_successful_investigation",
+        "missing_receipt",
+        "po_amount_mismatch",
+        "one_approved_two_delivered",
+        "cardholder_denies",
+        "verification_approved",
+        "reviewer_approves_credit",
+        "card_admin_approves_controls",
+        "related_transaction"
+      ],
+      "checks": 44,
+      "failed_checks": [],
+      "probes": 7
+    },
+    {
+      "id": "EC-02",
+      "title": "Investigation extracts the $440 overcharge, the 1-vs-2 unit mismatch and the missing receipt, all cited",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-02_investigation_evidence.json",
+      "categories": [
+        "evidence",
+        "workflow"
+      ],
+      "covers": [
+        "missing_receipt",
+        "po_amount_mismatch",
+        "one_approved_two_delivered",
+        "related_transaction"
+      ],
+      "checks": 33,
+      "failed_checks": [],
+      "probes": 4
+    },
+    {
+      "id": "EC-03",
+      "title": "Follow-up asks only for what is missing (receipt, who placed the order) and waits for the cardholder",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-03_follow_up_smallest_question.json",
+      "categories": [
+        "evidence",
+        "product_projection"
+      ],
+      "covers": [
+        "missing_receipt"
+      ],
+      "checks": 30,
+      "failed_checks": [],
+      "probes": 3
+    },
+    {
+      "id": "EC-04",
+      "title": "Cardholder confirms on the call that she placed and authorized the order: conflicts resolve, policy says ineligible, credit is refused and the case closes with no action",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-04_cardholder_confirms.json",
+      "categories": [
+        "evidence",
+        "workflow",
+        "financial_safety"
+      ],
+      "covers": [
+        "cardholder_confirms",
+        "rejection_or_unresolved",
+        "credit_while_policy_blocked"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 3
+    },
+    {
+      "id": "EC-05",
+      "title": "Ambiguous reply with no receipt: reviewed as incomplete, routed to identity verification, receipt still missing",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-05_ambiguous_reply.json",
+      "categories": [
+        "evidence",
+        "workflow"
+      ],
+      "covers": [
+        "ambiguous_reply"
+      ],
+      "checks": 30,
+      "failed_checks": [],
+      "probes": 3
+    },
+    {
+      "id": "EC-06",
+      "title": "No reply: the deadline watcher marks the request overdue once, the analyst sends one explicit reminder",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-06_no_reply.json",
+      "categories": [
+        "workflow",
+        "reliability"
+      ],
+      "covers": [
+        "no_reply"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-07",
+      "title": "Related CHG-1051 is a finding on CHG-1042 awaiting review; reviewing it as related changes nothing on CHG-1051",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-07_related_transaction.json",
+      "categories": [
+        "evidence",
+        "workflow"
+      ],
+      "covers": [
+        "related_transaction"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-08",
+      "title": "The same charge reported twice links to the existing case: one case, one claim, no second investigation",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-08_duplicate_report.json",
+      "categories": [
+        "evidence",
+        "reliability"
+      ],
+      "covers": [
+        "duplicate_transaction"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-09",
+      "title": "A reply with a receipt changes the evidence snapshot; policy is re-evaluated on the new snapshot and the old result is no longer current",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-09_stale_evidence_new_reply.json",
+      "categories": [
+        "evidence",
+        "financial_safety"
+      ],
+      "covers": [
+        "stale_evidence_new_reply"
+      ],
+      "checks": 30,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-10",
+      "title": "A corrected delivery record (1 unit) appends version 2, supersedes the quantity conflict and marks the purchase-records check stale",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-10_material_change_stale_checks.json",
+      "categories": [
+        "evidence",
+        "reliability"
+      ],
+      "covers": [
+        "stale_evidence_new_reply"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-11",
+      "title": "Push verification approved by the cardholder: identity verified, the call is offered next",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-11_verification_push_approved.json",
+      "categories": [
+        "workflow",
+        "product_projection"
+      ],
+      "covers": [
+        "verification_approved"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-12",
+      "title": "Push verification declined: recorded as declined (not fraud), the call stays locked and a new request is offered",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-12_verification_push_declined.json",
+      "categories": [
+        "workflow",
+        "financial_safety"
+      ],
+      "covers": [
+        "verification_declined"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-13",
+      "title": "Three wrong one-time codes lock the request; a fourth attempt is refused, nothing is verified, and staff never see the code",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-13_otp_three_wrong_codes.json",
+      "categories": [
+        "financial_safety",
+        "reliability"
+      ],
+      "covers": [
+        "verification_declined"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-14",
+      "title": "Telephony provider fails once before dispatch: the worker retries the same key and places exactly one call",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-14_telephony_failure_retry.json",
+      "categories": [
+        "reliability",
+        "workflow"
+      ],
+      "covers": [
+        "verification_provider_failure",
+        "worker_retry_partial"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-15",
+      "title": "Voice provider reports the call failed (busy): case goes to call-failed, a second consented call succeeds",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-15_voice_busy_then_retry.json",
+      "categories": [
+        "reliability",
+        "workflow",
+        "product_projection"
+      ],
+      "covers": [
+        "verification_provider_failure"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-16",
+      "title": "The cardholder contradicts herself on the call: the call is recorded as failed, conflicts stay open and policy stays blocked",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-16_contradicted_call.json",
+      "categories": [
+        "evidence",
+        "financial_safety"
+      ],
+      "covers": [
+        "contradictory_verification"
+      ],
+      "checks": 29,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-17",
+      "title": "Voicemail on the first call: recorded, attempt preserved; the retry reaches the cardholder and resolves the conflicts",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-17_voicemail_then_retry.json",
+      "categories": [
+        "workflow",
+        "reliability"
+      ],
+      "covers": [
+        "verification_provider_failure"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-18",
+      "title": "The provider delivers the same signed transcript webhook twice: one transcript version, one recorded result",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-18_duplicate_webhook.json",
+      "categories": [
+        "reliability",
+        "product_projection"
+      ],
+      "covers": [
+        "duplicate_webhook"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-19",
+      "title": "A transcript webhook that arrives after the call timed out is recorded as stale and changes nothing",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-19_delayed_webhook.json",
+      "categories": [
+        "reliability",
+        "workflow"
+      ],
+      "covers": [
+        "delayed_webhook"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-20",
+      "title": "A failure event arriving after the transcript, and an event for an unknown call, never rewind or corrupt the case",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-20_out_of_order_webhooks.json",
+      "categories": [
+        "reliability",
+        "product_projection"
+      ],
+      "covers": [
+        "out_of_order_events"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-21",
+      "title": "A worker claims the investigation job and dies: the job is reclaimed only after the visibility timeout and runs once",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-21_worker_timeout.json",
+      "categories": [
+        "reliability",
+        "workflow"
+      ],
+      "covers": [
+        "worker_timeout"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-22",
+      "title": "The worker crashes after two specialists finished: the checkpointed graph resumes at the receipt review and repeats nothing",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-22_worker_crash_resume.json",
+      "categories": [
+        "reliability",
+        "workflow"
+      ],
+      "covers": [
+        "worker_retry_partial"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-23",
+      "title": "A specialist cites a value that is not in the evidence: the output is rejected, nothing is stored, and a replay retry recovers",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-23_ungrounded_output_rejected.json",
+      "categories": [
+        "evidence",
+        "workflow"
+      ],
+      "covers": [],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-24",
+      "title": "A specialist tries to read the cardholder's phone number, outside its scope: recorded as a scope violation, nothing stored",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-24_scope_violation_rejected.json",
+      "categories": [
+        "evidence",
+        "financial_safety"
+      ],
+      "covers": [],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-25",
+      "title": "Evidence changes after the reviewer approved: the approval goes stale, credit is refused, and a fresh packet and approval issue credit exactly once",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-25_stale_approval_after_approval.json",
+      "categories": [
+        "financial_safety",
+        "workflow",
+        "reliability"
+      ],
+      "covers": [
+        "stale_reviewer_approval",
+        "reviewer_approves_credit"
+      ],
+      "checks": 29,
+      "failed_checks": [],
+      "probes": 3
+    },
+    {
+      "id": "EC-26",
+      "title": "Evidence changes while the approval request waits: the reviewer's approve is refused as stale and nothing moves money",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-26_stale_approval_before_review.json",
+      "categories": [
+        "financial_safety"
+      ],
+      "covers": [
+        "stale_reviewer_approval"
+      ],
+      "checks": 29,
+      "failed_checks": [],
+      "probes": 3
+    },
+    {
+      "id": "EC-27",
+      "title": "Reviewer rejects the credit decision with a reason: returned to the analyst, credit refused, packet kept",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-27_reviewer_returns_credit.json",
+      "categories": [
+        "financial_safety",
+        "workflow"
+      ],
+      "covers": [
+        "reviewer_rejects_credit"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 4
+    },
+    {
+      "id": "EC-28",
+      "title": "Packet prepared while a related charge still awaits review: policy needs evidence, so approval cannot be requested and credit cannot run",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-28_credit_while_policy_blocked.json",
+      "categories": [
+        "financial_safety"
+      ],
+      "covers": [
+        "credit_while_policy_blocked"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 4
+    },
+    {
+      "id": "EC-29",
+      "title": "Credit adapter fails before dispatch: nothing is issued; the analyst's retry issues exactly one credit under the same key",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-29_credit_adapter_fails_then_retry.json",
+      "categories": [
+        "reliability",
+        "financial_safety"
+      ],
+      "covers": [
+        "duplicate_command"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-30",
+      "title": "Credit result lost in transit (uncertain): the case waits in credit check, re-issue is refused, lookup confirms one credit",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-30_credit_uncertain_reconcile.json",
+      "categories": [
+        "reliability",
+        "financial_safety"
+      ],
+      "covers": [
+        "provider_unknown_reconcile"
+      ],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-31",
+      "title": "Dispute submission result uncertain: resolved by lookup without resending the dispute",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-31_dispute_uncertain_lookup.json",
+      "categories": [
+        "reliability",
+        "financial_safety"
+      ],
+      "covers": [
+        "provider_unknown_reconcile"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-32",
+      "title": "Card admin declines the proposed controls: nothing is applied and apply is refused; the dispute track continues",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-32_controls_declined.json",
+      "categories": [
+        "financial_safety",
+        "workflow"
+      ],
+      "covers": [
+        "card_admin_declines_controls"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-33",
+      "title": "Closing while the dispute, controls and final message are open is refused; the checklist names the open items",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-33_closure_with_incomplete_work.json",
+      "categories": [
+        "financial_safety",
+        "product_projection"
+      ],
+      "covers": [
+        "closure_with_incomplete_work"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 4
+    },
+    {
+      "id": "EC-34",
+      "title": "Investigation ends unresolved: no credit, no dispute, final message sent and the case closes",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-34_unresolved_outcome.json",
+      "categories": [
+        "workflow",
+        "financial_safety"
+      ],
+      "covers": [
+        "rejection_or_unresolved"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-35",
+      "title": "Analyst tries reviewer and card-admin commands: every one is refused as role_forbidden and nothing is written",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-35_analyst_unauthorized.json",
+      "categories": [
+        "financial_safety"
+      ],
+      "covers": [
+        "unauthorized_analyst_command"
+      ],
+      "checks": 31,
+      "failed_checks": [],
+      "probes": 6
+    },
+    {
+      "id": "EC-36",
+      "title": "Cardholder tries analyst actions and staff reads: refused, and the cardholder sees no internal data",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-36_cardholder_analyst_actions.json",
+      "categories": [
+        "financial_safety",
+        "product_projection"
+      ],
+      "covers": [
+        "cardholder_analyst_action"
+      ],
+      "checks": 31,
+      "failed_checks": [],
+      "probes": 6
+    },
+    {
+      "id": "EC-37",
+      "title": "Dana holds reviewer and card-admin roles: while acting as reviewer she cannot approve or apply card controls",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-37_reviewer_card_admin_action.json",
+      "categories": [
+        "financial_safety"
+      ],
+      "covers": [
+        "reviewer_card_admin_action"
+      ],
+      "checks": 29,
+      "failed_checks": [],
+      "probes": 4
+    },
+    {
+      "id": "EC-38",
+      "title": "Asking Vera in chat to approve the credit is refused with a pointer to the reviewer action; nothing is written",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-38_approval_via_chat_refused.json",
+      "categories": [
+        "financial_safety",
+        "product_projection"
+      ],
+      "covers": [],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-39",
+      "title": "An executable attached to the reply is rejected; the request stays open and nothing is stored",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-39_invalid_attachment_type.json",
+      "categories": [
+        "evidence",
+        "reliability"
+      ],
+      "covers": [
+        "invalid_attachment_type"
+      ],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-40",
+      "title": "A 10 MB + 1 byte attachment is rejected by the schema; nothing is stored and the cardholder can still reply",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-40_oversized_attachment.json",
+      "categories": [
+        "evidence",
+        "reliability"
+      ],
+      "covers": [
+        "oversized_attachment"
+      ],
+      "checks": 26,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-41",
+      "title": "The same command sent twice with the same key replays the first result; a different payload under that key is refused",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-41_duplicate_command.json",
+      "categories": [
+        "reliability"
+      ],
+      "covers": [
+        "duplicate_command"
+      ],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-42",
+      "title": "Issue credit posted three times with the server key: one credit, one adapter call, later attempts replay",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-42_duplicate_credit_command.json",
+      "categories": [
+        "reliability",
+        "financial_safety"
+      ],
+      "covers": [
+        "duplicate_command"
+      ],
+      "checks": 24,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-43",
+      "title": "A published workflow version cannot be edited through commands or directly in the database; the case stays pinned to v3",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-43_published_workflow_immutable.json",
+      "categories": [
+        "reliability",
+        "financial_safety"
+      ],
+      "covers": [
+        "published_workflow_mutation"
+      ],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 0
+    },
+    {
+      "id": "EC-44",
+      "title": "Hold mid-investigation blocks money actions; resume re-derives the exact step from stored facts",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-44_hold_resume_rederives.json",
+      "categories": [
+        "product_projection",
+        "workflow"
+      ],
+      "covers": [],
+      "checks": 25,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-45",
+      "title": "Telephony keeps failing: after the worker's retries the call is recorded as incomplete, the case leaves 'in progress' and a new call is offered",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-45_telephony_permanent_failure.json",
+      "categories": [
+        "reliability",
+        "workflow",
+        "product_projection"
+      ],
+      "covers": [
+        "verification_provider_failure"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-46",
+      "title": "A non-material re-key of the purchase order appends a version but does not stale the approval: credit proceeds once",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-46_non_material_change_keeps_approval.json",
+      "categories": [
+        "financial_safety",
+        "evidence"
+      ],
+      "covers": [
+        "stale_reviewer_approval"
+      ],
+      "checks": 27,
+      "failed_checks": [],
+      "probes": 1
+    },
+    {
+      "id": "EC-47",
+      "title": "Reply reviewed as complete while purchase-record conflicts are open: no credit, decision recorded, but closure stays refused because only a verification call resolves conflicts",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-47_complete_review_cannot_close.json",
+      "categories": [
+        "financial_safety",
+        "workflow"
+      ],
+      "covers": [
+        "closure_with_incomplete_work"
+      ],
+      "checks": 28,
+      "failed_checks": [],
+      "probes": 2
+    }
+  ],
+  "failed_scenarios": [],
+  "representative_traces": [
+    {
+      "case": "EC-01",
+      "title": "Golden case CHG-1042: unrecognized $2,840 Northstar Equipment charge, investigated to credit, dispute, controls and close",
+      "commands": [
+        {
+          "as": "analyst",
+          "command": "open_case",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_investigation",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "record_decision",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_follow_up",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_communication",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "POST /api/requests",
+          "http": 200
+        },
+        {
+          "as": "analyst",
+          "command": "review_cardholder_response",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_verification_request",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "submit_otp",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_callback",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_related_charge",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_related_charge",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "evaluate_policy",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "create_decision_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "record_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "request_reviewer_approval",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "prepare_dispute_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "open_dispute_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_dispute_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "submit_dispute",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "propose_card_controls",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "card_admin",
+          "command": "approve_card_controls",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "card_admin",
+          "command": "apply_card_controls",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_final_message",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_final_message",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "close_case",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "-",
+          "command": "POST /api/demo/dispute-outcome",
+          "http": 200
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 409,
+          "code": "case_closed",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "hold_case",
+          "http": 409,
+          "code": "case_closed",
+          "probe": true
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "http": 409,
+          "code": "case_closed",
+          "probe": true
+        },
+        {
+          "as": "card_admin",
+          "command": "apply_card_controls",
+          "http": 409,
+          "code": "case_closed",
+          "probe": true
+        },
+        {
+          "as": "cardholder",
+          "command": "close_case",
+          "http": 403,
+          "code": "role_forbidden",
+          "probe": true
+        }
+      ],
+      "audit_events": [
+        "case.opened (analyst)",
+        "investigation.started (analyst)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "policy.evaluated (policy_controller)",
+        "investigation.completed (system)",
+        "communication.drafted (analyst)",
+        "communication.updated (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "adapter.succeeded (adapter)",
+        "communication.sent (analyst)",
+        "communication.responded (cardholder)",
+        "communication.review_recommended (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "communication.reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "adapter.succeeded (adapter)",
+        "verification.requested (analyst)",
+        "verification.code_submitted (cardholder)",
+        "verification.verified (cardholder)",
+        "policy.evaluated (policy_controller)",
+        "callback.started (analyst)",
+        "adapter.succeeded (adapter)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "run.step_started (specialist)",
+        "policy.evaluated (policy_controller)",
+        "callback.recorded (system)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "run.step_succeeded (specialist)",
+        "evidence.related_reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.related_reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "policy.evaluated (analyst)",
+        "decision_packet.created (analyst)",
+        "run.step_started (specialist)",
+        "decision_packet.ready (system)",
+        "run.step_succeeded (specialist)",
+        "decision.recorded (analyst)",
+        "approval.requested (analyst)",
+        "approval.approved (reviewer)",
+        "adapter.succeeded (adapter)",
+        "credit.requested (analyst)",
+        "credit.issued (analyst)",
+        "controls.recommended (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "dispute.prepared (analyst)",
+        "dispute.narrative_recorded (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "dispute.opened (analyst)",
+        "dispute.reviewed (analyst)",
+        "adapter.succeeded (adapter)",
+        "dispute.submission_requested (analyst)",
+        "dispute.submitted (analyst)",
+        "controls.requested (analyst)",
+        "controls.approved (card_admin)",
+        "adapter.succeeded (adapter)",
+        "controls.apply_requested (card_admin)",
+        "controls.applied (card_admin)",
+        "final_message.drafted (analyst)",
+        "adapter.succeeded (adapter)",
+        "final_message.sent (analyst)",
+        "case.closed (analyst)",
+        "dispute.outcome_recorded (system)",
+        "case.closed (system)"
+      ]
+    },
+    {
+      "case": "EC-15",
+      "title": "Voice provider reports the call failed (busy): case goes to call-failed, a second consented call succeeds",
+      "commands": [
+        {
+          "as": "analyst",
+          "command": "open_case",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_investigation",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_follow_up",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_communication",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "POST /api/requests",
+          "http": 200
+        },
+        {
+          "as": "analyst",
+          "command": "review_cardholder_response",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_verification_request",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "submit_otp",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_callback",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "provider",
+          "command": "webhook:call_initiation_failure",
+          "http": 200,
+          "result": "applied"
+        },
+        {
+          "as": "provider",
+          "command": "webhook:call_initiation_failure",
+          "http": 200,
+          "result": "duplicate"
+        },
+        {
+          "as": "analyst",
+          "command": "start_callback",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "provider",
+          "command": "webhook:post_call_transcription",
+          "http": 200,
+          "result": "applied"
+        }
+      ],
+      "audit_events": [
+        "case.opened (analyst)",
+        "investigation.started (analyst)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "policy.evaluated (policy_controller)",
+        "investigation.completed (system)",
+        "communication.drafted (analyst)",
+        "communication.updated (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "adapter.succeeded (adapter)",
+        "communication.sent (analyst)",
+        "communication.responded (cardholder)",
+        "communication.review_recommended (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "communication.reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "adapter.succeeded (adapter)",
+        "verification.requested (analyst)",
+        "verification.code_submitted (cardholder)",
+        "verification.verified (cardholder)",
+        "policy.evaluated (policy_controller)",
+        "callback.started (analyst)",
+        "callback.recorded (system)",
+        "callback.started (analyst)",
+        "callback.line_added (system)",
+        "run.step_started (specialist)",
+        "policy.evaluated (policy_controller)",
+        "callback.recorded (system)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "run.step_succeeded (specialist)"
+      ]
+    },
+    {
+      "case": "EC-24",
+      "title": "A specialist tries to read the cardholder's phone number, outside its scope: recorded as a scope violation, nothing stored",
+      "commands": [
+        {
+          "as": "analyst",
+          "command": "open_case",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_investigation",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_follow_up",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        }
+      ],
+      "audit_events": [
+        "case.opened (analyst)",
+        "investigation.started (analyst)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "run.step_failed (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "specialist.failed (system)"
+      ]
+    },
+    {
+      "case": "EC-33",
+      "title": "Closing while the dispute, controls and final message are open is refused; the checklist names the open items",
+      "commands": [
+        {
+          "as": "analyst",
+          "command": "open_case",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_investigation",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_follow_up",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_communication",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "POST /api/requests",
+          "http": 200
+        },
+        {
+          "as": "analyst",
+          "command": "review_cardholder_response",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_verification_request",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "submit_otp",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_callback",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_related_charge",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_related_charge",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "evaluate_policy",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "create_decision_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "record_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "request_reviewer_approval",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "close_case",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_final_message",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_final_message",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "close_case",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        }
+      ],
+      "audit_events": [
+        "case.opened (analyst)",
+        "investigation.started (analyst)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "policy.evaluated (policy_controller)",
+        "investigation.completed (system)",
+        "communication.drafted (analyst)",
+        "communication.updated (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "adapter.succeeded (adapter)",
+        "communication.sent (analyst)",
+        "communication.responded (cardholder)",
+        "communication.review_recommended (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "communication.reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "adapter.succeeded (adapter)",
+        "verification.requested (analyst)",
+        "verification.code_submitted (cardholder)",
+        "verification.verified (cardholder)",
+        "policy.evaluated (policy_controller)",
+        "callback.started (analyst)",
+        "adapter.succeeded (adapter)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "run.step_started (specialist)",
+        "policy.evaluated (policy_controller)",
+        "callback.recorded (system)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "run.step_succeeded (specialist)",
+        "evidence.related_reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.related_reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "policy.evaluated (analyst)",
+        "decision_packet.created (analyst)",
+        "run.step_started (specialist)",
+        "decision_packet.ready (system)",
+        "run.step_succeeded (specialist)",
+        "decision.recorded (analyst)",
+        "approval.requested (analyst)",
+        "approval.approved (reviewer)",
+        "adapter.succeeded (adapter)",
+        "credit.requested (analyst)",
+        "credit.issued (analyst)",
+        "controls.recommended (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)"
+      ]
+    }
+  ],
+  "permission_matrix": {
+    "status": "ran",
+    "commands": 65,
+    "pairs": 275,
+    "refused": 275,
+    "failures": []
+  },
+  "evaluator_sensitivity": {
+    "status": "ran",
+    "detected": 4,
+    "total": 4,
+    "mutations": [
+      {
+        "mutation": "role check removed",
+        "breaks": "the gateway no longer checks the active role against the command (stage 1)",
+        "case": "EC-35",
+        "detected": true,
+        "caught_by": [
+          "financial_safety.forbidden:analyst:apply_card_controls",
+          "financial_safety.forbidden:analyst:approve_card_controls",
+          "financial_safety.forbidden:analyst:approve_decision",
+          "financial_safety.forbidden:analyst:decline_card_controls"
+        ]
+      },
+      {
+        "mutation": "policy gate removed",
+        "breaks": "commands that need an eligible policy result run without one (stage 7)",
+        "case": "EC-28",
+        "detected": true,
+        "caught_by": [
+          "financial_safety.forbidden:analyst:request_reviewer_approval"
+        ]
+      },
+      {
+        "mutation": "idempotent replay removed",
+        "breaks": "a repeated idempotency key is processed again instead of replayed (stage 3)",
+        "case": "EC-41",
+        "detected": true,
+        "caught_by": [
+          "workflow.steps"
+        ]
+      },
+      {
+        "mutation": "grounding validator removed",
+        "breaks": "specialist findings are stored without checking their cited values",
+        "case": "EC-23",
+        "detected": true,
+        "caught_by": [
+          "reliability.audit_events",
+          "workflow.steps"
+        ]
+      }
+    ]
+  },
+  "baseline": {
+    "status": "ran",
+    "description": "Single-pass baseline: one agent (the Charge Investigator's reference output) whose findings are stored after schema validation only. Vera: three investigation specialists whose findings must pass the grounding validator. Measured on the reference recordings and the synthetic seed; no model is called.",
+    "rows": [
+      {
+        "measure": "Evidence coverage (golden facts found)",
+        "baseline": "2/4",
+        "vera": "4/4",
+        "basis": "reference recordings vs the 4 CHG-1042 facts"
+      },
+      {
+        "measure": "Contradictions detected at investigation",
+        "baseline": "2",
+        "vera": "2",
+        "basis": "conflict findings in the investigation output"
+      },
+      {
+        "measure": "Unsupported claims stored (perturbed citations)",
+        "baseline": "40/40",
+        "vera": "0/40",
+        "basis": "4 perturbations of each reference citation; schema-only vs validate_grounding"
+      },
+      {
+        "measure": "Reference citations wrongly rejected",
+        "baseline": "0",
+        "vera": "0",
+        "basis": "false positives of the validator on the reference output"
+      }
+    ],
+    "missed_by_baseline": [
+      "missing receipt above the $75 threshold",
+      "related charge CHG-1051 at the same merchant"
+    ],
+    "unsupported_accepted_by_vera": {},
+    "not_compared": [
+      "Next-question quality: no single-pass follow-up exists in the code to compare; Vera's follow-up is checked deterministically (EC-03: at most 2 questions, asks for the receipt, never re-asks supported items).",
+      "Safe routing: a single-pass agent with direct adapter access has no gate to measure; Vera's gates are measured instead by the forbidden-command probes in this report.",
+      "Recovery: the code has no non-checkpointed mode to run; Vera's resume is measured in EC-21 and EC-22 (no specialist step repeated after a timeout or crash)."
+    ]
+  },
+  "llm_judge": {
+    "status": "not run",
+    "reason": "pass --judge with NVIDIA_API_KEY"
+  },
+  "known_limitations": [
+    "All cases run on the single synthetic seed (CHG-1042 and its related records). Variation comes from commands, demo seams (material change, adapter faults, call outcomes, deadline watcher) and scripted specialist turns, not from a corpus of distinct customers.",
+    "Specialists run in REPLAY from reference recordings. A case that needs the model to say something else (a voicemail, a contradicted call) overrides that turn with an 'eval-scripted' recording; it still passes through the same loop and validators. Live model quality is not measured by this suite.",
+    "Where a stale approval moves the case to decision_pending/stale, a credit attempt is refused by the step gate first; the approval-binding gate behind it is exercised directly in tests/integration/test_decisions.py.",
+    "A 'dispute' decision goes straight to the dispute track without reviewer approval; the dispute is gated by the analyst-reviewed packet. This is the product's current rule and is recorded, not changed, by this suite.",
+    "Webhook cases use the ElevenLabs provider over an in-process mock transport with real signatures; no telephony provider is contacted.",
+    "The worker is driven in-process with a synthetic clock (2031-01-01 onward); real concurrency between worker processes is covered by tests/integration/test_worker_graph.py.",
+    "The optional LLM judge scores only bounded qualitative text and never runs in CI; it needs NVIDIA_API_KEY and --judge."
+  ],
+  "reproduce": [
+    "infra/dev-db.sh start",
+    "uv sync",
+    "uv run alembic upgrade head",
+    "uv run python -m evals.harness",
+    "uv run python -m evals.harness --suite cases --only EC-01   # one case, no report written",
+    "uv run pytest -q tests/evals"
+  ]
+}

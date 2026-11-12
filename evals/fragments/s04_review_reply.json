@@ -1,0 +1,15 @@
+{
+  "title": "Analyst reviews the reply as conflicting with the report; receipt accepted",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "review_cardholder_response",
+      "payload": {
+        "outcome": "conflicting",
+        "note": "The reply contradicts the initial report; the receipt itself is accepted.",
+        "receipt_accepted": true
+      }
+    }
+  ]
+}

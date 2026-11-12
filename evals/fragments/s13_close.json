@@ -1,0 +1,25 @@
+{
+  "title": "Final message drafted and sent; case closed into dispute monitoring",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "draft_final_message"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "send_final_message"
+    },
+    {
+      "as": "analyst",
+      "command": "close_case",
+      "payload": {
+        "outcome": "resolved",
+        "reason": "Provisional credit issued; dispute submitted."
+      }
+    }
+  ]
+}

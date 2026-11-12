@@ -18,7 +18,7 @@ def test_reset_then_read_canonical_case_and_reset_is_repeatable(
     assert body["state_label"] == "New report"
     assert body["transaction"]["amount_cents"] == 284000
     assert body["transaction"]["currency"] == "USD"
-    assert body["transaction"]["merchant"] == "Bayline Industrial Supply"
+    assert body["transaction"]["merchant"] == "Northstar Equipment"
     assert body["transaction"]["card_last4"] == "4418"
     assert body["owner"]["name"] == "Sam Rivera"
     assert body["cardholder"]["name"] == "Priya Shah"

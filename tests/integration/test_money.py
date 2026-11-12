@@ -738,7 +738,7 @@ def test_dispute_preparer_replay_stores_a_grounded_narrative_on_the_packet(
     committed = Path("evals/requests/dispute_packet_preparer/v1/CHG-1042.json")
     assert json.loads(dumped.read_text()) == json.loads(committed.read_text())
     prompt = json.loads(committed.read_text())["messages"][1]["content"]
-    assert "284000" not in prompt and "Bayline" not in prompt and "PRF-4418" not in prompt
+    assert "284000" not in prompt and "Northstar" not in prompt and "PRF-4418" not in prompt
 
 
 def test_preparer_without_a_workflow_run_gets_one_and_the_narrative_is_not_stuck_pending(

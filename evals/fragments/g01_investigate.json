@@ -1,0 +1,9 @@
+{
+  "title": "From a fresh seed through: Open CHG-1042 and run the three investigation specialists (replay)",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    }
+  ]
+}

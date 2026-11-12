@@ -464,10 +464,27 @@ def _review(
                     kind="conflict",
                     statement=p.note or "The cardholder response contradicts REP-1042.",
                     status="open",
+                    conflict_field="cardholder_statement",
                     created_by=actor.user_id,
                     created_at=now,
                 )
             )
+            session.flush()
+            # Every finding cites evidence: this one cites what the reply contradicts, the
+            # initial report's statement at its current version (the reply text itself is a
+            # communication, not an evidence record).
+            reports = session.scalars(
+                select(EvidenceRecord.id)
+                .where(EvidenceRecord.case_id == case.id, EvidenceRecord.kind == "initial_report")
+                .order_by(EvidenceRecord.id)
+            ).all()
+            for rep in reports:
+                _, version = evidence.read_evidence_field(session, case.id, rep, "statement")
+                session.add(
+                    FindingLink(
+                        finding_id=finding_id, record_id=rep, version=version, field="statement"
+                    )
+                )
     session.flush()
     return {
         "request_id": row.id,

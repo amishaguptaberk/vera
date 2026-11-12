@@ -171,11 +171,13 @@ def _lookup_dispute(
     if out is None:
         raise missing
     row.updated_at = now
-    if out.status == "succeeded" and row.status != "submitted":
+    confirmed = out.status == "succeeded" and row.status != "submitted"
+    if confirmed:
         row.status, row.submitted_at = "submitted", now
         row.submission_reference = str(out.result["reference"])
     return {
         "found": True,
+        "dispute_confirmed": confirmed,
         "dispute_status": row.status,
         "dispute_id": f"DSP-{row.id}",
         "submission_id": row.submission_reference,
@@ -238,6 +240,36 @@ def _credit_after(event: str, summary: str):  # type: ignore[no-untyped-def]
             )
 
     return after
+
+
+_credit_lookup_after = _credit_after("credit.confirmed", "{ref} issued once · nothing re-sent")
+
+
+def _lookup_after(
+    session: Session,
+    case: Case,
+    actor: Actor,
+    payload: Any,
+    now: datetime,
+    ctx: EffectContext,
+    outcome: Outcome,
+) -> None:
+    """A lookup that confirms an uncertain result records the effect it confirmed, as the
+    original command would have: credit.confirmed for a credit, dispute.submitted for a
+    dispute (controls record controls.applied in _lookup_controls)."""
+    _credit_lookup_after(session, case, actor, payload, now, ctx, outcome)
+    if ctx.extra.get("dispute_confirmed"):
+        _emit(
+            session,
+            "dispute.submitted",
+            case,
+            actor.user_id,
+            actor.active_role,
+            now,
+            [case.id],
+            "Dispute submission confirmed by lookup · nothing re-sent · simulated",
+            {"submission_id": ctx.extra["submission_id"], "simulated": True, "via": "lookup"},
+        )
 
 
 # --- dispute ---
@@ -557,9 +589,7 @@ gateway.register_commands(
         "issue_provisional_credit": _credit_after(
             "credit.issued", "Temporary credit issued · {ref} · simulated · safe to retry"
         ),
-        "lookup_execution_result": _credit_after(
-            "credit.confirmed", "{ref} issued once · nothing re-sent"
-        ),
+        "lookup_execution_result": _lookup_after,
         "reconcile_execution_result": _credit_after(
             "credit.confirmed", "{ref} issued once · nothing re-sent"
         ),

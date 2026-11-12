@@ -1,0 +1,192 @@
+{
+  "id": "EC-22",
+  "title": "The worker crashes after two specialists finished: the checkpointed graph resumes at the receipt review and repeats nothing",
+  "synthetic": true,
+  "categories": [
+    "reliability",
+    "workflow"
+  ],
+  "covers": [
+    "worker_retry_partial"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ]
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ]
+    },
+    {
+      "kind": "discrepancy",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "No receipt"
+      ]
+    },
+    {
+      "kind": "related_charge",
+      "cites": [
+        [
+          "CHG-1051",
+          "merchant"
+        ],
+        [
+          "CHG-1051",
+          "amount_cents"
+        ]
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true,
+    "findings_count": 6
+  },
+  "contradictions": {
+    "open": [
+      "amount",
+      "quantity"
+    ]
+  },
+  "missing_evidence": [
+    "receipt"
+  ],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2,
+      "attempts": 1
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2,
+      "attempts": 1
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2,
+      "attempts": 1
+    }
+  },
+  "expected_policy": {
+    "status": "blocked",
+    "code": "EVIDENCE_CONFLICT",
+    "rules_failed_include": [
+      "purchase_records_agree"
+    ]
+  },
+  "expected_workflow_state": {
+    "state": "investigating",
+    "step": "draft"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "draft_follow_up"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "counts": {
+      "run.step_succeeded": 3,
+      "run.step_started": 3,
+      "finding.recorded": 6,
+      "investigation.completed": 1
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "investigating",
+    "step": "draft"
+  },
+  "steps": [
+    {
+      "service": "crash_once",
+      "at": "receipt_document_reviewer"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

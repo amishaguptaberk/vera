@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_callbacks.py)",
-  "fixture": 29,
-  "title": "Call before identity",
-  "description": "Fixture 29: Call before identity. `start_callback` rejected (409)"
-}

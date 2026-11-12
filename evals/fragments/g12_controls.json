@@ -1,0 +1,42 @@
+{
+  "title": "From a fresh seed through: Card controls proposed by the analyst, approved and applied by the card admin",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "fragment": "s09_approve"
+    },
+    {
+      "fragment": "s10_credit"
+    },
+    {
+      "fragment": "s11_dispute"
+    },
+    {
+      "fragment": "s12_controls"
+    }
+  ]
+}

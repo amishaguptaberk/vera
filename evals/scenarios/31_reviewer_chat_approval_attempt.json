@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_decisions.py)",
-  "fixture": 31,
-  "title": "Reviewer chat approval attempt",
-  "description": "Fixture 31: Reviewer chat approval attempt. canned refusal, approval still pending, no event"
-}

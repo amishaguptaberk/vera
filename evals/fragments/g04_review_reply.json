@@ -1,0 +1,18 @@
+{
+  "title": "From a fresh seed through: Analyst reviews the reply as conflicting with the report; receipt accepted",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    }
+  ]
+}

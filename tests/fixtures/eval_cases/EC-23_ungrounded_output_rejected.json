@@ -1,0 +1,198 @@
+{
+  "id": "EC-23",
+  "title": "A specialist cites a value that is not in the evidence: the output is rejected, nothing is stored, and a replay retry recovers",
+  "synthetic": true,
+  "categories": [
+    "evidence",
+    "workflow"
+  ],
+  "covers": [],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ]
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [
+      "amount",
+      "quantity"
+    ]
+  },
+  "missing_evidence": [
+    "receipt"
+  ],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "blocked",
+    "code": "EVIDENCE_CONFLICT",
+    "rules_failed_include": [
+      "purchase_records_agree"
+    ]
+  },
+  "expected_workflow_state": {
+    "state": "investigating",
+    "step": "draft"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "draft_follow_up"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "subsequence": [
+      "run.step_failed",
+      "specialist.retried",
+      "run.step_succeeded",
+      "investigation.completed"
+    ],
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "investigating",
+    "step": "draft"
+  },
+  "steps": [
+    {
+      "service": "recordings",
+      "variant": "ungrounded"
+    },
+    {
+      "as": "analyst",
+      "command": "open_case"
+    },
+    {
+      "as": "analyst",
+      "command": "start_investigation"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "runs": {
+          "steps": {
+            "charge_investigator": "failed"
+          },
+          "failure_reasons": {
+            "charge_investigator": "ungrounded"
+          }
+        },
+        "sql": [
+          {
+            "name": "no charge-investigator finding stored",
+            "query": "select count(*) from findings where id like '%charge_investigator%'",
+            "equals": [
+              [
+                0
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "service": "replay_recordings"
+    },
+    {
+      "as": "analyst",
+      "command": "retry_specialist_step",
+      "payload": {
+        "step_key": "charge_investigator",
+        "mode": "replay"
+      }
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

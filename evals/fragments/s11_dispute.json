@@ -1,0 +1,25 @@
+{
+  "title": "Dispute packet prepared (narrative specialist), opened, reviewed and submitted",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "prepare_dispute_packet"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "command": "open_dispute_packet"
+    },
+    {
+      "as": "analyst",
+      "command": "review_dispute_packet"
+    },
+    {
+      "as": "analyst",
+      "command": "submit_dispute"
+    }
+  ]
+}

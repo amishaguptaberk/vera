@@ -1,0 +1,24 @@
+{
+  "title": "Card controls proposed by the analyst, approved and applied by the card admin",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "propose_card_controls",
+      "payload": {
+        "controls": [
+          "lock",
+          "replace"
+        ]
+      }
+    },
+    {
+      "as": "card_admin",
+      "command": "approve_card_controls"
+    },
+    {
+      "as": "card_admin",
+      "command": "apply_card_controls"
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "id": "EC-27",
+  "title": "Reviewer rejects the credit decision with a reason: returned to the analyst, credit refused, packet kept",
+  "synthetic": true,
+  "categories": [
+    "financial_safety",
+    "workflow"
+  ],
+  "covers": [
+    "reviewer_rejects_credit"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "eligible",
+    "code": "CREDIT_ELIGIBLE"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "returned"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit",
+      "expect_code": "invalid_step"
+    },
+    {
+      "as": "reviewer",
+      "command": "approve_decision",
+      "expect_code": "invalid_step"
+    },
+    {
+      "as": "reviewer",
+      "command": "return_decision",
+      "expect_code": "invalid_step",
+      "payload": {
+        "reason": "again",
+        "next_step": "again",
+        "owner": "usr-sam-rivera"
+      }
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "approval.requested",
+      "approval.returned"
+    ],
+    "actors": {
+      "approval.returned": "reviewer"
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "returned",
+    "temporary_credit_cents": 0,
+    "approval": [
+      "returned"
+    ]
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "probe": [
+        {
+          "as": "reviewer",
+          "command": "return_decision",
+          "expect_code": "schema_invalid",
+          "payload": {
+            "reason": "",
+            "next_step": "Confirm who had access",
+            "owner": "usr-sam-rivera"
+          },
+          "may_be_offered": true
+        }
+      ]
+    },
+    {
+      "as": "reviewer",
+      "command": "return_decision",
+      "payload": {
+        "reason": "The call note does not establish who used the card.",
+        "next_step": "Confirm who had access to the card",
+        "owner": "usr-sam-rivera"
+      }
+    }
+  ]
+}

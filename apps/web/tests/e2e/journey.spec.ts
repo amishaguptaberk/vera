@@ -82,7 +82,7 @@ test('journey: report → investigation → cardholder → identity → call →
     await page.goto('/cases/CHG-1042');
     await expect.poll(() => stepOf(request)).toBe('verify');
     const call = page.getByTestId('task-block-call');
-    await expect(call.getByText('Did you place the order with Bayline Industrial Supply on the card ending 4418?')).toBeVisible();
+    await expect(call.getByText('Did you place the order with Northstar Equipment on the card ending 4418?')).toBeVisible();
     await call.getByRole('button', { name: 'Edit questions' }).click();
     await expect(call.getByLabel('Question 3')).toHaveValue('Did anyone else have access to your card?');
     const start = call.getByRole('button', { name: 'Start verification call' });
@@ -99,7 +99,7 @@ test('journey: report → investigation → cardholder → identity → call →
 
   await test.step('analyst reviews both related charges from the evidence register', async () => {
     await page.getByRole('tab', { name: 'Evidence' }).click();
-    for (const [id, reason] of [['CHG-1051', 'Separate Bayline order on its own PO.'], ['CHG-1048', 'Cleared last month; unrelated amount.']] as const) {
+    for (const [id, reason] of [['CHG-1051', 'Separate Northstar order on its own PO.'], ['CHG-1048', 'Cleared last month; unrelated amount.']] as const) {
       const row = page.getByTestId(`review-${id}`);
       await row.getByRole('button', { name: 'Not related' }).click();
       const form = page.getByRole('form', { name: `Review ${id}` });

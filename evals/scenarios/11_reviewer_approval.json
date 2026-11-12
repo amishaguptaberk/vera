@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "a credit decision, which the seeded case cannot reach in REPLAY: the investigation's PO-219/DLV-882 conflicts are never resolved by any command and the reference callback confirms the cardholder authorized the charge, so record_decision 'credit' is policy_blocked and no reviewer approval or credit follows",
-  "fixture": 11,
-  "title": "Reviewer approval",
-  "description": "Fixture 11: Reviewer approval."
-}

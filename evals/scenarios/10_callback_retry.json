@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_callbacks.py)",
-  "fixture": 10,
-  "title": "Callback retry",
-  "description": "Fixture 10: Callback retry."
-}

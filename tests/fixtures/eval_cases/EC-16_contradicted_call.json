@@ -1,0 +1,222 @@
+{
+  "id": "EC-16",
+  "title": "The cardholder contradicts herself on the call: the call is recorded as failed, conflicts stay open and policy stays blocked",
+  "synthetic": true,
+  "categories": [
+    "evidence",
+    "financial_safety"
+  ],
+  "covers": [
+    "contradictory_verification"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "open"
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ],
+      "status": "open"
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "REP-1042",
+          "statement"
+        ]
+      ],
+      "status": "open"
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [
+      "amount",
+      "cardholder_statement",
+      "quantity"
+    ],
+    "resolved_count": 0
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "live_verification_agent": {
+      "status": "succeeded",
+      "execution_mode": "replay"
+    },
+    "_verification": {
+      "attempts": 1,
+      "status": "contradicted"
+    }
+  },
+  "expected_policy": {
+    "status": "blocked"
+  },
+  "expected_workflow_state": {
+    "state": "callback_pending",
+    "step": "callfail"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "start_callback",
+      "hold_case"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "create_decision_packet",
+      "expect_code": "invalid_step"
+    },
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit",
+      "expect_code": "invalid_step"
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "callback.started",
+      "callback.recorded"
+    ],
+    "absent": [
+      "finding.resolved",
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "callback_pending",
+    "step": "callfail"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "post": "/api/demo/callback-outcome",
+      "body": {
+        "outcome": "contradicted"
+      }
+    },
+    {
+      "service": "recording_override",
+      "specialist": "live_verification_agent",
+      "turns": [
+        {
+          "content": {
+            "outcome": "contradicted",
+            "result": "failed",
+            "outcome_line_seq": 4,
+            "outcome_quote": "No, I did not place that order and I do not authorize it.",
+            "authorization_answer": "unauthorized",
+            "answers": []
+          }
+        }
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "payload": {
+        "consent_recorded": true
+      }
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

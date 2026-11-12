@@ -8,7 +8,7 @@ test('known-good journey: CHG-1042 investigation → evidence → run details �
   expect((await request.post('/api/demo/reset')).ok()).toBe(true);
   expect((await page.request.post('/api/session/role', { data: { role: 'analyst' } })).ok()).toBe(true);
   await page.goto('/cases');
-  await page.getByRole('link', { name: 'CHG-1042 · Bayline Industrial Supply' }).click();
+  await page.getByRole('link', { name: 'CHG-1042 · Northstar Equipment' }).click();
   await expect(page).toHaveURL(/\/cases\/CHG-1042/);
   await expect(page.getByTestId('case-state')).toHaveText('New report');
 

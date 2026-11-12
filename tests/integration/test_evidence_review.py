@@ -18,13 +18,13 @@ from vera_api.worker import run_once
 CASE = "CHG-1042"
 REC = Path("evals/recordings")
 RECEIPT = {
-    "file_name": "bayline-receipt.pdf",
+    "file_name": "northstar-receipt.pdf",
     "content_type": "application/pdf",
     "size_bytes": 48213,
     "sha256": "b" * 64,
 }
-SEND = {"channel": "email", "subject": "Question about your Bayline charge", "attachments": []}
-QUESTIONS = [{"id": "q1", "text": "Did you place the Bayline Industrial Supply order?"}]
+SEND = {"channel": "email", "subject": "Question about your Northstar charge", "attachments": []}
+QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
 
 
 @pytest.fixture
@@ -189,7 +189,9 @@ def test_conflicting_review_keeps_the_receipt_pending_unless_accepted(
     rcp = to_response(client, factory)
     ok(client, "review_cardholder_response", {"outcome": "conflicting", "note": "Contradicts"})
     recs = records(client)
-    assert (recs[rcp], recs["REP-1042"]) == ("pending_review", "supporting")
+    # The conflict finding cites REP-1042.statement, so the report reads as contested
+    # (conflicting) until the verification call resolves the conflict.
+    assert (recs[rcp], recs["REP-1042"]) == ("pending_review", "conflicting")
 
 
 def test_conflicting_review_with_the_receipt_accepted_makes_the_receipt_rule_pass(
@@ -332,8 +334,7 @@ def test_start_callback_offers_the_default_question_set_and_the_contact_on_file(
             {
                 "id": "q1",
                 "text": (
-                    "Did you place the order with Bayline Industrial Supply"
-                    " on the card ending 4418?"
+                    "Did you place the order with Northstar Equipment on the card ending 4418?"
                 ),
             },
             {"id": "q2", "text": "Did you authorize this charge of $2,840.00?"},
@@ -382,7 +383,7 @@ def test_real_path_reaches_an_eligible_policy_result(
 def test_an_authorized_answer_on_a_verified_case_is_ineligible(
     client: TestClient, factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    said = "Yes, this is Priya, and I placed and authorize the Bayline Industrial Supply order."
+    said = "Yes, this is Priya, and I placed and authorize the Northstar Equipment order."
     monkeypatch.setitem(
         callbacks._SCRIPTS, "confirmed", [("contact", "Hello, this is Priya."), ("contact", said)]
     )

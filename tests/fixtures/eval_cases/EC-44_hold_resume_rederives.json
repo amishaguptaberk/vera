@@ -1,0 +1,154 @@
+{
+  "id": "EC-44",
+  "title": "Hold mid-investigation blocks money actions; resume re-derives the exact step from stored facts",
+  "synthetic": true,
+  "categories": [
+    "product_projection",
+    "workflow"
+  ],
+  "covers": [],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "eligible",
+    "code": "CREDIT_ELIGIBLE"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "decide"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "record_decision"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "subsequence": [
+      "case.held",
+      "case.resumed"
+    ],
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "decide"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "as": "analyst",
+      "command": "hold_case",
+      "payload": {
+        "reason": "Waiting on the merchant's delivery manifest.",
+        "next_owner": "usr-sam-rivera"
+      }
+    },
+    {
+      "assert": {
+        "state": "held",
+        "step": "onhold"
+      }
+    },
+    {
+      "probe": [
+        {
+          "as": "analyst",
+          "command": "record_decision",
+          "expect_code": "invalid_step",
+          "payload": {
+            "decision": "credit",
+            "rationale": "While held."
+          }
+        }
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "resume_case"
+    }
+  ]
+}

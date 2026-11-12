@@ -11,13 +11,13 @@
         "scope": "The cardholder's card used for CHG-1042"
       },
       {
-        "citations": [{"field": "merchant", "record_id": "CHG-1051", "value": "Bayline Industrial Supply", "version": 1}],
+        "citations": [{"field": "merchant", "record_id": "CHG-1051", "value": "Northstar Equipment", "version": 1}],
         "control": "block",
         "effect": "Charges from this merchant on the card are declined.",
-        "reason": "A related charge CHG-1051 is from the same merchant, Bayline Industrial Supply; blocking the merchant prevents a repeat.",
+        "reason": "A related charge CHG-1051 is from the same merchant, Northstar Equipment; blocking the merchant prevents a repeat.",
         "required_permission": "card_admin",
         "reversible": true,
-        "scope": "Merchant Bayline Industrial Supply on the cardholder's card"
+        "scope": "Merchant Northstar Equipment on the cardholder's card"
       }
     ]
   },

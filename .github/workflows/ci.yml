@@ -43,8 +43,14 @@ jobs:
         run: uv run alembic upgrade head
       - name: Unit, integration, contract and replay evaluation tests
         run: uv run pytest -q
-      - name: Evaluation harness table
+      - name: Evaluation harness (scenarios, evaluation cases, sensitivity, report)
         run: uv run python -m evals.harness
+      - name: Upload the evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: artifacts/eval-report.*
 
   frontend:
     runs-on: ubuntu-latest

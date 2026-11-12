@@ -1,0 +1,31 @@
+{
+  "title": "One-time code sent and entered by the cardholder",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "send_verification_request",
+      "payload": {
+        "channel": "otp"
+      },
+      "capture": {
+        "vid": "result.verification_id"
+      }
+    },
+    {
+      "as": "cardholder",
+      "get": "/api/verifications/${vid}/outbox",
+      "capture": {
+        "code": "code"
+      }
+    },
+    {
+      "as": "cardholder",
+      "command": "submit_otp",
+      "route": "/api/verifications/${vid}/submit_otp",
+      "payload": {
+        "code": "${code}"
+      }
+    }
+  ]
+}

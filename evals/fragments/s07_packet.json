@@ -1,0 +1,35 @@
+{
+  "title": "Related charges ruled out, policy re-evaluated, decision packet prepared (replay)",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "review_related_charge",
+      "payload": {
+        "record_id": "CHG-1051",
+        "decision": "not_related",
+        "reason": "Separate Northstar order on its own PO; not part of this charge."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "review_related_charge",
+      "payload": {
+        "record_id": "CHG-1048",
+        "decision": "not_related",
+        "reason": "Cleared last month; unrelated amount."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "evaluate_policy"
+    },
+    {
+      "as": "analyst",
+      "command": "create_decision_packet"
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

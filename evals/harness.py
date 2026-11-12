@@ -8,10 +8,17 @@ provider key and no network (LIVE failure scenarios use an in-process stub trans
 are posted with the key the case view advertises on the action; the runner never builds
 idempotency keys itself.
 
-    uv run python -m evals.harness [--only NN]
+    uv run python -m evals.harness [--suite all|cases|scenarios] [--only ID]
+
+Two suites share this engine:
+- scenarios (evals/scenarios): focused regression scenarios, one invariant each;
+- cases (tests/fixtures/eval_cases, see evals/cases.py): the evaluation suite. Each case carries
+  a full contract (facts, evidence, policy, workflow state, allowed and forbidden commands, audit
+  events, final outcome) that deterministic evaluators check, plus global invariants. The run
+  writes artifacts/eval-report.json and artifacts/eval-report.md.
 
 The harness RESETS the database it points at (VERA_EVAL_DATABASE_URL, else
-VERA_TEST_DATABASE_URL, else the local vera_test database).
+VERA_TEST_DATABASE_URL, else the local vera_test database). All data is synthetic.
 """
 
 from __future__ import annotations
@@ -36,8 +43,15 @@ SCENARIOS = ROOT / "scenarios"
 FRAGMENTS = ROOT / "fragments"
 RECORDINGS = ROOT / "recordings"
 CASE = "CHG-1042"
+# The in-process worker's clock: far after the demo clock, so every queued job is due.
+WORKER_EPOCH = datetime(2031, 1, 1, tzinfo=UTC)
 SPECS = ("charge_investigator", "related_transaction_investigator", "receipt_document_reviewer")
 DEFAULT_DB = "postgresql+psycopg://vera:vera@127.0.0.1:54329/vera_test"
+
+
+# A TestClient response. Starlette's TestClient may ship its own httpx build, so the type is
+# not httpx.Response for mypy even though the interface is the same.
+HttpResponse = Any
 
 
 class ScenarioFailure(AssertionError):
@@ -88,39 +102,64 @@ class World:
         os.environ["VERA_DATABASE_URL"] = self.url
         os.environ["VERA_EXECUTION_MODE"] = "replay"
         os.environ.pop("NVIDIA_API_KEY", None)
-        command.upgrade(Config(str(ROOT.parent / "alembic.ini")), "head")
+        cfg = Config(str(ROOT.parent / "alembic.ini"))
+        # alembic.ini's script_location is relative: resolve it so any working directory works.
+        cfg.set_main_option("script_location", str(ROOT.parent / "infra" / "migrations"))
+        command.upgrade(cfg, "head")
         self.engine = create_engine(self.url)
         self.factory = sessionmaker(self.engine, expire_on_commit=False)
         app = create_app(Settings(database_url=self.url, env="synthetic"))
         self.client = TestClient(app)
         self.client.__enter__()
-        self._saved: dict[str, Any] = {}
+        self._saved: dict[tuple[str, str], Any] = {}
+        self._env: dict[str, str | None] = {}
         self._tmp: list[Path] = []
         self.snapshots: dict[str, Any] = {}
         self.vars: dict[str, Any] = {}
         self.baseline_event = 0
         self.version_pin = "v?"
+        # What a case did, in order: one entry per command, probe, route post and webhook.
+        self.trace: list[dict[str, Any]] = []
+        self.probes: list[dict[str, Any]] = []
 
     def close(self) -> None:
         self.restore()
         self.client.__exit__(None, None, None)
         self.engine.dispose()
 
-    # seams
-    def patch(self, name: str, value: Any) -> None:
-        from vera_api import investigation
+    # seams (test-only module attributes; product code never switches them)
+    def patch(self, name: str, value: Any, module: str = "investigation") -> None:
+        import importlib
 
-        self._saved.setdefault(name, getattr(investigation, name))
-        setattr(investigation, name, value)
+        mod = importlib.import_module(f"vera_api.{module}")
+        self._saved.setdefault((module, name), getattr(mod, name))
+        setattr(mod, name, value)
+
+    def setenv(self, name: str, value: str) -> None:
+        self._env.setdefault(name, os.environ.get(name))
+        os.environ[name] = value
 
     def restore(self) -> None:
-        from vera_api import investigation
+        import importlib
 
-        for name, value in self._saved.items():
-            setattr(investigation, name, value)
+        for (module, name), value in self._saved.items():
+            setattr(importlib.import_module(f"vera_api.{module}"), name, value)
         self._saved.clear()
+        for name, old in self._env.items():
+            if old is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = old
+        if self._env:
+            from vera_api import voice
+
+            voice.reset_provider()
+        self._env.clear()
         os.environ["VERA_EXECUTION_MODE"] = "replay"
         os.environ.pop("NVIDIA_API_KEY", None)
+        from vera_api import callbacks
+
+        callbacks.TELEPHONY.next_outcome = "confirmed"
         for p in self._tmp:
             shutil.rmtree(p, ignore_errors=True)
         self._tmp.clear()
@@ -142,6 +181,8 @@ class World:
         self.baseline_event = int(self.q("select coalesce(max(id),0) from audit_events")[0][0])
         self.snapshots.clear()
         self.vars.clear()
+        self.trace = []
+        self.probes = []
 
     def q(self, sql: str, **params: Any) -> list[Any]:
         from sqlalchemy import text
@@ -149,17 +190,27 @@ class World:
         with self.factory() as s:
             return list(s.execute(text(sql), params).all())
 
-    def drain(self) -> int:
+    def drain(self, start_minutes: int = 0, worker_id: str = "w-eval") -> int:
         from vera_api.worker import run_once
 
-        t = datetime(2031, 1, 1, tzinfo=UTC)
+        t = WORKER_EPOCH + timedelta(minutes=start_minutes)
         n = 0
         with self.factory() as s:
-            while run_once(s, worker_id="w-eval", now=t + timedelta(minutes=n)) is not None:
+            while run_once(s, worker_id=worker_id, now=t + timedelta(minutes=n)) is not None:
                 n += 1
                 if n > 20:
                     raise ScenarioFailure("worker did not go idle after 20 jobs")
         return n
+
+    def stall_job(self) -> int:
+        """A worker claims the next job and dies without finishing it (lock left behind)."""
+        from vera_api.worker import claim_next
+
+        with self.factory() as s:
+            job = claim_next(s, "w-dead", WORKER_EPOCH)
+            if job is None:
+                raise ScenarioFailure("stall_job: no runnable job to claim")
+            return int(job.id)
 
     def view(self, case_id: str = CASE) -> dict[str, Any]:
         r = self.client.get(f"/api/cases/{case_id}")
@@ -252,6 +303,80 @@ def _variant_root(world: World, variant: str) -> Path:
     return root
 
 
+def _override_root(world: World, specialist: str, turns: list[dict[str, Any]]) -> Path:
+    """A copy of the reference recordings with one specialist's CHG-1042 turns replaced.
+
+    Used where a case needs the model to say something the single reference recording does not
+    (e.g. the call agent reporting a voicemail). The step still runs in REPLAY through the same
+    loop and validators; the turn is labelled provenance "eval-scripted" so it is never mistaken
+    for a reference recording."""
+    tmp = Path(tempfile.mkdtemp(prefix="vera-eval-"))
+    world._tmp.append(tmp)
+    root = tmp / "rec"
+    shutil.copytree(RECORDINGS, root)
+    folder = root / specialist / "v1"
+    for old in folder.glob(f"{CASE}*.json"):
+        old.unlink()
+    for i, turn in enumerate(turns):
+        name = f"{CASE}.json" if i == 0 else f"{CASE}.{i}.json"
+        doc = {
+            "content": turn.get("content", {}),
+            "tool_calls": turn.get("tool_calls", []),
+            "model_id": "eval-scripted",
+            "provenance": "eval-scripted",
+            "usage": {},
+        }
+        (folder / name).write_text(json.dumps(doc))
+    return root
+
+
+# ---- ElevenLabs voice provider over a mock transport (signed webhooks, no network) ----------
+
+VOICE_SECRET = "whsec-eval-not-real"
+
+
+def _elevenlabs(w: World) -> None:
+    from vera_api import voice
+
+    placed: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        placed.append(1)  # each placed call gets its own conversation: conv_eval_1, conv_eval_2
+        n = len(placed)
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "message": "ok",
+                "conversation_id": f"conv_eval_{n}",
+                "callSid": f"CA-eval-{n}",
+            },
+        )
+
+    for name, value in {
+        "VERA_VOICE_PROVIDER": "elevenlabs",
+        "ELEVENLABS_API_KEY": "xi-eval-key-not-real",
+        "ELEVENLABS_AGENT_ID": "agent_eval",
+        "ELEVENLABS_AGENT_PHONE_NUMBER_ID": "phnum_eval",
+        "ELEVENLABS_WEBHOOK_SECRET": VOICE_SECRET,
+    }.items():
+        w.setenv(name, value)
+    w.patch("LIVE_TRANSPORT", httpx.MockTransport(handle), module="voice")
+    voice.reset_provider()
+
+
+def _post_webhook(w: World, doc: dict[str, Any], secret: str | None) -> HttpResponse:
+    import time
+
+    from vera_api import voice
+
+    body = json.dumps(doc).encode()
+    sig = voice.sign(secret or VOICE_SECRET, body, int(time.time()))
+    return w.client.post(
+        "/api/webhooks/voice/elevenlabs", content=body, headers={"ElevenLabs-Signature": sig}
+    )
+
+
 # ---- steps ------------------------------------------------------------------------------------
 
 
@@ -301,7 +426,7 @@ def _find_action(view: dict[str, Any], command: str) -> dict[str, Any] | None:
     return None
 
 
-def _check_http(step: dict[str, Any], resp: httpx.Response, ctx: str) -> None:
+def _check_http(step: dict[str, Any], resp: HttpResponse, ctx: str) -> None:
     exp = step.get("expect", {})
     want = exp.get("http", 200)
     if resp.status_code != want:
@@ -320,28 +445,148 @@ def _check_http(step: dict[str, Any], resp: httpx.Response, ctx: str) -> None:
 
 
 def do_command(w: World, step: dict[str, Any], ctx: str) -> None:
+    """Post a command with the key and payload_defaults the case view advertises.
+
+    Options: "payload" (merged over payload_defaults), "times" (repeat the identical request),
+    "expect"/"expect_each", "capture" ({var: dotted path in the response}), "raw_key",
+    "version_offset", and "route" for commands served on their own path (e.g. submit_otp at
+    /api/verifications/${vid}/submit_otp), whose fields sit at the top level of the body."""
     w.switch(step["as"])
     case_id = step.get("case", CASE)
     view = w.view(case_id)
     command = step["command"]
     action = _find_action(view, command)
-    if action is None and step.get("raw_key") is None:
-        # not offered to this role/state: probe the gateway anyway so rejection is asserted
+    offered = action is not None
+    if action is None:
+        # not offered to this role/state: post anyway (with "raw_key" when the case replays a
+        # key it captured) so the gateway's answer is what gets asserted
         action = {"idempotency_key": "eval-probe:" + command, "payload_defaults": {}}
-    assert action is not None
-    key = step.get("raw_key") or action["idempotency_key"]
+    key = _subst(w, step.get("raw_key")) or action["idempotency_key"]
     expected = view["case_version"] + int(step.get("version_offset", 0))
-    body = {
-        "idempotency_key": key,
-        "expected_case_version": expected,
-        "payload": {**action.get("payload_defaults", {}), **_subst(w, step.get("payload", {}))},
-    }
+    payload = {**action.get("payload_defaults", {}), **_subst(w, step.get("payload", {}))}
+    if "route" in step:
+        path = _subst(w, step["route"])
+        body = {"idempotency_key": key, "expected_case_version": expected, **payload}
+        body.pop("verification_id", None)  # carried by the path
+    else:
+        path = f"/api/cases/{case_id}/commands/{command}"
+        body = {"idempotency_key": key, "expected_case_version": expected, "payload": payload}
     for i in range(int(step.get("times", 1))):
-        resp = w.client.post(f"/api/cases/{case_id}/commands/{command}", json=body)
+        resp = w.client.post(path, json=body)
+        w.trace.append(_trace_entry(step["as"], command, resp, offered=offered))
         exp = step.get("expect_each", [step.get("expect", {})])[
             min(i, len(step.get("expect_each", [0])) - 1)
         ]
         _check_http({"expect": exp}, resp, f"{ctx} attempt {i + 1}")
+        if "capture" in step and resp.status_code == 200:
+            for name, where in step["capture"].items():
+                w.vars[name] = key if where == "$key" else _path(resp.json(), where)
+
+
+def _trace_entry(
+    role: str, command: str, resp: HttpResponse, *, offered: bool | None = None
+) -> dict[str, Any]:
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {}
+    entry: dict[str, Any] = {"as": role, "command": command, "http": resp.status_code}
+    if isinstance(body, dict):
+        if body.get("code"):
+            entry["code"] = body["code"]
+        if body.get("status") in ("recorded", "replayed"):
+            entry["result"] = body["status"]
+    if offered is not None:
+        entry["offered"] = offered
+    return entry
+
+
+def do_probe(w: World, probe: dict[str, Any], ctx: str, where: str = "step") -> dict[str, Any]:
+    """Try a command that must NOT run here. It must not be offered as enabled to that role,
+    the gateway must refuse it, and nothing may be written (row counts and case version are
+    compared before and after). A refusal that only comes from the key check or the payload
+    schema does not count: the probe must be stopped by a real gate unless the case says so."""
+    role, command = probe["as"], probe["command"]
+    case_id = probe.get("case", CASE)
+    w.switch(role)
+    view = w.view(case_id)
+    action = _find_action(view, command)
+    before = w.counts()
+    key = action["idempotency_key"] if action else "eval-probe:" + command
+    payload = {**(action or {}).get("payload_defaults", {}), **_subst(w, probe.get("payload", {}))}
+    if "route" in probe:
+        path = _subst(w, probe["route"])
+        body: dict[str, Any] = {
+            "idempotency_key": key,
+            "expected_case_version": view["case_version"],
+            **payload,
+        }
+        body.pop("verification_id", None)
+    else:
+        path = f"/api/cases/{case_id}/commands/{command}"
+        body = {
+            "idempotency_key": key,
+            "expected_case_version": view["case_version"],
+            "payload": payload,
+        }
+    resp = w.client.post(path, json=body)
+    after = w.counts()
+    try:
+        code = resp.json().get("code")
+    except ValueError:
+        code = None
+    weak = {"idempotency_key_mismatch", "schema_invalid"} - set(probe.get("allow_codes", []))
+    want = probe.get("expect_code")
+    problems = []
+    if action is not None and not probe.get("may_be_offered"):
+        # "may_be_offered": the action is legitimately on screen for other payloads (e.g.
+        # record_decision for clear/unresolved) and only this payload must be refused
+        problems.append("offered as an enabled action")
+    if resp.status_code < 400:
+        problems.append(f"accepted (HTTP {resp.status_code})")
+    if after != before:
+        problems.append("wrote rows")
+    if want is not None and code != want:
+        problems.append(f"refused with {code!r}, expected {want!r}")
+    elif want is None and code in weak:
+        problems.append(f"only stopped by {code!r}, not by a gate")
+    result = {
+        "as": role,
+        "command": command,
+        "where": where,
+        "http": resp.status_code,
+        "code": code,
+        "expect_code": want,
+        "gate": probe.get("gate") or GATE_OF_CODE.get(code or "", "other"),
+        "passed": not problems,
+        "problems": problems,
+    }
+    w.probes.append(result)
+    w.trace.append(
+        {"as": role, "command": command, "http": resp.status_code, "code": code, "probe": True}
+    )
+    if problems and where == "step" and not probe.get("soft"):
+        raise ScenarioFailure(f"{ctx}: forbidden {command} as {role}: {'; '.join(problems)}")
+    return result
+
+
+# Which gate a refusal code belongs to (report grouping; the gateway decides, not this table).
+GATE_OF_CODE = {
+    "role_forbidden": "permission",
+    "policy_blocked": "policy",
+    "approval_required": "approval",
+    "approval_stale": "stale_approval",
+    "invalid_step": "state",
+    "case_closed": "state",
+    "stale_case_version": "concurrency",
+    "idempotency_key_conflict": "idempotency",
+    "attachment_type_rejected": "validation",
+    "schema_invalid": "validation",
+    # record guards: the feature's own records refuse the command (gateway stage 8b)
+    "related_charge_reviewed": "record_guard",
+    "verification_not_active": "record_guard",
+    "closure_incomplete": "record_guard",
+}
 
 
 def do_service(w: World, step: dict[str, Any], ctx: str) -> None:
@@ -349,7 +594,31 @@ def do_service(w: World, step: dict[str, Any], ctx: str) -> None:
 
     name = step["service"]
     if name == "drain_worker":
-        w.drain()
+        ran = w.drain(int(step.get("start_minutes", 0)))
+        if "expect_jobs" in step and ran != step["expect_jobs"]:
+            raise ScenarioFailure(f"{ctx}: worker ran {ran} job(s), expected {step['expect_jobs']}")
+    elif name == "stall_job":
+        w.vars["stalled_job"] = w.stall_job()
+    elif name == "recording_override":
+        w.patch("RECORDINGS_ROOT", _override_root(w, step["specialist"], step["turns"]))
+    elif name == "voice_provider":
+        _elevenlabs(w)
+    elif name == "webhook":
+        resp = _post_webhook(w, _subst(w, step["doc"]), step.get("secret"))
+        w.trace.append(
+            {
+                "as": "provider",
+                "command": f"webhook:{step['doc']['type']}",
+                "http": resp.status_code,
+                "result": resp.json().get("result"),
+            }
+        )
+        _check_http(step, resp, ctx)
+        if "expect_result" in step and resp.json().get("result") != step["expect_result"]:
+            raise ScenarioFailure(
+                f"{ctx}: webhook result {resp.json().get('result')!r}, "
+                f"expected {step['expect_result']!r}"
+            )
     elif name == "reset":
         w.reset()
     elif name == "demo":
@@ -416,6 +685,29 @@ def do_service(w: World, step: dict[str, Any], ctx: str) -> None:
                     raise ScenarioFailure(
                         f"{ctx}: expected rejection {step['expect_error']}, finding was recorded"
                     )
+    elif name == "sql_must_fail":  # a direct write the database itself must refuse
+        # Non-vacuous: the rows the write targets must exist, or "refused" proves nothing.
+        if "rows_exist" in step and not w.q(step["rows_exist"])[0][0]:
+            raise ScenarioFailure(f"{ctx}: precondition found no rows: {step['rows_exist']}")
+        with w.engine.connect() as conn:
+            tx = conn.begin()
+            try:
+                conn.execute(text(step["query"]))
+            except Exception as exc:  # refused: the expected outcome
+                refused = str(exc).splitlines()[0][:160]
+                w.trace.append(
+                    {
+                        "as": "database",
+                        "command": "sql",
+                        "http": 0,
+                        "code": "refused",
+                        "detail": refused,
+                    }
+                )
+            else:
+                raise ScenarioFailure(f"{ctx}: the database accepted {step['query']!r}")
+            finally:
+                tx.rollback()
     elif name == "sql":  # test-data setup only (e.g. force a closed case); never an assertion
         with w.factory() as s:
             s.execute(text(step["query"]))
@@ -462,6 +754,8 @@ def do_post(w: World, step: dict[str, Any], ctx: str) -> None:
     if "as" in step:
         w.switch(step["as"])
     resp = w.client.post(_subst(w, step["post"]), json=_subst(w, step.get("body", {})))
+    route = step["post"].split("${")[0].rstrip("/")
+    w.trace.append(_trace_entry(step.get("as", "-"), f"POST {route}", resp))
     _check_http(step, resp, ctx)
     _check_body(w, step, resp, ctx)
 
@@ -678,6 +972,9 @@ def play(w: World, name: str, steps: list[dict[str, Any]], case: str = CASE) -> 
                 do_get(w, step, ctx)
             elif "post" in step:
                 do_post(w, step, ctx)
+            elif "probe" in step:
+                for probe in step["probe"] if isinstance(step["probe"], list) else [step["probe"]]:
+                    do_probe(w, probe, ctx)
             if "assert" in step:
                 check(w, step["assert"], ctx)
         except ScenarioFailure:
@@ -687,6 +984,9 @@ def play(w: World, name: str, steps: list[dict[str, Any]], case: str = CASE) -> 
 
 
 def _label(step: dict[str, Any]) -> str:
+    if "probe" in step:
+        probes = step["probe"] if isinstance(step["probe"], list) else [step["probe"]]
+        return "probe " + ",".join(p["command"] for p in probes)
     return str(step.get("command") or step.get("service") or step.get("get") or step.get("post"))
 
 
@@ -708,17 +1008,78 @@ def run_all(only: str | None = None) -> list[Result]:
 
 
 def main(argv: list[str] | None = None, out: Callable[[str], Any] = print) -> int:
+    from evals import cases as case_suite
+
     ap = argparse.ArgumentParser(prog="python -m evals.harness")
-    ap.add_argument("--only", help="scenario number or name prefix, e.g. 05")
+    ap.add_argument("--suite", choices=("all", "cases", "scenarios"), default="all")
+    ap.add_argument("--only", help="scenario number/prefix (e.g. 05) or case id (e.g. EC-07)")
+    ap.add_argument("--report-dir", default=str(ROOT.parent / "artifacts"))
+    ap.add_argument("--no-report", action="store_true", help="do not write the report files")
+    ap.add_argument(
+        "--judge",
+        action="store_true",
+        help="also run the optional LLM judge (needs NVIDIA_API_KEY; qualitative)",
+    )
     args = ap.parse_args(argv)
-    results = run_all(args.only)
-    width = max((len(r.scenario) for r in results), default=10)
-    out(f"{'SCENARIO'.ljust(width)}  RESULT   DETAIL")
-    for r in results:
-        out(f"{r.scenario.ljust(width)}  {r.status.ljust(7)}  {r.detail or r.title}")
-    n = {s: sum(1 for r in results if r.status == s) for s in ("PASS", "FAIL", "SKIPPED")}
-    out(f"\n{n['PASS']} passed, {n['FAIL']} failed, {n['SKIPPED']} skipped (pending)")
-    return 1 if n["FAIL"] or not results else 0
+    scen: list[Result] = []
+    found: list[case_suite.CaseResult] = []
+    write_report = args.suite == "all" and not args.only and not args.no_report
+    sens: dict[str, Any] | None = None
+    perms: dict[str, Any] | None = None
+    with world() as w:
+        if args.suite in ("all", "scenarios"):
+            for path, sc in load_scenarios(args.only):
+                scen.append(run_scenario(w, path, sc))
+        if args.suite in ("all", "cases"):
+            for path, case in case_suite.load_cases(args.only):
+                found.append(case_suite.run_case(w, path, case))
+        if write_report:
+            from evals import permissions, sensitivity
+
+            sens = sensitivity.run(w)
+            perms = permissions.run(w)
+    if scen:
+        width = max(len(r.scenario) for r in scen)
+        out(f"{'SCENARIO'.ljust(width)}  RESULT   DETAIL")
+        for r in scen:
+            out(f"{r.scenario.ljust(width)}  {r.status.ljust(7)}  {r.detail or r.title}")
+        n = {s: sum(1 for r in scen if r.status == s) for s in ("PASS", "FAIL", "SKIPPED")}
+        out(f"\n{n['PASS']} passed, {n['FAIL']} failed, {n['SKIPPED']} skipped (pending)\n")
+    if found:
+        out(f"{'CASE'.ljust(6)}  RESULT  CHECKS  TITLE / FIRST FAILURE")
+        for c in found:
+            out(
+                f"{c.case_id.ljust(6)}  {c.status.ljust(6)}  {len(c.checks):>6}  "
+                f"{c.first_failure or c.title}"
+            )
+        ok = sum(c.status == "PASS" for c in found)
+        out(f"\n{ok} of {len(found)} evaluation cases passed")
+    if write_report:
+        from evals import baseline, judge, report
+
+        rep = report.build(
+            found, scen, baseline.run(), judge.run() if args.judge else None, sens, perms
+        )
+        j, m = report.write(rep, Path(args.report_dir))
+        c = rep["counters"]
+        out(f"report: {j} and {m}")
+        out("counters: " + ", ".join(f"{k}={v}" for k, v in c.items()))
+        if sens is not None:
+            out(f"sensitivity: {sens['detected']} of {sens['total']} injected defects detected")
+        if perms is not None:
+            out(
+                f"permission matrix: {perms['refused']} of {perms['pairs']} (command, role) pairs "
+                f"refused across {perms['commands']} commands"
+            )
+        if rep["summary"]["required_behaviours_uncovered"]:
+            out(f"uncovered: {rep['summary']['required_behaviours_uncovered']}")
+            return 1
+        if sens is not None and sens["detected"] != sens["total"]:
+            return 1
+        if perms is not None and perms["failures"]:
+            return 1
+    failed = any(r.status == "FAIL" for r in scen) or any(c.status == "FAIL" for c in found)
+    return 1 if failed or not (scen or found) else 0
 
 
 if __name__ == "__main__":

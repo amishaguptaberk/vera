@@ -1,6 +1,6 @@
 {
   "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_decisions.py)",
+  "requires": "not yet an evaluation case; covered by tests/integration/test_callbacks.py::test_phone_number_in_a_note_is_a_claim_and_never_the_call_target",
   "fixture": 30,
   "title": "Phone number in chat",
   "description": "Fixture 30: Phone number in chat. recorded as claim, callback target unchanged, no event"

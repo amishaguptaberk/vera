@@ -18,7 +18,7 @@ from vera_domain.errors import CommandError
 from vera_domain.labels import BLOCKER_BY_STEP, describe
 
 CASE = "CHG-1042"
-QUESTIONS = [{"id": "q1", "text": "Did you place the Bayline Industrial Supply order?"}]
+QUESTIONS = [{"id": "q1", "text": "Did you place the Northstar Equipment order?"}]
 
 
 def version(client: TestClient) -> int:
@@ -101,7 +101,7 @@ def answer(outcome: str, seq: int, quote: str, **kw: Any) -> dict[str, Any]:
 
 # The cardholder is reached on the contact on file and says she did not authorize the charge.
 YES = (
-    "No. I did not place the Bayline Industrial Supply order; a colleague used my card"
+    "No. I did not place the Northstar Equipment order; a colleague used my card"
     " without my approval, so I did not authorize this charge."
 )
 CONFIRMED = answer(

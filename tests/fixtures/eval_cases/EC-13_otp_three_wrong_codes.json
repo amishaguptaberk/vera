@@ -1,0 +1,208 @@
+{
+  "id": "EC-13",
+  "title": "Three wrong one-time codes lock the request; a fourth attempt is refused, nothing is verified, and staff never see the code",
+  "synthetic": true,
+  "categories": [
+    "financial_safety",
+    "reliability"
+  ],
+  "covers": [
+    "verification_declined"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "REP-1042",
+          "statement"
+        ]
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [
+      "amount",
+      "cardholder_statement",
+      "quantity"
+    ]
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "blocked",
+    "rules_failed_include": [
+      "cardholder_authenticated"
+    ]
+  },
+  "expected_workflow_state": {
+    "state": "callback_pending",
+    "step": "idv"
+  },
+  "allowed_next_commands": {},
+  "forbidden_commands": [
+    {
+      "as": "cardholder",
+      "command": "submit_otp",
+      "payload": {
+        "code": "000000"
+      },
+      "route": "/api/verifications/${vid}/submit_otp",
+      "allow_codes": [
+        "schema_invalid"
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "expect_code": "invalid_step",
+      "payload": {
+        "consent_recorded": true,
+        "questions": [
+          {
+            "id": "q1",
+            "text": "Did you place the order with Northstar Equipment?"
+          }
+        ]
+      }
+    }
+  ],
+  "expected_audit_events": {
+    "counts": {
+      "verification.code_submitted": 3
+    },
+    "absent": [
+      "verification.verified",
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "callback_pending",
+    "step": "idv"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "as": "analyst",
+      "command": "send_verification_request",
+      "payload": {
+        "channel": "otp"
+      },
+      "capture": {
+        "vid": "result.verification_id"
+      }
+    },
+    {
+      "as": "cardholder",
+      "command": "submit_otp",
+      "route": "/api/verifications/${vid}/submit_otp",
+      "payload": {
+        "code": "000000"
+      }
+    },
+    {
+      "as": "cardholder",
+      "command": "submit_otp",
+      "route": "/api/verifications/${vid}/submit_otp",
+      "payload": {
+        "code": "000000"
+      }
+    },
+    {
+      "as": "cardholder",
+      "command": "submit_otp",
+      "route": "/api/verifications/${vid}/submit_otp",
+      "payload": {
+        "code": "000000"
+      }
+    },
+    {
+      "get": "/api/cases/CHG-1042/verifications",
+      "as": "analyst",
+      "json": {
+        "0.status": "failed",
+        "0.attempts_left": 0
+      },
+      "json_excludes": {
+        ".": [
+          "\"code\""
+        ]
+      }
+    },
+    {
+      "get": "/api/verifications/${vid}/outbox",
+      "as": "analyst",
+      "expect": {
+        "http": 403
+      }
+    }
+  ]
+}

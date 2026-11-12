@@ -788,7 +788,7 @@ _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
         "charge",
         "supporting",
         {
-            "merchant": "Bayline Industrial Supply",
+            "merchant": "Northstar Equipment",
             "amount_cents": 284000,
             "currency": "USD",
             "card_last4": "4418",
@@ -802,7 +802,7 @@ _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
         {
             "approved_quantity": 1,
             "approved_amount_cents": 240000,
-            "merchant": "Bayline Industrial Supply",
+            "merchant": "Northstar Equipment",
         },
     ),
     ("DLV-882", "delivery_record", "supporting", {"received_quantity": 2}),
@@ -822,7 +822,7 @@ _SEED_RECORDS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
         "CHG-1051",
         "related_charge",
         "pending_review",
-        {"merchant": "Bayline Industrial Supply", "amount_cents": 120000},
+        {"merchant": "Northstar Equipment", "amount_cents": 120000},
     ),
     ("CHG-1048", "related_charge", "pending_review", {"amount_cents": 62000}),
 )

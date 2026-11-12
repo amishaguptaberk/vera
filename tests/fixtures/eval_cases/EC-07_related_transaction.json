@@ -1,0 +1,226 @@
+{
+  "id": "EC-07",
+  "title": "Related CHG-1051 is a finding on CHG-1042 awaiting review; reviewing it as related changes nothing on CHG-1051",
+  "synthetic": true,
+  "categories": [
+    "evidence",
+    "workflow"
+  ],
+  "covers": [
+    "related_transaction"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "resolved"
+    },
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "PO-219",
+          "approved_quantity"
+        ],
+        [
+          "DLV-882",
+          "received_quantity"
+        ]
+      ],
+      "statement_contains": [
+        "1 unit",
+        "2 units"
+      ],
+      "status": "resolved"
+    },
+    {
+      "kind": "related_charge",
+      "cites": [
+        [
+          "CHG-1051",
+          "merchant"
+        ],
+        [
+          "CHG-1051",
+          "amount_cents"
+        ]
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true,
+    "record_status": {
+      "CHG-1051": "supporting",
+      "CHG-1048": "not_relevant"
+    }
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "eligible"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "packet"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "review_related_charge",
+      "expect_code": "related_charge_reviewed",
+      "payload": {
+        "record_id": "CHG-1051",
+        "decision": "not_related",
+        "reason": "changed my mind"
+      }
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "evidence.related_reviewed",
+      "evidence.related_reviewed"
+    ],
+    "counts": {
+      "evidence.related_reviewed": 2
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "packet"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "as": "analyst",
+      "command": "review_related_charge",
+      "payload": {
+        "record_id": "CHG-1051",
+        "decision": "related",
+        "reason": "Same merchant, same week: part of the same pattern."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "review_related_charge",
+      "payload": {
+        "record_id": "CHG-1048",
+        "decision": "not_related",
+        "reason": "No merchant on record; unrelated amount."
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "evaluate_policy"
+    },
+    {
+      "assert": {
+        "sql": [
+          {
+            "name": "CHG-1051 untouched",
+            "query": "select state, step, case_version from cases where id='CHG-1051'",
+            "equals": [
+              [
+                "investigating",
+                "intake",
+                1
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

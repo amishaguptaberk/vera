@@ -1,0 +1,269 @@
+{
+  "id": "EC-20",
+  "title": "A failure event arriving after the transcript, and an event for an unknown call, never rewind or corrupt the case",
+  "synthetic": true,
+  "categories": [
+    "reliability",
+    "product_projection"
+  ],
+  "covers": [
+    "out_of_order_events"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "resolved"
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": []
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "_verification": {
+      "attempts": 1,
+      "status": "confirmed"
+    }
+  },
+  "expected_policy": {
+    "status": "needs_evidence"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "packet"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "counts": {
+      "callback.recorded": 1
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "packet"
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "service": "voice_provider"
+    },
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "payload": {
+        "consent_recorded": true
+      }
+    },
+    {
+      "service": "webhook",
+      "doc": {
+        "type": "post_call_transcription",
+        "event_timestamp": 1,
+        "data": {
+          "conversation_id": "conv_eval_1",
+          "status": "done",
+          "transcript": [
+            {
+              "role": "agent",
+              "message": "Hello, this is a verification call from the card issuer."
+            },
+            {
+              "role": "agent",
+              "message": "Did you place the order with Northstar Equipment on the card ending 4418?"
+            },
+            {
+              "role": "user",
+              "message": "Hello, this is Priya."
+            },
+            {
+              "role": "user",
+              "message": "No. I did not place the Northstar Equipment order; a colleague used my card without my approval, so I did not authorize this charge."
+            }
+          ],
+          "analysis": {
+            "data_collection_results": {
+              "q1": {
+                "data_collection_id": "q1",
+                "value": "I did not place the Northstar Equipment order"
+              }
+            },
+            "call_successful": "success",
+            "transcript_summary": "Cardholder confirmed."
+          },
+          "metadata": {
+            "start_time_unix_secs": 1,
+            "call_duration_secs": 40
+          }
+        }
+      },
+      "expect_result": "applied"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "service": "snapshot",
+      "name": "recorded"
+    },
+    {
+      "service": "webhook",
+      "doc": {
+        "type": "call_initiation_failure",
+        "data": {
+          "conversation_id": "conv_eval_1",
+          "failure_reason": "busy",
+          "metadata": {
+            "type": "twilio",
+            "body": {
+              "CallSid": "CA-eval-1"
+            }
+          }
+        }
+      },
+      "expect_result": "stale"
+    },
+    {
+      "service": "webhook",
+      "doc": {
+        "type": "post_call_transcription",
+        "event_timestamp": 1,
+        "data": {
+          "conversation_id": "conv_unknown",
+          "status": "done",
+          "transcript": [
+            {
+              "role": "agent",
+              "message": "Hello, this is a verification call from the card issuer."
+            },
+            {
+              "role": "agent",
+              "message": "Did you place the order with Northstar Equipment on the card ending 4418?"
+            },
+            {
+              "role": "user",
+              "message": "Hello, this is Priya."
+            },
+            {
+              "role": "user",
+              "message": "No. I did not place the Northstar Equipment order; a colleague used my card without my approval, so I did not authorize this charge."
+            }
+          ],
+          "analysis": {
+            "data_collection_results": {
+              "q1": {
+                "data_collection_id": "q1",
+                "value": "I did not place the Northstar Equipment order"
+              }
+            },
+            "call_successful": "success",
+            "transcript_summary": "Cardholder confirmed."
+          },
+          "metadata": {
+            "start_time_unix_secs": 1,
+            "call_duration_secs": 40
+          }
+        }
+      },
+      "expect_result": "orphan"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "unchanged_since": "recorded"
+      }
+    }
+  ]
+}

@@ -88,7 +88,7 @@ infra/demo.sh reset        # fresh seed between takes
 infra/demo.sh down
 ```
 
-The demo case is **CHG-1042 · Bayline Industrial Supply · $2,840.00**. Switch roles with **Viewing as …** in the top bar:
+The demo case is **CHG-1042 · Northstar Equipment · $2,840.00** (synthetic): Priya Shah does not recognize a charge on the card ending 4418; PO-219 approved one pump for $2,400.00, DLV-882 records two units received, and there is no receipt, a $440.00 discrepancy. Switch roles with **Viewing as …** in the top bar:
 
 | Role | Person |
 |---|---|
@@ -112,6 +112,17 @@ NVIDIA_API_KEY=$NVIDIA_API_KEY infra/demo.sh live
 
 The verification call uses an ElevenLabs voice agent over Twilio or SIP. In the synthetic environment a simulated provider drives the same webhook path. For real calls set `VERA_VOICE_PROVIDER=elevenlabs`, `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `ELEVENLABS_AGENT_PHONE_NUMBER_ID`, `ELEVENLABS_WEBHOOK_SECRET` (and `ELEVENLABS_TELEPHONY=sip` for SIP trunks; Twilio is the default), configure one data-collection item per approved question on the agent, and point its post-call webhook at `<public API origin>/api/webhooks/voice/elevenlabs`.
 
+## Evaluation
+
+`uv run python -m evals.harness` replays 47 synthetic evaluation cases against the real gateway, worker and database in replay mode, then writes [`artifacts/eval-report.md`](artifacts/eval-report.md). Each case declares its evidence, specialist outputs, policy result, workflow state, allowed and forbidden commands, audit events and final outcome, and deterministic evaluators check every one. Global invariants run after every case:
+- the stored state equals what `derive_step` derives;
+- the audit trail is append-only;
+- no specialist moves money;
+- credit only behind a reviewer approval bound to the current evidence;
+- every effect happens exactly once.
+
+The run also removes safeguards one at a time and confirms that the suite catches each. See [docs/evaluation.md](docs/evaluation.md) for the method and findings, and [docs/evaluation-cases.md](docs/evaluation-cases.md) for the cases.
+
 ## Configuration
 
 See `.env.example`. Settings are read from the environment; export them before running.
@@ -123,7 +134,7 @@ uv sync
 uv run ruff check . && uv run mypy packages services
 uv run alembic upgrade head
 uv run pytest -q
-uv run python -m evals.harness        # scenario suite in replay mode
+uv run python -m evals.harness        # regression scenarios + 47 evaluation cases; writes artifacts/eval-report.{json,md}
 
 cd apps/web && npm ci
 npm run typecheck && npm run lint && npm test && npm run build
@@ -137,6 +148,8 @@ npm run typecheck && npm run lint && npm test && npm run build
 | `services/api` | FastAPI app, command gateway, features, worker, model client |
 | `infra` | Migrations, local Postgres, demo script, containers |
 | `apps/web` | Next.js app; `apps/web/prototype` is the original design prototype |
-| `evals` | Scenario harness and reference recordings |
-| `tests` | Unit, integration, contract and scenario tests |
+| `evals` | Evaluation harness, evaluators, report, shared journeys and reference recordings |
+| `tests` | Unit, integration, contract and evaluation tests; `tests/fixtures/eval_cases` holds the evaluation cases |
+| `docs` | Evaluation method and case catalogue |
+| `artifacts` | Latest evaluation report (generated) |
 | `media` | Launch video |

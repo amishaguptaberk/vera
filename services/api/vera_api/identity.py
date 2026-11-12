@@ -384,6 +384,14 @@ def _after_answer(
             detail,
         )
     session.flush()
+    if status == "verified":
+        # A verified cardholder is a policy input (cardholder_authenticated) that is not part
+        # of the evidence snapshot: re-evaluate so the stored result, which the policy gate
+        # reads, is never older than the facts it was computed from.
+        from vera_api import policy as policy_service
+
+        if policy_service.has_evaluation(session, case.id):
+            policy_service.reevaluate_on_evidence_change(session, case.id, now)
 
 
 gateway.register_commands(

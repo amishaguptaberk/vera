@@ -1,0 +1,35 @@
+{
+  "title": "Follow-up drafted by the specialist, then approved and sent by the analyst",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "draft_follow_up"
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "as": "analyst",
+      "get": "/api/cases/CHG-1042/communications",
+      "capture": {
+        "msg": "0.id"
+      }
+    },
+    {
+      "as": "analyst",
+      "get": "/api/cases/CHG-1042/communications/${msg}",
+      "capture": {
+        "subject": "subject"
+      }
+    },
+    {
+      "as": "analyst",
+      "command": "send_communication",
+      "payload": {
+        "channel": "email",
+        "subject": "${subject}"
+      }
+    }
+  ]
+}

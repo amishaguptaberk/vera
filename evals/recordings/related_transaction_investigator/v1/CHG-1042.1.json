@@ -6,7 +6,7 @@
           {
             "field": "merchant",
             "record_id": "CHG-1051",
-            "value": "Bayline Industrial Supply",
+            "value": "Northstar Equipment",
             "version": 1
           },
           {
@@ -18,12 +18,12 @@
           {
             "field": "merchant",
             "record_id": "CHG-1042",
-            "value": "Bayline Industrial Supply",
+            "value": "Northstar Equipment",
             "version": 1
           }
         ],
         "kind": "related_charge",
-        "statement": "Transaction CHG-1051 at Bayline Industrial Supply for $1,200.00 shares its merchant, Bayline Industrial Supply, with CHG-1042, so it is judged related. Linked on transaction id, merchant and amount, not on card digits."
+        "statement": "Transaction CHG-1051 at Northstar Equipment for $1,200.00 shares its merchant, Northstar Equipment, with CHG-1042, so it is judged related. Linked on transaction id, merchant and amount, not on card digits."
       },
       {
         "citations": [

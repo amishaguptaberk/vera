@@ -1,0 +1,36 @@
+{
+  "title": "From a fresh seed through: Provisional credit issued through the simulated credit adapter",
+  "synthetic": true,
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "fragment": "s06_call"
+    },
+    {
+      "fragment": "s07_packet"
+    },
+    {
+      "fragment": "s08_request_approval"
+    },
+    {
+      "fragment": "s09_approve"
+    },
+    {
+      "fragment": "s10_credit"
+    }
+  ]
+}

@@ -1,7 +1,0 @@
-{
-  "status": "pending",
-  "requires": "scenario steps not written yet (covered by integration tests in tests/integration/test_comms.py)",
-  "fixture": 5,
-  "title": "Conflicting cardholder statements",
-  "description": "Fixture 5: Conflicting cardholder statements."
-}

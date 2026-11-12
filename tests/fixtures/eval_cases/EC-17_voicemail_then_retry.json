@@ -1,0 +1,243 @@
+{
+  "id": "EC-17",
+  "title": "Voicemail on the first call: recorded, attempt preserved; the retry reaches the cardholder and resolves the conflicts",
+  "synthetic": true,
+  "categories": [
+    "workflow",
+    "reliability"
+  ],
+  "covers": [
+    "verification_provider_failure"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "statement_contains": [
+        "$440.00"
+      ],
+      "status": "resolved"
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [],
+    "resolved_by_prefix": "CALL-1042-2"
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "_verification": {
+      "attempts": 2,
+      "status": "confirmed",
+      "authorization_answer": "unauthorized"
+    }
+  },
+  "expected_policy": {
+    "status": "needs_evidence"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "packet"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet"
+    ]
+  },
+  "forbidden_commands": [],
+  "expected_audit_events": {
+    "counts": {
+      "callback.started": 2,
+      "callback.recorded": 2
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed",
+      "approval.approved",
+      "dispute.submitted",
+      "controls.applied"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "packet",
+    "executions": {
+      "telephony.call": {
+        "succeeded": 2
+      }
+    }
+  },
+  "steps": [
+    {
+      "fragment": "s01_investigate"
+    },
+    {
+      "fragment": "s02_follow_up"
+    },
+    {
+      "fragment": "s03_reply"
+    },
+    {
+      "fragment": "s04_review_reply"
+    },
+    {
+      "fragment": "s05_identity"
+    },
+    {
+      "post": "/api/demo/callback-outcome",
+      "body": {
+        "outcome": "voicemail"
+      }
+    },
+    {
+      "service": "recording_override",
+      "specialist": "live_verification_agent",
+      "turns": [
+        {
+          "content": {
+            "outcome": "voicemail",
+            "result": "failed",
+            "outcome_line_seq": 3,
+            "outcome_quote": "[voicemail greeting; no live answer]",
+            "answers": []
+          }
+        }
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "payload": {
+        "consent_recorded": true
+      }
+    },
+    {
+      "service": "drain_worker"
+    },
+    {
+      "assert": {
+        "state": "callback_pending",
+        "step": "callfail"
+      }
+    },
+    {
+      "post": "/api/demo/callback-outcome",
+      "body": {
+        "outcome": "confirmed"
+      }
+    },
+    {
+      "service": "recording_override",
+      "specialist": "live_verification_agent",
+      "turns": [
+        {
+          "tool_calls": [
+            {
+              "id": "c0",
+              "name": "read_field",
+              "arguments": {
+                "record_id": "CALL-1042-2",
+                "field": "question:q1"
+              }
+            },
+            {
+              "id": "c1",
+              "name": "read_field",
+              "arguments": {
+                "record_id": "CALL-1042-2",
+                "field": "line:4"
+              }
+            }
+          ]
+        },
+        {
+          "content": {
+            "outcome": "confirmed",
+            "result": "confirmed",
+            "authorization_answer": "unauthorized",
+            "outcome_line_seq": 4,
+            "outcome_quote": "No. I did not place the Northstar Equipment order; a colleague used my card without my approval, so I did not authorize this charge.",
+            "answers": [
+              {
+                "question_id": "q1",
+                "answer": "no",
+                "line_seq": 4,
+                "quote": "No. I did not place the Northstar Equipment order; a colleague used my card without my approval, so I did not authorize this charge."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "as": "analyst",
+      "command": "start_callback",
+      "payload": {
+        "consent_recorded": true
+      }
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

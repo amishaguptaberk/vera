@@ -1,0 +1,13 @@
+{
+  "title": "Provisional credit issued through the simulated credit adapter",
+  "synthetic": true,
+  "steps": [
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit"
+    },
+    {
+      "service": "drain_worker"
+    }
+  ]
+}

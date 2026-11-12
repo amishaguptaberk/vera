@@ -1,5 +1,5 @@
 {
-    "snapshot_hash": "43aa1b74586685e8c58b4872ebf31fa10880de0fa8aa77b336568861e2a788ea",
+    "snapshot_hash": "dfe95ea3b14a08b15a3881c80d32510a8d8e0fafd634bf0b479fd2feda5e55d2",
     "records": [
         {
             "record_id": "CHG-1042",
@@ -8,7 +8,7 @@
             "current_version": 1,
             "fields": {
                 "currency": "USD",
-                "merchant": "Bayline Industrial Supply",
+                "merchant": "Northstar Equipment",
                 "posted_at": "2026-11-08T22:30:00+00:00",
                 "card_last4": "4418",
                 "amount_cents": 284000,
@@ -30,7 +30,7 @@
             "status": "pending_review",
             "current_version": 1,
             "fields": {
-                "merchant": "Bayline Industrial Supply",
+                "merchant": "Northstar Equipment",
                 "amount_cents": 120000
             }
         },
@@ -49,7 +49,7 @@
             "status": "supporting",
             "current_version": 1,
             "fields": {
-                "merchant": "Bayline Industrial Supply",
+                "merchant": "Northstar Equipment",
                 "approved_quantity": 1,
                 "approved_amount_cents": 240000
             }

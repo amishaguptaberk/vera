@@ -11,14 +11,12 @@ from vera_domain.callbacks import (
 
 def test_default_questions_name_the_charge_from_its_record() -> None:
     qs = default_questions(
-        merchant="Bayline Industrial Supply", amount_cents=284000, currency="USD", card_last4="4418"
+        merchant="Northstar Equipment", amount_cents=284000, currency="USD", card_last4="4418"
     )
     assert qs == [
         {
             "id": "q1",
-            "text": (
-                "Did you place the order with Bayline Industrial Supply on the card ending 4418?"
-            ),
+            "text": ("Did you place the order with Northstar Equipment on the card ending 4418?"),
         },
         {"id": "q2", "text": "Did you authorize this charge of $2,840.00?"},
         {"id": "q3", "text": "Did anyone else have access to your card?"},
