@@ -1,6 +1,6 @@
 {
   "id": "EC-25",
-  "title": "Evidence changes after the reviewer approved: the approval goes stale, credit is refused, and a fresh packet and approval issue credit exactly once",
+  "title": "Demo: the reviewer approved a $2,840 credit, then the delivery record changed. Vera refuses the old approval, explains why, and issues the credit once after re-evaluation and fresh approval",
   "synthetic": true,
   "categories": [
     "financial_safety",
@@ -189,6 +189,58 @@
       }
     },
     {
+      "get": "/api/cases/CHG-1042",
+      "as": "analyst",
+      "json": {
+        "step": "stale",
+        "state_label": "Approval out of date"
+      }
+    },
+    {
+      "get": "/api/cases/CHG-1042",
+      "as": "reviewer",
+      "assert": {
+        "blocked_actions": {
+          "approve_decision": "The approval is out of date"
+        }
+      }
+    },
+    {
+      "assert": {
+        "sql": [
+          {
+            "name": "approval marked stale",
+            "query": "select id, status from approvals",
+            "equals": [
+              [
+                "APR-CHG-1042-1",
+                "stale"
+              ]
+            ]
+          },
+          {
+            "name": "audit timeline explains it",
+            "query": "select type, summary like 'Approval APR-CHG-1042-1 is out of date%' from audit_events where type='approval.stale'",
+            "equals": [
+              [
+                "approval.stale",
+                true
+              ]
+            ]
+          },
+          {
+            "name": "no credit and no credit adapter call",
+            "query": "select count(*) from adapter_executions where adapter='credit'",
+            "equals": [
+              [
+                0
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
       "probe": [
         {
           "as": "analyst",
@@ -229,5 +281,6 @@
       "as": "analyst",
       "command": "issue_provisional_credit"
     }
-  ]
+  ],
+  "trace": true
 }

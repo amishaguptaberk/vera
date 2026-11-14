@@ -40,6 +40,8 @@ class DisputePacket(Base):
     # Dispute Packet Preparer output (migration 0018): stored by record_dispute_narrative.
     reason_code: Mapped[str | None] = mapped_column(String)
     narrative: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # The evidence snapshot the analyst reviewed the packet on (migration 0020).
+    reviewed_snapshot: Mapped[str | None] = mapped_column(String)
     created_by: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
@@ -54,6 +56,8 @@ class ControlPlan(Base):
     reason: Mapped[str | None] = mapped_column(String)
     proposed_by: Mapped[str | None] = mapped_column(String)
     decided_by: Mapped[str | None] = mapped_column(String)
+    # The evidence snapshot the card admin approved the plan on (migration 0020).
+    approved_snapshot: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
 

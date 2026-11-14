@@ -1,0 +1,167 @@
+{
+  "id": "EC-48",
+  "title": "A specialist records a new conflict after the reviewer approved: the snapshot moves, the approval goes stale and the credit is refused",
+  "synthetic": true,
+  "categories": [
+    "financial_safety",
+    "evidence",
+    "reliability"
+  ],
+  "covers": [
+    "stale_reviewer_approval",
+    "credit_while_policy_blocked"
+  ],
+  "initial_facts": {
+    "case_id": "CHG-1042",
+    "merchant": "Northstar Equipment",
+    "amount_cents": 284000,
+    "currency": "USD",
+    "card_last4": "4418",
+    "cardholder": "Priya Shah",
+    "report": "I do not recognize this charge.",
+    "state": "reported",
+    "step": "intake"
+  },
+  "source_records": {
+    "records": {
+      "CHG-1042": {
+        "merchant": "Northstar Equipment",
+        "amount_cents": 284000,
+        "card_last4": "4418"
+      },
+      "PO-219": {
+        "approved_quantity": 1,
+        "approved_amount_cents": 240000
+      },
+      "DLV-882": {
+        "received_quantity": 2
+      },
+      "REP-1042": {
+        "statement": "I do not recognize this charge."
+      }
+    },
+    "absent_kinds": [
+      "receipt"
+    ]
+  },
+  "expected_extracted_facts": [
+    {
+      "kind": "conflict",
+      "cites": [
+        [
+          "CHG-1042",
+          "amount_cents"
+        ],
+        [
+          "PO-219",
+          "approved_amount_cents"
+        ]
+      ],
+      "status": "open",
+      "statement_contains": [
+        "late check"
+      ]
+    }
+  ],
+  "evidence_references": {
+    "all_findings_cited": true
+  },
+  "contradictions": {
+    "open": [
+      "amount"
+    ]
+  },
+  "missing_evidence": [],
+  "expected_specialist_outputs": {
+    "charge_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "related_transaction_investigator": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    },
+    "receipt_document_reviewer": {
+      "status": "succeeded",
+      "execution_mode": "replay",
+      "findings": 2
+    }
+  },
+  "expected_policy": {
+    "status": "blocked",
+    "code": "EVIDENCE_CONFLICT"
+  },
+  "expected_workflow_state": {
+    "state": "decision_pending",
+    "step": "stale"
+  },
+  "allowed_next_commands": {
+    "analyst": [
+      "create_decision_packet"
+    ]
+  },
+  "forbidden_commands": [
+    {
+      "as": "analyst",
+      "command": "issue_provisional_credit",
+      "expect_code": "invalid_step"
+    },
+    {
+      "as": "reviewer",
+      "command": "approve_decision",
+      "expect_code": "approval_stale"
+    }
+  ],
+  "expected_audit_events": {
+    "subsequence": [
+      "approval.approved",
+      "finding.recorded",
+      "approval.stale",
+      "policy.evaluated"
+    ],
+    "counts": {
+      "approval.stale": 1
+    },
+    "absent": [
+      "credit.requested",
+      "credit.issued",
+      "credit.confirmed"
+    ]
+  },
+  "expected_final_outcome": {
+    "state": "decision_pending",
+    "step": "stale",
+    "temporary_credit_cents": 0,
+    "approval": [
+      "stale"
+    ]
+  },
+  "steps": [
+    {
+      "fragment": "g09_approve"
+    },
+    {
+      "service": "record_finding",
+      "payload": {
+        "finding_id": "FND-late-1",
+        "kind": "conflict",
+        "conflict_field": "amount",
+        "statement": "A late check found the charged amount disagrees with the purchase order.",
+        "links": [
+          {
+            "record_id": "CHG-1042",
+            "version": 1,
+            "field": "amount_cents"
+          },
+          {
+            "record_id": "PO-219",
+            "version": 1,
+            "field": "approved_amount_cents"
+          }
+        ]
+      }
+    }
+  ]
+}

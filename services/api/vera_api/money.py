@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from vera_domain import commands as domain_commands
 from vera_domain import money as domain
 from vera_domain.adapters import AdapterResult
 from vera_domain.clock import default_demo_clock
@@ -20,12 +21,15 @@ from vera_domain.enums import Role
 from vera_domain.errors import CommandError
 
 from vera_api import adapters, auth, gateway, plugins, worker
+from vera_api import evidence as evidence_service
+from vera_api import policy as policy_service
 from vera_api.auth import STAFF_ROLES, Actor
 from vera_api.config import Settings
 from vera_api.gateway import EffectContext, Outcome
 from vera_api.intake import _emit
 from vera_api.models import CardTransaction, Case
 from vera_api.models_adapters import AdapterExecution
+from vera_api.models_evidence import EvidenceRecord
 from vera_api.models_money import CardControl, ControlPlan, DisputePacket, ProvisionalCredit
 
 
@@ -108,6 +112,7 @@ def _issue_effect(
         session.flush()  # unique (case, transaction, key): a second credit cannot be stored
     elif row.status in ("issued", "uncertain"):
         raise _wrong("A credit was already requested for this charge.")
+    _authorize_credit(session, case, txn)
     out = adapters.execute(
         session,
         case_id=case.id,
@@ -125,6 +130,51 @@ def _issue_effect(
     if out.status != "failed":  # an execution exists: the approval it ran under is used up
         _consume_approval(session, case, str(out.execution_id), now)
     return _settle_credit(case, row, out, now)
+
+
+CREDIT_SCOPE = (
+    "The approval does not cover a provisional credit: the recorded decision is not credit."
+)
+CREDIT_AMOUNT = "The credit amount does not match the charge amount in the approved evidence."
+
+
+def _authorize_credit(session: Session, case: Case, txn: CardTransaction) -> None:
+    """The money boundary checks its own authorization, inside the command's transaction on the
+    locked case, immediately before the credit adapter is called. The gateway's stages 7-8 ran
+    the same policy and approval checks, but this effect must not depend on its caller having
+    run them (write_command, stage 9, re-runs only the closed and step gates).
+
+    Authorized only if: the stored policy result for the current snapshot is eligible AND a live
+    re-evaluation agrees; the approval is approved and bound to the case's current snapshot,
+    policy version, workflow version and transaction; the decision it covers is a credit; and the
+    amount credited (the posted transaction) equals the charge amount in the approved evidence."""
+    spec = domain_commands.REGISTRY["issue_provisional_credit"]
+    gate = domain_commands.policy_gate(
+        spec, policy_service.current_state(session, case)
+    ) or domain_commands.approval_gate(
+        spec, gateway.approval_state(session, case), gateway.approval_binding(case)
+    )
+    if gate is not None:
+        raise gate
+    live = policy_service.compute(session, case)
+    if live.status != "eligible":
+        raise CommandError("policy_blocked", 422, live.label, blocked_reason=live.label)
+    if gateway.facts_for(session, case).decision != "credit":
+        raise CommandError("approval_scope", 409, CREDIT_SCOPE, blocked_reason=CREDIT_SCOPE)
+    charge = session.scalars(
+        select(EvidenceRecord.id).where(
+            EvidenceRecord.case_id == case.id, EvidenceRecord.kind == "charge"
+        )
+    ).first()
+    evidenced = None
+    if charge is not None:
+        evidenced, _ = evidence_service.read_evidence_field(
+            session, case.id, charge, "amount_cents"
+        )
+    if evidenced != txn.amount_cents:
+        raise CommandError(
+            "credit_amount_mismatch", 409, CREDIT_AMOUNT, blocked_reason=CREDIT_AMOUNT
+        )
 
 
 def _consume_approval(session: Session, case: Case, execution_id: str, now: datetime) -> None:
@@ -299,6 +349,36 @@ def _dispute_step(expected: tuple[str, ...], new: str):  # type: ignore[no-untyp
     return effect
 
 
+REVIEW_STALE = (
+    "The evidence changed after the dispute packet was reviewed. Review it again before submitting."
+)
+CONTROLS_STALE = (
+    "The evidence changed after the card admin approved these controls. They must be approved "
+    "again."
+)
+_review_step = _dispute_step(("opened",), "reviewed")
+
+
+def _review_effect(
+    session: Session, case: Case, actor: Actor, payload: Any, now: datetime, ctx: EffectContext
+) -> dict[str, Any]:
+    """Review the packet on the current evidence. A packet reviewed on an older snapshot (and
+    not yet submitted) can be reviewed again; the review records the snapshot it was given on."""
+    row = _one(session, DisputePacket, case.id)
+    if (
+        row is not None
+        and row.status == "reviewed"
+        and row.reviewed_snapshot != case.evidence_snapshot
+    ):
+        row.status = "opened"
+    out: dict[str, Any] = _review_step(session, case, actor, payload, now, ctx)
+    row = _one(session, DisputePacket, case.id)
+    assert row is not None
+    row.reviewed_snapshot = case.evidence_snapshot
+    session.flush()
+    return out
+
+
 def _prepare_after(
     session: Session,
     case: Case,
@@ -320,6 +400,8 @@ def _submit_effect(
     current = row.status if row else "none"
     if row is None or current not in ("reviewed", "failed"):
         raise _wrong(f"The dispute packet is {current}; it cannot be submitted yet.")
+    if row.reviewed_snapshot != case.evidence_snapshot:
+        raise CommandError("dispute_review_stale", 409, REVIEW_STALE, blocked_reason=REVIEW_STALE)
     out = adapters.execute(
         session,
         case_id=case.id,
@@ -377,6 +459,8 @@ def _plan_effect(expected: tuple[str, ...], new: str):  # type: ignore[no-untype
     ) -> dict[str, Any]:
         row = _one(session, ControlPlan, case.id)
         current = row.status if row else "none"
+        if new == "approved" and _controls_stale(row, case):
+            current = "proposed"  # approved on older evidence and not applied: approve again
         if current not in expected:
             raise _wrong(f"The control plan is {current}; this step is not available.")
         if row is None:
@@ -394,6 +478,8 @@ def _plan_effect(expected: tuple[str, ...], new: str):  # type: ignore[no-untype
             row.proposed_by = actor.user_id
         if new in ("approved", "declined", "skipped"):
             row.decided_by = actor.user_id
+        if new == "approved":
+            row.approved_snapshot = case.evidence_snapshot
         row.status, row.updated_at = new, now
         session.flush()
         return {"controls_status": new, "plan_id": row.id, "controls": list(row.controls)}
@@ -426,6 +512,10 @@ def _apply_effect(
     current = row.status if row else "none"
     if row is None or current != "approved":
         raise _wrong(f"The control plan is {current}; controls can be applied only once approved.")
+    if row.approved_snapshot != case.evidence_snapshot:
+        raise CommandError(
+            "controls_approval_stale", 409, CONTROLS_STALE, blocked_reason=CONTROLS_STALE
+        )
     out = adapters.execute(
         session,
         case_id=case.id,
@@ -576,7 +666,7 @@ gateway.register_commands(
         "reconcile_execution_result": _lookup_effect,
         "prepare_dispute_packet": _dispute_step(("none",), "prepared"),
         "open_dispute_packet": _dispute_step(("prepared",), "opened"),
-        "review_dispute_packet": _dispute_step(("opened",), "reviewed"),
+        "review_dispute_packet": _review_effect,
         "submit_dispute": _submit_effect,
         "recommend_card_controls": _plan_effect(("none",), "recommended"),
         "propose_card_controls": _plan_effect(("none", "recommended"), "proposed"),
@@ -601,6 +691,56 @@ gateway.register_commands(
 
 
 # --- what the case view offers: the same preconditions the effects check ---
+
+
+def _controls_stale(row: ControlPlan | None, case: Case) -> bool:
+    return (
+        row is not None
+        and row.status == "approved"
+        and row.approved_snapshot != case.evidence_snapshot
+    )
+
+
+def _review_stale(row: DisputePacket | None, case: Case) -> bool:
+    return (
+        row is not None
+        and row.status == "reviewed"
+        and row.reviewed_snapshot != case.evidence_snapshot
+    )
+
+
+def _guard_review(session: Session, case: Case) -> CommandError | None:
+    row = _one(session, DisputePacket, case.id)
+    if (row is not None and row.status == "opened") or _review_stale(row, case):
+        return None
+    return _wrong(_DISPUTE_STEP.format(current=row.status if row else "none"))
+
+
+def _guard_submit(session: Session, case: Case) -> CommandError | None:
+    row = _one(session, DisputePacket, case.id)
+    current = row.status if row else "none"
+    if current not in ("reviewed", "failed"):
+        return _wrong(f"The dispute packet is {current}; it cannot be submitted yet.")
+    if row is not None and row.reviewed_snapshot != case.evidence_snapshot:
+        return gateway.blocked("dispute_review_stale", REVIEW_STALE)
+    return None
+
+
+def _guard_approve_controls(session: Session, case: Case) -> CommandError | None:
+    row = _one(session, ControlPlan, case.id)
+    if (row is not None and row.status == "proposed") or _controls_stale(row, case):
+        return None
+    return _wrong(_PLAN_STEP.format(current=row.status if row else "none"))
+
+
+def _guard_apply(session: Session, case: Case) -> CommandError | None:
+    row = _one(session, ControlPlan, case.id)
+    current = row.status if row else "none"
+    if current != "approved":
+        return _wrong(f"The control plan is {current}; controls can be applied only once approved.")
+    if _controls_stale(row, case):
+        return gateway.blocked("controls_approval_stale", CONTROLS_STALE)
+    return None
 
 
 def _status_guard(model: Any, expected: tuple[str, ...], message: str) -> gateway.ActionGuard:
@@ -650,21 +790,13 @@ gateway.register_actions(
         "lookup_execution_result": _nothing_uncertain,
         "prepare_dispute_packet": _status_guard(DisputePacket, ("none",), _DISPUTE_STEP),
         "open_dispute_packet": _status_guard(DisputePacket, ("prepared",), _DISPUTE_STEP),
-        "review_dispute_packet": _status_guard(DisputePacket, ("opened",), _DISPUTE_STEP),
-        "submit_dispute": _status_guard(
-            DisputePacket,
-            ("reviewed", "failed"),
-            "The dispute packet is {current}; it cannot be submitted yet.",
-        ),
+        "review_dispute_packet": _guard_review,
+        "submit_dispute": _guard_submit,
         "propose_card_controls": _status_guard(ControlPlan, ("none", "recommended"), _PLAN_STEP),
         "skip_card_controls": _status_guard(ControlPlan, ("none", "recommended"), _PLAN_STEP),
-        "approve_card_controls": _status_guard(ControlPlan, ("proposed",), _PLAN_STEP),
+        "approve_card_controls": _guard_approve_controls,
         "decline_card_controls": _status_guard(ControlPlan, ("proposed",), _PLAN_STEP),
-        "apply_card_controls": _status_guard(
-            ControlPlan,
-            ("approved",),
-            "The control plan is {current}; controls can be applied only once approved.",
-        ),
+        "apply_card_controls": _guard_apply,
     },
     # Each of these acts on one record in one status: it is listed only when it can run, so
     # the task shows the next step of each track, not every later step as blocked.

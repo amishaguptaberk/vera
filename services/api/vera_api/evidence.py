@@ -87,14 +87,23 @@ def _current(session: Session, case_id: str) -> list[tuple[EvidenceRecord, Evide
 
 
 def _review_material(session: Session, case_id: str) -> dict[str, Any]:
-    """Stored record statuses and open conflict findings: what a review decision changes."""
-    conflicts = session.scalars(
-        select(Finding.id).where(
+    """Stored record statuses and open conflict findings: what a review decision changes.
+
+    A conflict enters the hash by what it is (its field and the exact record versions and fields
+    it cites), not by its id: finding ids carry run ids, so hashing them made the same evidence
+    hash differently on every replay."""
+    findings = session.scalars(
+        select(Finding).where(
             Finding.case_id == case_id,
             Finding.kind == "conflict",
             Finding.status == FindingStatus.OPEN.value,
         )
     ).all()
+    conflicts = []
+    for f in findings:
+        links = session.scalars(select(FindingLink).where(FindingLink.finding_id == f.id)).all()
+        cited = sorted(f"{lk.record_id}@{lk.version}.{lk.field}" for lk in links)
+        conflicts.append(f"{f.conflict_field or ''}:{','.join(cited)}")
     return {
         "statuses": {r.id: r.status for r, _ in _current(session, case_id)},
         "open_conflicts": sorted(conflicts),
@@ -585,9 +594,25 @@ def after_effect(
 ) -> None:
     """Runs after the command's own event (evidence.version_added), same transaction, so the
     audit order is version_added -> finding.stale -> approval.stale -> policy.evaluated."""
-    if command in ("set_record_status", "resolve_finding"):
-        # A review decision is a new snapshot: re-evaluate a case that has been evaluated.
-        if policy_service.has_evaluation(session, case.id):
+    if command != "append_evidence_version":
+        for approval_id in extra.get("stale_approvals", []):
+            _emit(
+                session,
+                EventType.APPROVAL_STALE,
+                case,
+                actor_id,
+                actor_role,
+                now,
+                [approval_id],
+                f"Approval {approval_id} is out of date: the evidence register changed",
+                {"command": command, "snapshot_hash": case.evidence_snapshot},
+            )
+        # A review decision or a new finding is a new snapshot: re-evaluate a case that has
+        # been evaluated, so the stored result the policy gate reads matches it.
+        changed = command in ("set_record_status", "resolve_finding") or extra.get(
+            "snapshot_changed"
+        )
+        if changed and policy_service.has_evaluation(session, case.id):
             policy_service.reevaluate_on_evidence_change(session, case.id, now)
         return
     if command != "append_evidence_version" or not extra["result"]["material"]:
@@ -643,7 +668,17 @@ def run_effect(
         "set_record_status": _effect_status,
         "resolve_finding": _effect_resolve,
     }
-    return simple[command](session, case, model, now, actor_id)
+    prior = case.evidence_snapshot
+    out = simple[command](session, case, model, now, actor_id)
+    # Record statuses and open conflicts are part of the snapshot, so every evidence write ends
+    # on a snapshot that includes it (a finding recorded late, e.g. a new open conflict, used to
+    # leave the snapshot, the stored policy result and a bound approval looking current). An
+    # approval bound to the old snapshot goes stale here, in the same transaction that holds
+    # the case lock: there is no window in which the old approval still matches.
+    snapshot = recompute_snapshot(session, case)
+    changed = case.evidence_snapshot != prior
+    stale = [a for hook in STALE_APPROVAL_HOOKS for a in hook(session, case, snapshot)]
+    return {**out, "snapshot_changed": changed, "stale_approvals": stale if changed else []}
 
 
 def run_service_command(

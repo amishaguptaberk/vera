@@ -3,13 +3,13 @@
   "data": "synthetic (CHG-1042 \u00b7 Northstar Equipment \u00b7 $2,840.00); no customer records",
   "command": "uv run python -m evals.harness",
   "summary": {
-    "total_cases": 47,
-    "passed_cases": 47,
+    "total_cases": 48,
+    "passed_cases": 48,
     "failed_cases": 0,
-    "total_checks": 1299,
+    "total_checks": 1326,
     "failed_checks": 0,
-    "forbidden_command_probes": 81,
-    "probes_refused_without_writes": 81,
+    "forbidden_command_probes": 83,
+    "probes_refused_without_writes": 83,
     "permission_matrix": {
       "commands": 65,
       "pairs": 275,
@@ -40,20 +40,20 @@
   },
   "cases_by_category": {
     "evidence": {
-      "total": 15,
-      "passed": 15
+      "total": 16,
+      "passed": 16
     },
     "workflow": {
       "total": 22,
       "passed": 22
     },
     "financial_safety": {
-      "total": 25,
-      "passed": 25
+      "total": 26,
+      "passed": 26
     },
     "reliability": {
-      "total": 23,
-      "passed": 23
+      "total": 24,
+      "passed": 24
     },
     "product_projection": {
       "total": 11,
@@ -74,12 +74,12 @@
       "refused": 3
     },
     "stale_approval": {
-      "total": 2,
-      "refused": 2
+      "total": 3,
+      "refused": 3
     },
     "state": {
-      "total": 50,
-      "refused": 50
+      "total": 51,
+      "refused": 51
     },
     "validation": {
       "total": 1,
@@ -242,12 +242,14 @@
       "cases": [
         "EC-25",
         "EC-26",
-        "EC-46"
+        "EC-46",
+        "EC-48"
       ],
       "passing": [
         "EC-25",
         "EC-26",
-        "EC-46"
+        "EC-46",
+        "EC-48"
       ]
     },
     "reviewer_approves_credit": {
@@ -377,11 +379,13 @@
       "label": "Credit attempted while policy is blocked",
       "cases": [
         "EC-04",
-        "EC-28"
+        "EC-28",
+        "EC-48"
       ],
       "passing": [
         "EC-04",
-        "EC-28"
+        "EC-28",
+        "EC-48"
       ]
     },
     "closure_with_incomplete_work": {
@@ -859,7 +863,7 @@
     },
     {
       "id": "EC-25",
-      "title": "Evidence changes after the reviewer approved: the approval goes stale, credit is refused, and a fresh packet and approval issue credit exactly once",
+      "title": "Demo: the reviewer approved a $2,840 credit, then the delivery record changed. Vera refuses the old approval, explains why, and issues the credit once after re-evaluation and fresh approval",
       "status": "PASS",
       "file": "tests/fixtures/eval_cases/EC-25_stale_approval_after_approval.json",
       "categories": [
@@ -1216,6 +1220,24 @@
         "closure_with_incomplete_work"
       ],
       "checks": 28,
+      "failed_checks": [],
+      "probes": 2
+    },
+    {
+      "id": "EC-48",
+      "title": "A specialist records a new conflict after the reviewer approved: the snapshot moves, the approval goes stale and the credit is refused",
+      "status": "PASS",
+      "file": "tests/fixtures/eval_cases/EC-48_late_conflict_invalidates_approval.json",
+      "categories": [
+        "financial_safety",
+        "evidence",
+        "reliability"
+      ],
+      "covers": [
+        "stale_reviewer_approval",
+        "credit_while_policy_blocked"
+      ],
+      "checks": 27,
       "failed_checks": [],
       "probes": 2
     }
@@ -1743,6 +1765,264 @@
         "run.step_started (specialist)",
         "run.step_succeeded (specialist)",
         "specialist.failed (system)"
+      ]
+    },
+    {
+      "case": "EC-25",
+      "title": "Demo: the reviewer approved a $2,840 credit, then the delivery record changed. Vera refuses the old approval, explains why, and issues the credit once after re-evaluation and fresh approval",
+      "commands": [
+        {
+          "as": "analyst",
+          "command": "open_case",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_investigation",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "draft_follow_up",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_communication",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "POST /api/requests",
+          "http": 200
+        },
+        {
+          "as": "analyst",
+          "command": "review_cardholder_response",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "send_verification_request",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "cardholder",
+          "command": "submit_otp",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "start_callback",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_related_charge",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "review_related_charge",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "evaluate_policy",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "create_decision_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "record_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "request_reviewer_approval",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "-",
+          "command": "POST /api/demo/material-change",
+          "http": 200
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "http": 409,
+          "code": "approval_stale",
+          "probe": true
+        },
+        {
+          "as": "analyst",
+          "command": "create_decision_packet",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "record_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "request_reviewer_approval",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "reviewer",
+          "command": "approve_decision",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 200,
+          "result": "recorded",
+          "offered": true
+        },
+        {
+          "as": "analyst",
+          "command": "issue_provisional_credit",
+          "http": 409,
+          "code": "invalid_step",
+          "probe": true
+        }
+      ],
+      "audit_events": [
+        "case.opened (analyst)",
+        "investigation.started (analyst)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "finding.recorded (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "run.step_succeeded (specialist)",
+        "policy.evaluated (policy_controller)",
+        "investigation.completed (system)",
+        "communication.drafted (analyst)",
+        "communication.updated (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "adapter.succeeded (adapter)",
+        "communication.sent (analyst)",
+        "communication.responded (cardholder)",
+        "communication.review_recommended (specialist)",
+        "run.step_started (specialist)",
+        "run.step_succeeded (specialist)",
+        "communication.reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "adapter.succeeded (adapter)",
+        "verification.requested (analyst)",
+        "verification.code_submitted (cardholder)",
+        "verification.verified (cardholder)",
+        "policy.evaluated (policy_controller)",
+        "callback.started (analyst)",
+        "adapter.succeeded (adapter)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "callback.line_added (system)",
+        "run.step_started (specialist)",
+        "policy.evaluated (policy_controller)",
+        "callback.recorded (system)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "finding.resolved (system)",
+        "policy.evaluated (policy_controller)",
+        "run.step_succeeded (specialist)",
+        "evidence.related_reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "evidence.related_reviewed (analyst)",
+        "evidence.status_changed (system)",
+        "policy.evaluated (policy_controller)",
+        "policy.evaluated (analyst)",
+        "decision_packet.created (analyst)",
+        "run.step_started (specialist)",
+        "decision_packet.ready (system)",
+        "run.step_succeeded (specialist)",
+        "decision.recorded (analyst)",
+        "approval.requested (analyst)",
+        "approval.approved (reviewer)",
+        "evidence.version_added (system)",
+        "approval.stale (system)",
+        "policy.evaluated (policy_controller)",
+        "decision_packet.created (analyst)",
+        "run.step_started (specialist)",
+        "decision_packet.ready (system)",
+        "run.step_succeeded (specialist)",
+        "decision.recorded (analyst)",
+        "approval.requested (analyst)",
+        "approval.approved (reviewer)",
+        "adapter.succeeded (adapter)",
+        "credit.requested (analyst)",
+        "credit.issued (analyst)"
       ]
     },
     {

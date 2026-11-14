@@ -114,14 +114,14 @@ The verification call uses an ElevenLabs voice agent over Twilio or SIP. In the 
 
 ## Evaluation
 
-`uv run python -m evals.harness` replays 47 synthetic evaluation cases against the real gateway, worker and database in replay mode, then writes [`artifacts/eval-report.md`](artifacts/eval-report.md). Each case declares its evidence, specialist outputs, policy result, workflow state, allowed and forbidden commands, audit events and final outcome, and deterministic evaluators check every one. Global invariants run after every case:
+`uv run python -m evals.harness` replays 48 synthetic evaluation cases against the real gateway, worker and database in replay mode, then writes [`artifacts/eval-report.md`](artifacts/eval-report.md). Each case declares its evidence, specialist outputs, policy result, workflow state, allowed and forbidden commands, audit events and final outcome, and deterministic evaluators check every one. Global invariants run after every case:
 - the stored state equals what `derive_step` derives;
 - the audit trail is append-only;
 - no specialist moves money;
 - credit only behind a reviewer approval bound to the current evidence;
 - every effect happens exactly once.
 
-The run also removes safeguards one at a time and confirms that the suite catches each. See [docs/evaluation.md](docs/evaluation.md) for the method and findings, and [docs/evaluation-cases.md](docs/evaluation-cases.md) for the cases.
+The run also removes safeguards one at a time and confirms that the suite catches each. See [docs/evaluation.md](docs/evaluation.md) for the method and findings, [docs/approval-invariant.md](docs/approval-invariant.md) for how stale approvals are kept from moving money, and [docs/evaluation-cases.md](docs/evaluation-cases.md) for the cases.
 
 ## Configuration
 
@@ -134,7 +134,7 @@ uv sync
 uv run ruff check . && uv run mypy packages services
 uv run alembic upgrade head
 uv run pytest -q
-uv run python -m evals.harness        # regression scenarios + 47 evaluation cases; writes artifacts/eval-report.{json,md}
+uv run python -m evals.harness        # regression scenarios + 48 evaluation cases; writes artifacts/eval-report.{json,md}
 
 cd apps/web && npm ci
 npm run typecheck && npm run lint && npm test && npm run build

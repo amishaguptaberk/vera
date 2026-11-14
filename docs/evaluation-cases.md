@@ -43,7 +43,7 @@ controls, the final message, closure into dispute monitoring and the dispute out
 | 12 | Verification provider failure | EC-14, EC-15, EC-17, EC-45 |
 | 13 | Contradictory verification answers | EC-16 |
 | 14 | Stale evidence after a new reply | EC-09, EC-10 |
-| 15 | Stale reviewer approval | EC-25, EC-26, EC-46 |
+| 15 | Stale reviewer approval | EC-25, EC-26, EC-46, EC-48 |
 | 16 | Reviewer approves credit | EC-01, EC-25 |
 | 17 | Reviewer rejects credit | EC-27 |
 | 18 | Card admin approves controls | EC-01 |
@@ -57,7 +57,7 @@ controls, the final message, closure into dispute monitoring and the dispute out
 | 26 | Unauthorized analyst command | EC-35 |
 | 27 | Cardholder attempting an analyst action | EC-36 |
 | 28 | Reviewer attempting a card-admin action | EC-37 |
-| 29 | Credit attempted while policy is blocked | EC-04, EC-28 |
+| 29 | Credit attempted while policy is blocked | EC-04, EC-28, EC-48 |
 | 30 | Closure attempted with required work incomplete | EC-33, EC-47 |
 | 31 | Published workflow mutation attempt | EC-43 |
 | 32 | Invalid attachment type | EC-39 |
@@ -96,7 +96,7 @@ Final state is the case's state/step when the case ends. Probes are commands pos
 | [EC-22](../tests/fixtures/eval_cases/EC-22_worker_crash_resume.json) | The worker crashes after two specialists finished: the checkpointed graph resumes at the receipt review and repeats nothing | reliability, workflow | `investigating/draft` | blocked | 0 |
 | [EC-23](../tests/fixtures/eval_cases/EC-23_ungrounded_output_rejected.json) | A specialist cites a value that is not in the evidence: the output is rejected, nothing is stored, and a replay retry recovers | evidence, workflow | `investigating/draft` | blocked | 0 |
 | [EC-24](../tests/fixtures/eval_cases/EC-24_scope_violation_rejected.json) | A specialist tries to read the cardholder's phone number, outside its scope: recorded as a scope violation, nothing stored | evidence, financial_safety | `investigating/working` | not evaluated | 1 |
-| [EC-25](../tests/fixtures/eval_cases/EC-25_stale_approval_after_approval.json) | Evidence changes after the reviewer approved: the approval goes stale, credit is refused, and a fresh packet and approval issue credit exactly once | financial_safety, workflow, reliability | `dispute_prepared/dsp_prepare` | eligible | 3 |
+| [EC-25](../tests/fixtures/eval_cases/EC-25_stale_approval_after_approval.json) | Demo: the reviewer approved a $2,840 credit, then the delivery record changed. Vera refuses the old approval, explains why, and issues the credit once after re-evaluation and fresh approval | financial_safety, workflow, reliability | `dispute_prepared/dsp_prepare` | eligible | 3 |
 | [EC-26](../tests/fixtures/eval_cases/EC-26_stale_approval_before_review.json) | Evidence changes while the approval request waits: the reviewer's approve is refused as stale and nothing moves money | financial_safety | `decision_pending/stale` | eligible | 3 |
 | [EC-27](../tests/fixtures/eval_cases/EC-27_reviewer_returns_credit.json) | Reviewer rejects the credit decision with a reason: returned to the analyst, credit refused, packet kept | financial_safety, workflow | `decision_pending/returned` | eligible | 4 |
 | [EC-28](../tests/fixtures/eval_cases/EC-28_credit_while_policy_blocked.json) | Packet prepared while a related charge still awaits review: policy needs evidence, so approval cannot be requested and credit cannot run | financial_safety | `decision_pending/decide` | needs_evidence | 4 |
@@ -119,6 +119,7 @@ Final state is the case's state/step when the case ends. Probes are commands pos
 | [EC-45](../tests/fixtures/eval_cases/EC-45_telephony_permanent_failure.json) | Telephony keeps failing: after the worker's retries the call is recorded as incomplete, the case leaves 'in progress' and a new call is offered | reliability, workflow, product_projection | `callback_pending/callfail` | blocked | 1 |
 | [EC-46](../tests/fixtures/eval_cases/EC-46_non_material_change_keeps_approval.json) | A non-material re-key of the purchase order appends a version but does not stale the approval: credit proceeds once | financial_safety, evidence | `dispute_prepared/dsp_prepare` | eligible | 1 |
 | [EC-47](../tests/fixtures/eval_cases/EC-47_complete_review_cannot_close.json) | Reply reviewed as complete while purchase-record conflicts are open: no credit, decision recorded, but closure stays refused because only a verification call resolves conflicts | financial_safety, workflow | `remediation_pending/close` | blocked | 2 |
+| [EC-48](../tests/fixtures/eval_cases/EC-48_late_conflict_invalidates_approval.json) | A specialist records a new conflict after the reviewer approved: the snapshot moves, the approval goes stale and the credit is refused | financial_safety, evidence, reliability | `decision_pending/stale` | blocked | 2 |
 
 ## Shared journeys
 

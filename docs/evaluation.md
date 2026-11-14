@@ -39,7 +39,7 @@ evals/judge.py        optional LLM judge for qualitative text only (off by defau
 evals/report.py       artifacts/eval-report.json and .md
 evals/fragments/      shared stages of the golden journey (s01..s13, cumulative g01..g13)
 evals/scenarios/      the existing focused regression scenarios (still run)
-tests/fixtures/eval_cases/   the 47 evaluation cases (EC-01 .. EC-47)
+tests/fixtures/eval_cases/   the 48 evaluation cases (EC-01 .. EC-48)
 tests/evals/          pytest: every case, the sensitivity check, and static checks on the suite
 ```
 
